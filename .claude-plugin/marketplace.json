@@ -1,0 +1,14 @@
+{
+  "name": "ongame-cli",
+  "description": "ongame — the official plugin + CLI distribution for the ongame game-making assistant.",
+  "owner": {
+    "name": "ongame"
+  },
+  "plugins": [
+    {
+      "name": "ongame",
+      "description": "ongame — the closed-source CLI transport layer for the ongame game-making assistant. This is a static, near-permanent shim; the real, self-updating logic lives in the ongame-cli binary it launches.",
+      "source": "./"
+    }
+  ]
+}

@@ -1,0 +1,248 @@
+#!/usr/bin/env node
+'use strict';
+
+/**
+ * ongame-launcher — the ONLY file Claude Code's plugin.json ever points at, and (by design) the
+ * only file in this repo meant to almost never change again. All real version churn — new tools,
+ * bugfixes, the moat proxy, everything — lives in `~/.ongame/bin/ongame-cli`, a separate compiled
+ * binary this script downloads, verifies, and execs into. That split is what makes "no manual
+ * `/plugin marketplace update`, ever" true: Claude Code only re-reads plugin.json on session start,
+ * so plugin.json itself must basically never need a bump; the actual CLI can update on every launch.
+ *
+ * Job, in order, per the plan's Repo-topology section:
+ *   1. If `~/.ongame/bin/ongame-cli` does not exist at all, this is a fresh machine that never ran
+ *      install.sh — print the exact install command and exit non-zero. We do NOT bootstrap a first
+ *      install from here (that stays install.sh's job, which also wires PATH/shell-rc/other agentic
+ *      tools) — this file only maintains an install that already exists.
+ *   2. Otherwise, best-effort check GitHub Releases for a newer tag, download + sha256-verify +
+ *      atomically swap if so. ANY failure in this step (offline, rate-limited, corrupt download,
+ *      checksum mismatch) is swallowed to stderr — it must never block startup on the existing,
+ *      already-working binary. Bounded by an outer hard timeout for the same reason: a hung network
+ *      call must not hang the whole MCP server boot.
+ *   3. Exec into the (possibly just-updated) real CLI with `mcp` + any passthrough argv, inheriting
+ *      stdio directly — this process becomes a transparent pipe for the JSON-RPC stdio protocol the
+ *      real CLI speaks, so Claude Code sees no difference from talking to the real binary directly.
+ *
+ * Deliberately dependency-free (Node built-ins only: node:https/fs/child_process/crypto/os/path) —
+ * no npm install step, no lockfile, no node_modules to go stale. Node.js (not bun-compiled) because
+ * this file is meant to be read/patched directly in the public repo without a build step; the real
+ * `ongame-cli` binary is what gets bun-compiled per-platform (see the private repo's release
+ * pipeline) since THAT is the thing that benefits from being a single dependency-free executable.
+ */
+
+const fs = require('node:fs');
+const path = require('node:path');
+const os = require('node:os');
+const https = require('node:https');
+const crypto = require('node:crypto');
+const { spawn } = require('node:child_process');
+
+const REPO = 'gamebyte-ai/ongame-cli';
+const RELEASES_API = `https://api.github.com/repos/${REPO}/releases/latest`;
+const INSTALL_SH_URL = `https://raw.githubusercontent.com/${REPO}/main/install.sh`;
+
+const ONGAME_HOME = path.join(os.homedir(), '.ongame');
+const BIN_DIR = path.join(ONGAME_HOME, 'bin');
+const BIN_EXT = process.platform === 'win32' ? '.exe' : '';
+const BIN_PATH = path.join(BIN_DIR, `ongame-cli${BIN_EXT}`);
+// Sidecar marker recording which release tag is currently installed — NOT a hash/lockfile, just
+// enough to answer "is GitHub's latest release different from what I have" without re-downloading
+// or re-hashing the binary itself on every single launch.
+const VERSION_FILE = path.join(BIN_DIR, '.ongame-cli.version');
+
+const SELF_UPDATE_TIMEOUT_MS = 5000; // outer hard cap — see job step 2 above.
+const REQUEST_TIMEOUT_MS = 3000;
+
+function log(msg) {
+  // stdout is the JSON-RPC channel once we exec into the real CLI — everything from THIS script,
+  // before that handoff, must go to stderr so it can never be mistaken for a protocol frame.
+  process.stderr.write(`[ongame-launcher] ${msg}\n`);
+}
+
+/** Minimal GET-with-redirects over node:https. Returns the full body as a Buffer. Never used for
+ *  anything but small JSON/text/binary payloads (release metadata + one platform binary), so
+ *  buffering fully in memory is fine — no streaming needed. */
+function httpGetBuffer(url, redirectsLeft = 5) {
+  return new Promise((resolve, reject) => {
+    const req = https.get(
+      url,
+      { headers: { 'user-agent': 'ongame-launcher' }, timeout: REQUEST_TIMEOUT_MS },
+      (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          res.resume(); // drain so the socket can be reused/closed cleanly
+          if (redirectsLeft <= 0) return reject(new Error('too many redirects'));
+          return resolve(httpGetBuffer(res.headers.location, redirectsLeft - 1));
+        }
+        if (res.statusCode !== 200) {
+          res.resume();
+          return reject(new Error(`HTTP ${res.statusCode} for ${url}`));
+        }
+        const chunks = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => resolve(Buffer.concat(chunks)));
+        res.on('error', reject);
+      }
+    );
+    req.on('timeout', () => req.destroy(new Error(`timed out after ${REQUEST_TIMEOUT_MS}ms: ${url}`)));
+    req.on('error', reject);
+  });
+}
+
+async function fetchJson(url) {
+  const buf = await httpGetBuffer(url);
+  return JSON.parse(buf.toString('utf8'));
+}
+
+/** Maps the running process to this repo's release asset naming convention. VERIFIED (not guessed)
+ *  against the private repo's `cli/package.json` build scripts + `cli/BUILD.md`, which already ship
+ *  four real binaries: `ongame-cli-macos-arm64`, `ongame-cli-macos-x64`, `ongame-cli-linux-x64`,
+ *  `ongame-cli-linux-arm64` — note it's "macos", NOT "darwin", even though `process.platform` and
+ *  `uname -s` both say "darwin"/"Darwin". Windows has no build script yet (explicit fast-follow per
+ *  the plan — different overwrite-while-running and credential-store story) — the mapping below is
+ *  a best-guess placeholder for that day, not exercised by any real release in v1. */
+function assetName() {
+  const osName = { darwin: 'macos', linux: 'linux', win32: 'windows' }[process.platform];
+  const archName = { arm64: 'arm64', x64: 'x64' }[process.arch];
+  if (!osName || !archName) return null;
+  return `ongame-cli-${osName}-${archName}${osName === 'windows' ? '.exe' : ''}`;
+}
+
+function sha256Hex(buf) {
+  return crypto.createHash('sha256').update(buf).digest('hex');
+}
+
+/** Parses the standard `sha256sum`-style `checksums.txt` format (`<hex>  <filename>` per line, two
+ *  spaces, `sha256sum -c` compatible) and returns the hex digest for one filename, or undefined.
+ *  Matches on BASENAME, not exact string: `cli/package.json`'s local `checksums` script
+ *  (`shasum -a 256 dist-bin/ongame-cli-* > dist-bin/checksums.txt`, run from the `cli/` root) embeds
+ *  a `dist-bin/` prefix on every recorded filename — if the not-yet-built release workflow
+ *  (`release-cli.yml`) reuses that script as-is rather than `cd`-ing into `dist-bin/` first, the
+ *  published `checksums.txt` would carry the same prefix. Matching on basename means this launcher
+ *  works either way, instead of silently failing checksum lookup against a prefixed name. */
+function findChecksum(checksumsText, filename) {
+  for (const line of checksumsText.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const [hex, ...rest] = trimmed.split(/\s+/);
+    const rawName = rest.join(' ').replace(/^\*/, ''); // sha256sum prefixes binary-mode names with '*'
+    const name = rawName.split('/').pop();
+    if (name === filename) return hex;
+  }
+  return undefined;
+}
+
+/** Best-effort self-update. Every failure path logs to stderr and returns — NEVER throws past this
+ *  function, and the caller additionally races it against a hard timeout, so a slow/broken network
+ *  can cost at most SELF_UPDATE_TIMEOUT_MS before falling back to the already-installed binary. */
+async function trySelfUpdate() {
+  const asset = assetName();
+  if (!asset) {
+    log(`unrecognized platform ${process.platform}/${process.arch} — skipping self-update check.`);
+    return;
+  }
+
+  let release;
+  try {
+    release = await fetchJson(RELEASES_API);
+  } catch (e) {
+    log(`could not check for updates (${e.message}) — continuing with the installed binary.`);
+    return;
+  }
+
+  const currentVersion = fs.existsSync(VERSION_FILE) ? fs.readFileSync(VERSION_FILE, 'utf8').trim() : null;
+  const latestVersion = release && release.tag_name;
+  if (!latestVersion) {
+    log('malformed release metadata from GitHub (no tag_name) — skipping self-update check.');
+    return;
+  }
+  // Simple inequality, not semver comparison: GitHub's "latest" release is a curated pointer that
+  // only ever moves forward in this repo's own release process, so "different" == "newer" in
+  // practice. A real semver-aware check is a reasonable fast-follow if that assumption ever breaks
+  // (e.g. a hotfix tag published out of order).
+  if (currentVersion === latestVersion) return;
+
+  const binAsset = (release.assets || []).find((a) => a.name === asset);
+  const checksumsAsset = (release.assets || []).find((a) => a.name === 'checksums.txt');
+  if (!binAsset || !checksumsAsset) {
+    log(`release ${latestVersion} is missing the "${asset}" or "checksums.txt" asset — skipping.`);
+    return;
+  }
+
+  let binBuf, checksumsBuf;
+  try {
+    [binBuf, checksumsBuf] = await Promise.all([
+      httpGetBuffer(binAsset.browser_download_url),
+      httpGetBuffer(checksumsAsset.browser_download_url),
+    ]);
+  } catch (e) {
+    log(`download failed (${e.message}) — continuing with the installed binary.`);
+    return;
+  }
+
+  const expected = findChecksum(checksumsBuf.toString('utf8'), asset);
+  const actual = sha256Hex(binBuf);
+  if (!expected || expected !== actual) {
+    log(`checksum verification failed for ${latestVersion} (expected ${expected ?? 'MISSING'}, got ${actual}) — refusing to install, continuing with the current binary.`);
+    return;
+  }
+
+  // Atomic swap: write to a temp path in the SAME directory (same filesystem, so rename() is
+  // atomic) then rename over the target. Never write directly over BIN_PATH — a partial write
+  // there would corrupt the one thing this whole function exists to protect.
+  const tmpPath = `${BIN_PATH}.download-${process.pid}`;
+  try {
+    fs.writeFileSync(tmpPath, binBuf, { mode: 0o755 });
+    fs.chmodSync(tmpPath, 0o755);
+    fs.renameSync(tmpPath, BIN_PATH);
+    fs.writeFileSync(VERSION_FILE, latestVersion);
+    log(`updated ongame-cli ${currentVersion ?? '(unknown)'} -> ${latestVersion}.`);
+  } catch (e) {
+    log(`could not install the downloaded update (${e.message}) — continuing with the current binary.`);
+    try { fs.rmSync(tmpPath, { force: true }); } catch { /* best-effort cleanup */ }
+  }
+}
+
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => setTimeout(resolve, ms)), // resolves (not rejects) — a timeout is not
+    // an error here, it's "give up on the update check", so main() proceeds normally either way.
+  ]);
+}
+
+/** Execs into the real CLI, inheriting stdio so the JSON-RPC stdio protocol passes through this
+ *  process transparently. Node has no true exec-and-replace-this-process primitive, so instead we
+ *  spawn with inherited stdio and forward the exit code/signals — functionally equivalent for a
+ *  stdio-piped MCP server, since Claude Code only observes stdin/stdout/exit code, not the pid. */
+function execIntoRealCli(argv) {
+  const child = spawn(BIN_PATH, argv, { stdio: 'inherit' });
+  for (const sig of ['SIGINT', 'SIGTERM']) {
+    process.on(sig, () => child.kill(sig));
+  }
+  child.on('exit', (code, signal) => {
+    if (signal) process.kill(process.pid, signal);
+    else process.exit(code ?? 0);
+  });
+  child.on('error', (e) => {
+    log(`failed to launch ${BIN_PATH}: ${e.message}`);
+    process.exit(1);
+  });
+}
+
+async function main() {
+  if (!fs.existsSync(BIN_PATH)) {
+    log('ongame-cli is not installed.');
+    log(`Run this to install it:  curl -fsSL ${INSTALL_SH_URL} | sh`);
+    process.exit(1);
+    return;
+  }
+
+  await withTimeout(
+    trySelfUpdate().catch((e) => log(`unexpected error during self-update check (${e.message}) — continuing.`)),
+    SELF_UPDATE_TIMEOUT_MS
+  );
+
+  execIntoRealCli(process.argv.slice(2));
+}
+
+main();

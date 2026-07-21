@@ -1,0 +1,41 @@
+ongame-cli — Proprietary Software License
+
+Copyright (c) 2026 the ongame team. All rights reserved.
+
+This repository and its contents (including but not limited to install.sh, the Claude Code plugin
+manifest under .claude-plugin/, bin/ongame-launcher, and codex/config-snippet.toml, collectively
+the "Distribution Tooling") are made publicly visible solely to support installation and automatic
+updates of the ongame-cli product. Public visibility does not constitute a grant of open-source
+rights.
+
+The `ongame-cli` binary distributed via this repository's Releases, and the ongame backend services
+it communicates with, are closed-source, proprietary, commercial software and are NOT covered by
+any open-source license (MIT, Apache, or otherwise).
+
+Subject to the terms of the ongame product's applicable Terms of Service, you are granted a
+limited, non-exclusive, non-transferable, revocable license to:
+
+  1. download and run install.sh and the compiled `ongame-cli` binary for your own use of the
+     ongame product;
+  2. read the Distribution Tooling source in this repository for the purpose of understanding or
+     verifying what the installer and plugin manifest do on your machine.
+
+You may NOT, without prior written permission:
+
+  - redistribute, resell, or sublicense the `ongame-cli` binary or this repository's contents;
+  - reverse engineer, decompile, or disassemble the `ongame-cli` binary, except to the extent such
+    restriction is prohibited by applicable law;
+  - use the Distribution Tooling to build a competing installer/distribution mechanism for a
+    substantially similar product;
+  - remove or alter any copyright, trademark, or proprietary notice from the Distribution Tooling.
+
+THE DISTRIBUTION TOOLING AND THE ONGAME-CLI BINARY ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM, OUT OF, OR IN CONNECTION WITH
+THIS SOFTWARE OR ITS USE.
+
+All trademarks, service marks, and product names referenced in this repository are the property of
+their respective owners.
+
+For licensing questions, contact the ongame team through the product you installed this from.

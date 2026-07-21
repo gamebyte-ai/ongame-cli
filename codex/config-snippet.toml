@@ -1,0 +1,19 @@
+# ongame-cli — Codex CLI MCP server registration.
+#
+# CONFIDENCE LEVEL: verified, not guessed — checked directly against a real, live
+# `~/.codex/config.toml` (this machine, 2026-07-21). Every existing `[mcp_servers.X]` stdio entry in
+# that file uses exactly this shape (`command`, `args`, optional `startup_timeout_sec`, optional
+# `.env` sub-table) — e.g. `[mcp_servers.context7]` → `command = "npx"`, `args = ["-y",
+# "@upstash/context7-mcp"]`, `startup_timeout_sec = 120.0`. `command = "ongame-cli"` (a bare name,
+# not an absolute path) resolves via PATH exactly the way `command = "npx"`/`"uvx"`/`"node"` already
+# do for other entries in that same file — which is why install.sh's PATH patch (step 3) must run
+# before this section, not after.
+#
+# install.sh appends this file's contents into `~/.codex/config.toml` verbatim (idempotent — it
+# checks for the `[mcp_servers.ongame]` header first and never duplicates it). If you're wiring this
+# up by hand instead of via install.sh, copy the block below into your own config.toml.
+
+[mcp_servers.ongame]
+command = "ongame-cli"
+args = ["mcp"]
+startup_timeout_sec = 120.0
