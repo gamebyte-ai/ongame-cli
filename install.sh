@@ -88,26 +88,21 @@ tag_name=$(extract_json_field tag_name)
 [ -n "$tag_name" ] || error "could not parse a release tag from the GitHub API response"
 info "Latest release: ${tag_name}"
 
+# BUG FIX (found via a real end-to-end install test — GitHub's Releases API returns fully MINIFIED
+# JSON, "name":"x" with no space, all on ONE line): the original download_url_for() hand-rolled an
+# awk state machine over "name"/"browser_download_url" field pairs, assuming a multi-line, spaced
+# document. Neither assumption holds against the real API response, so it always came back empty —
+# `install.sh` failed for every single asset on the very first real run. GitHub's release-download
+# URLs follow a documented, stable convention (`.../releases/download/<tag>/<filename>`), so this
+# constructs the URL directly instead of parsing it back out of the JSON at all — no assumption
+# about whitespace or line structure left to break. A genuinely missing/renamed asset still fails
+# loudly: the subsequent `curl -fsSL` download itself 404s with a clear "download failed" error.
 download_url_for() {
-  # $1 = asset filename. Pulls the browser_download_url whose preceding "name" field matches —
-  # a small state machine over grep/awk since asset objects don't guarantee field order.
-  printf '%s' "$release_json" | awk -v want="\"name\": \"$1\"" '
-    /"name":/ { name_line = $0 }
-    /"browser_download_url":/ {
-      if (index(name_line, want) > 0) {
-        line = $0
-        sub(/.*"browser_download_url":[[:space:]]*"/, "", line)
-        sub(/".*/, "", line)
-        print line
-        exit
-      }
-    }'
+  printf 'https://github.com/%s/releases/download/%s/%s' "$REPO" "$tag_name" "$1"
 }
 
 bin_url=$(download_url_for "$ASSET_NAME")
 checksums_url=$(download_url_for "checksums.txt")
-[ -n "$bin_url" ] || error "release ${tag_name} has no asset named ${ASSET_NAME} (see the naming-convention note above)"
-[ -n "$checksums_url" ] || error "release ${tag_name} has no checksums.txt asset"
 
 tmp_dir=$(mktemp -d)
 trap 'rm -rf "$tmp_dir"' EXIT
