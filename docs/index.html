@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ongame-cli — install the ongame game-making assistant</title>
+<meta name="description" content="One command installs ongame-cli: a self-updating CLI + Claude Code / Codex plugin for the ongame AI game-making assistant.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2315131c'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23f2a13a'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #15131c;
+    --bg-raised: #1d1a26;
+    --bg-terminal: #0e0c14;
+    --line: #322d40;
+    --line-soft: #262232;
+    --ink: #f3ede2;
+    --ink-dim: #b8afc4;
+    --ink-faint: #7d7590;
+    --amber: #f2a13a;
+    --amber-dim: #c98a38;
+    --mint: #5ee6c5;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html { color-scheme: dark; }
+
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1200px 600px at 15% -10%, rgba(242,161,58,0.10), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(94,230,197,0.06), transparent 55%),
+      var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--mint); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+
+  header.top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 22px 0;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 15px; letter-spacing: 0.02em; }
+  .brand .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 12px 2px rgba(242,161,58,0.55); }
+  .top nav { display: flex; gap: 22px; font-size: 14px; color: var(--ink-dim); }
+  .top nav a { color: var(--ink-dim); }
+  .top nav a:hover { color: var(--ink); }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    color: var(--ink-faint);
+    border: 1px solid var(--line);
+    background: var(--bg-raised);
+    border-radius: 999px;
+    padding: 5px 12px;
+  }
+  .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--mint); }
+
+  main { padding: 64px 0 40px; }
+
+  h1 {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: clamp(30px, 5vw, 46px);
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    margin: 22px 0 14px;
+    text-wrap: balance;
+  }
+  h1 .accent { color: var(--amber); }
+
+  .lede {
+    font-size: 18px;
+    color: var(--ink-dim);
+    max-width: 56ch;
+    margin: 0 0 34px;
+  }
+
+  .term {
+    background: var(--bg-terminal);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 30px 60px -30px rgba(0,0,0,0.6);
+  }
+  .term-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--line-soft);
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+  }
+  .term-bar span { width: 10px; height: 10px; border-radius: 50%; background: #443f52; }
+  .term-bar .label { margin-left: 8px; font-family: var(--mono); font-size: 12px; color: var(--ink-faint); }
+  .term-body {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 18px;
+    font-family: var(--mono);
+    font-size: 14.5px;
+  }
+  .term-body code {
+    color: var(--ink);
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+  }
+  .term-body code .prompt { color: var(--mint); }
+  .term-body code .flag { color: var(--amber-dim); }
+  .copy-btn {
+    flex: none;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.03em;
+    color: var(--ink-dim);
+    background: var(--bg-raised);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 7px 11px;
+    cursor: pointer;
+    transition: color .12s ease, border-color .12s ease;
+  }
+  .copy-btn:hover { color: var(--ink); border-color: var(--amber-dim); }
+  .copy-btn[data-copied="1"] { color: var(--mint); border-color: var(--mint); }
+
+  .platforms {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 18px;
+  }
+  .platforms .pill {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-dim);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 5px 10px;
+  }
+  .platforms .pill.soon { color: var(--ink-faint); border-style: dashed; }
+
+  section { margin-top: 76px; }
+  section h2 {
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 22px;
+  }
+
+  .steps { display: grid; gap: 14px; }
+  .step {
+    display: grid;
+    grid-template-columns: 34px 1fr;
+    gap: 16px;
+    padding: 18px 18px 18px 16px;
+    background: var(--bg-raised);
+    border: 1px solid var(--line-soft);
+    border-radius: 10px;
+  }
+  .step .num {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--amber);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .step h3 { margin: 2px 0 6px; font-size: 16px; font-weight: 600; }
+  .step p { margin: 0; color: var(--ink-dim); font-size: 14.5px; }
+  .step pre {
+    margin: 10px 0 0;
+    font-family: var(--mono);
+    font-size: 13px;
+    background: var(--bg-terminal);
+    border: 1px solid var(--line-soft);
+    border-radius: 7px;
+    padding: 10px 12px;
+    overflow-x: auto;
+    color: var(--ink);
+  }
+
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .card {
+    background: var(--bg-raised);
+    border: 1px solid var(--line-soft);
+    border-radius: 10px;
+    padding: 18px 18px 20px;
+  }
+  .card h3 { font-size: 15px; margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }
+  .card h3 .ic { color: var(--amber); font-family: var(--mono); }
+  .card p { margin: 0; color: var(--ink-dim); font-size: 14px; }
+
+  table.support { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.support th, table.support td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  table.support th { color: var(--ink-faint); font-weight: 500; font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+  table.support td.ok { color: var(--mint); font-family: var(--mono); }
+  table.support td.soon { color: var(--ink-faint); font-family: var(--mono); }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line-soft); border-radius: 10px; }
+  .table-wrap table { margin: 0; }
+  .table-wrap th:first-child, .table-wrap td:first-child { padding-left: 16px; }
+
+  .closed-note {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    background: var(--bg-raised);
+    border: 1px solid var(--line-soft);
+    border-radius: 10px;
+    padding: 18px;
+    font-size: 14.5px;
+    color: var(--ink-dim);
+  }
+  .closed-note .ic { font-family: var(--mono); color: var(--amber); flex: none; }
+
+  footer {
+    margin-top: 90px;
+    padding: 26px 0 40px;
+    border-top: 1px solid var(--line-soft);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 13px;
+    color: var(--ink-faint);
+  }
+  footer nav { display: flex; gap: 18px; }
+  footer a { color: var(--ink-faint); }
+  footer a:hover { color: var(--ink); }
+
+  @media (max-width: 560px) {
+    .top nav { display: none; }
+    .term-body { flex-direction: column; }
+    .copy-btn { align-self: flex-end; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><span class="dot"></span> ongame-cli</div>
+    <nav>
+      <a href="#install">Install</a>
+      <a href="#how-it-updates">Updates</a>
+      <a href="#support">Platforms</a>
+      <a href="https://github.com/gamebyte-ai/ongame-cli">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+    <span class="badge">closed-source binary · self-updating</span>
+    <h1>Install <span class="accent">ongame</span> with one command.</h1>
+    <p class="lede">
+      ongame-cli is the CLI and Claude&nbsp;Code / Codex plugin transport for ongame, an AI
+      game-making assistant. One line installs a checksum-verified binary, wires up your agentic
+      tool, and keeps itself current on every launch — no reinstalls, no manual updates.
+    </p>
+
+    <div class="term" id="install">
+      <div class="term-bar">
+        <span></span><span></span><span></span>
+        <span class="label">terminal</span>
+      </div>
+      <div class="term-body">
+        <code id="install-cmd"><span class="prompt">$</span> curl <span class="flag">-fsSL</span> https://raw.githubusercontent.com/gamebyte-ai/ongame-cli/main/install.sh <span class="flag">|</span> sh</code>
+        <button class="copy-btn" id="copy-btn" type="button">copy</button>
+      </div>
+    </div>
+
+    <div class="platforms">
+      <span class="pill">macOS (arm64 / x64)</span>
+      <span class="pill">Linux (x64 / arm64)</span>
+      <span class="pill soon">Windows — coming soon</span>
+    </div>
+
+    <section>
+      <h2>What the installer does</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="num">1</div>
+          <div>
+            <h3>Detects your platform, fetches the right binary</h3>
+            <p>OS/arch detection (including Rosetta on Apple Silicon), downloads the matching
+            release asset, verifies its sha256 against a published checksum, and installs it to
+            <code>~/.ongame/bin</code>.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="num">2</div>
+          <div>
+            <h3>Wires up your agentic tool</h3>
+            <p>Detects Claude&nbsp;Code and prints the exact commands to add the plugin. Detects a
+            Codex CLI install and patches its MCP config automatically.</p>
+            <pre>/plugin marketplace add gamebyte-ai/ongame-cli
+/plugin install ongame@ongame-cli</pre>
+          </div>
+        </div>
+        <div class="step">
+          <div class="num">3</div>
+          <div>
+            <h3>Start building</h3>
+            <p>Open a Claude&nbsp;Code (or Codex) session and start a build — the plugin talks to
+            the installed binary over MCP, which talks to the ongame backend.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="how-it-updates">
+      <h2>How updates work</h2>
+      <div class="grid2">
+        <div class="card">
+          <h3><span class="ic">&gt;</span> No manual step, ever</h3>
+          <p>The plugin manifest is a tiny, near-permanent shim. All real version churn lives in
+          the <code>ongame-cli</code> binary itself, which checks for a newer release on every
+          launch.</p>
+        </div>
+        <div class="card">
+          <h3><span class="ic">&gt;</span> Verified before it runs</h3>
+          <p>Every self-update downloads a fresh checksum file and refuses to install anything
+          that doesn't match — a broken download just falls back to the version you already have.</p>
+        </div>
+        <div class="card">
+          <h3><span class="ic">&gt;</span> Never blocks your session</h3>
+          <p>Update checks are time-bounded. Offline, rate-limited, or on a slow network, the
+          existing binary launches immediately — self-update is best-effort, not a gate.</p>
+        </div>
+        <div class="card">
+          <h3><span class="ic">&gt;</span> Takes effect next session</h3>
+          <p>Same as any other Claude&nbsp;Code/Codex config change — a new version is picked up
+          the next time you start a session, not mid-session.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="support">
+      <h2>Platform support</h2>
+      <div class="table-wrap">
+        <table class="support">
+          <thead><tr><th>Platform</th><th>Architecture</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>macOS</td><td>arm64 (Apple Silicon)</td><td class="ok">supported</td></tr>
+            <tr><td>macOS</td><td>x64 (Intel)</td><td class="ok">supported</td></tr>
+            <tr><td>Linux</td><td>x64</td><td class="ok">supported</td></tr>
+            <tr><td>Linux</td><td>arm64</td><td class="ok">supported</td></tr>
+            <tr><td>Windows</td><td>x64</td><td class="soon">planned</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>Source &amp; licensing</h2>
+      <div class="closed-note">
+        <span class="ic">i</span>
+        <p>
+          This repository hosts only the installer, plugin manifest, and launcher — public so they
+          can be inspected and used to install the product. The <code>ongame-cli</code> binary
+          itself and the backend it talks to are closed-source, commercial software. See the
+          <a href="https://github.com/gamebyte-ai/ongame-cli/blob/main/LICENSE">license</a> for
+          exact terms.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>&copy; 2026 ongame</span>
+    <nav>
+      <a href="https://github.com/gamebyte-ai/ongame-cli">Repository</a>
+      <a href="https://github.com/gamebyte-ai/ongame-cli/releases">Releases</a>
+      <a href="https://github.com/gamebyte-ai/ongame-cli/blob/main/LICENSE">License</a>
+    </nav>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var btn = document.getElementById('copy-btn');
+  var cmd = 'curl -fsSL https://raw.githubusercontent.com/gamebyte-ai/ongame-cli/main/install.sh | sh';
+  btn.addEventListener('click', function () {
+    var reset = function () {
+      btn.textContent = 'copy';
+      btn.removeAttribute('data-copied');
+    };
+    var mark = function () {
+      btn.textContent = 'copied';
+      btn.setAttribute('data-copied', '1');
+      setTimeout(reset, 1600);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(cmd).then(mark, function () {
+        fallbackCopy();
+      });
+    } else {
+      fallbackCopy();
+    }
+    function fallbackCopy() {
+      var ta = document.createElement('textarea');
+      ta.value = cmd;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); mark(); } catch (e) { /* clipboard unavailable, no-op */ }
+      document.body.removeChild(ta);
+    }
+  });
+})();
+</script>
+</body>
+</html>
