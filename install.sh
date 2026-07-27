@@ -98,7 +98,7 @@ info "Latest release: ${tag_name}"
 # about whitespace or line structure left to break. A genuinely missing/renamed asset still fails
 # loudly: the subsequent `curl -fsSL` download itself 404s with a clear "download failed" error.
 download_url_for() {
-  printf 'https://github.com/%s/releases/download/%s/%s' "$REPO" "$tag_name" "$1"
+  printf '%s/%s/releases/download/%s/%s' "$GITHUB" "$REPO" "$tag_name" "$1"
 }
 
 bin_url=$(download_url_for "$ASSET_NAME")
