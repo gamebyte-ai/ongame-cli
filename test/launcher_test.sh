@@ -144,11 +144,16 @@ start_mock_server "$mock_dir"; port="$MOCK_PORT"
 out=$(HOME="$h" ONGAME_LAUNCHER_API_ROOT="http://127.0.0.1:${port}" ONGAME_LAUNCHER_DOWNLOAD_ROOT="http://127.0.0.1:${port}" sh "$LAUNCHER" mcp foo bar 2>/tmp/launcher_test_stderr.$$)
 code=$?
 err=$(cat "/tmp/launcher_test_stderr.$$"); rm -f "/tmp/launcher_test_stderr.$$"
+# Prove this actually took the SKIP path, not "attempted a download that happened to fail" (both
+# look identical from stdout/exit-code alone, since mock2 has no asset files to download either
+# way) — check the mock server's own access log never saw a request for the asset/checksums paths.
+server_log_snapshot=$(cat "${WORK}/server.log" 2>/dev/null)
 kill_server
 assert_eq "up-to-date: exit code" "0" "$code"
 assert_contains "up-to-date: argv forwarded" "$out" "REAL_CLI_STUB args:mcp foo bar"
 assert_not_contains "up-to-date: launcher logs never on stdout" "$out" "[ongame-launcher]"
 assert_contains "up-to-date: stub stderr passed through" "$err" "stub-stderr"
+assert_not_contains "up-to-date: version-check genuinely short-circuited (no asset download attempted)" "$server_log_snapshot" "releases/download/cli-v9.9.9/${ASSET_NAME}"
 rm -rf "$h"
 
 echo ""

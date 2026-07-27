@@ -48,6 +48,11 @@
 
 set -u
 
+if [ -z "${HOME:-}" ]; then
+  printf '[ongame-launcher] HOME is not set — cannot locate ~/.ongame. This is unusual; check how this process was spawned.\n' >&2
+  exit 1
+fi
+
 REPO="gamebyte-ai/ongame-cli"
 API_ROOT="${ONGAME_LAUNCHER_API_ROOT:-https://api.github.com}"
 DOWNLOAD_ROOT="${ONGAME_LAUNCHER_DOWNLOAD_ROOT:-https://github.com}"
@@ -198,7 +203,14 @@ self_update() {
   # Atomic swap: chmod +x, then rename over BIN_PATH. Safe even if another ongame-cli process
   # currently has BIN_PATH open/running — POSIX rename() leaves existing open file descriptors
   # pointing at the old inode, so an in-flight process is unaffected; only new opens see the swap.
-  chmod +x "${tmp_dir}/bin"
+  # chmod's exit status IS checked (unlike a bare `chmod +x` before this fix) — an unchecked failure
+  # here would let `mv` proceed anyway and overwrite a good, working, executable BIN_PATH with a
+  # non-executable one, breaking the CLI until the user re-runs install.sh by hand.
+  if ! chmod +x "${tmp_dir}/bin"; then
+    log "could not make the downloaded binary executable — refusing to install, continuing with the current binary."
+    rm -rf "$tmp_dir"
+    return 0
+  fi
   if mv "${tmp_dir}/bin" "$BIN_PATH" 2>/dev/null; then
     printf '%s' "$tag_name" > "$VERSION_FILE"
     log "updated ongame-cli ${current_version:-"(unknown)"} -> ${tag_name}."
@@ -208,6 +220,16 @@ self_update() {
   rm -rf "$tmp_dir"
   return 0
 }
+
+# Defensive, not a full guarantee: a shell defers a pending TERM/INT until it regains control from
+# whatever foreground command it's blocked on (each self_update() network call is already bounded by
+# its own curl --max-time, so it was never going to hang indefinitely either way) — so this trap's
+# real effect is narrower than "cancels self_update on demand": it only pre-empts the small windows
+# of self_update()'s own shell-side logic (the temp-dir sweep, uname/case checks) that run BETWEEN
+# blocking network calls, turning what would otherwise be an unconditional kill into a clean exec.
+# Costs nothing to have even where it can't help. (SIGKILL still can't be trapped — nothing to do
+# about that case.)
+trap 'exec "$BIN_PATH" "$@"' TERM INT
 
 self_update
 
