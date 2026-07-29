@@ -1,0 +1,44 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/browser-check.sh", "timeout": 10 }
+        ]
+      },
+      {
+        "matcher": "startup|resume|compact",
+        "hooks": [
+          { "type": "command", "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/ongame-build-inject.sh", "timeout": 10 }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|.*assets_materialize",
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/phase-jury.sh", "timeout": 45 }
+        ]
+      },
+      {
+        "matcher": "mcp__plugin_ongame_ongame__state_init",
+        "hooks": [
+          { "type": "command", "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/ongame-build-marker-write.sh", "timeout": 10 }
+        ]
+      },
+      {
+        "matcher": "mcp__plugin_ongame_ongame__trace_emit",
+        "hooks": [
+          { "type": "command", "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/ongame-build-marker-clear.sh", "timeout": 10 }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/ongame-build-inject.sh", "timeout": 10 }
+        ]
+      }
+    ]
+  }
+}

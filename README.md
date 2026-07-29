@@ -29,12 +29,11 @@ machine — wires up the MCP integration for you.
 
 ### Claude Code
 
-After installing, inside a Claude Code session:
-
-```
-/plugin marketplace add gamebyte-ai/ongame-cli
-/plugin install ongame@ongame-cli
-```
+`install.sh` registers the marketplace and installs the plugin automatically when `claude` is on
+your PATH — nothing to paste. If a Claude Code session is already open, run `/reload-plugins`
+there; otherwise just start one and type `/make-game <your game idea>`. (Manual fallback, only if
+the automatic step reported a failure: `/plugin marketplace add gamebyte-ai/ongame-cli` then
+`/plugin install ongame@ongame-cli`.)
 
 ### Codex CLI
 
