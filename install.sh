@@ -177,22 +177,47 @@ fi
 info "Open a new shell (or run: export PATH=\"${BIN_DIR}:\$PATH\") to use ongame-cli directly."
 
 # ---------------------------------------------------------------------------
-# 4. Claude Code detection.
+# 4. Claude Code detection — register the marketplace + install the plugin AUTOMATICALLY.
 #
-# NOTE: we deliberately do NOT attempt a non-interactive `claude plugin install ...` invocation
-# here — there is no CONFIRMED non-interactive CLI form for marketplace-add + plugin-install outside
-# a running Claude Code session (this needs empirical confirmation, flagged in the plan itself as
-# "to be confirmed empirically during build"). Printing the exact in-session commands is the honest,
-# safe default: it always works, and never risks silently no-op'ing or misbehaving against a CLI
-# surface we haven't verified exists.
+# Both `claude plugin marketplace add` and `claude plugin install` are real, non-interactive
+# top-level CLI subcommands (verified empirically in a clean container). Two hard-won specifics:
+#   - The marketplace source MUST be the full HTTPS URL: the bare `owner/repo` shorthand resolves to
+#     an SSH clone URL (git@github.com:...), which fails on any machine without a GitHub SSH key —
+#     i.e. most end-user machines.
+#   - Both steps are guarded idempotently (list-then-act), so re-running install.sh never duplicates
+#     or errors on an already-registered marketplace / already-installed plugin.
+# Any failure falls back to printing the in-session commands — never a hard stop this late in an
+# otherwise-successful install.
 # ---------------------------------------------------------------------------
 if command -v claude >/dev/null 2>&1; then
   info ""
-  info "Claude Code detected. Open a Claude Code session and run:"
-  info ""
-  info "  /plugin marketplace add ${REPO}"
-  info "  /plugin install ongame@ongame-cli"
-  info ""
+  info "Claude Code detected — registering the ongame plugin..."
+  plugin_setup_failed=""
+  if claude plugin marketplace list 2>/dev/null | grep -q "ongame-cli"; then
+    info "Marketplace already registered."
+  elif ! claude plugin marketplace add "https://github.com/${REPO}"; then
+    plugin_setup_failed=1
+  fi
+  if [ -z "$plugin_setup_failed" ]; then
+    if claude plugin list 2>/dev/null | grep -q "ongame@ongame-cli"; then
+      info "Plugin already installed."
+    elif ! claude plugin install ongame@ongame-cli; then
+      plugin_setup_failed=1
+    fi
+  fi
+  if [ -z "$plugin_setup_failed" ]; then
+    info ""
+    info "ongame is ready. Open a Claude Code session and run:  /make-game <your game idea>"
+    info "(If a session is already open, run /reload-plugins there first.)"
+    info "First cloud call will open a browser sign-in — the agent handles it."
+  else
+    info ""
+    info "Automatic plugin setup didn't complete — run these inside a Claude Code session instead:"
+    info ""
+    info "  /plugin marketplace add ${REPO}"
+    info "  /plugin install ongame@ongame-cli"
+    info ""
+  fi
 fi
 
 # ---------------------------------------------------------------------------

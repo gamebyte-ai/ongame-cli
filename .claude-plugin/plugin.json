@@ -1,12 +1,23 @@
 {
   "name": "ongame",
-  "description": "ongame — the closed-source CLI transport layer for the ongame game-making assistant. This is a static, near-permanent shim; the real, self-updating logic lives in the ongame-cli binary it launches.",
-  "version": "1.0.0",
-  "author": { "name": "ongame" },
+  "description": "ongame \u2014 AI game-making: /make-game takes a concept through a personalized, approval-gated phase pipeline to a playable, deployable game. This plugin is a thin shim; the self-updating ongame-cli binary it launches does the real work.",
+  "version": "1.1.0",
+  "author": {
+    "name": "ongame"
+  },
   "mcpServers": {
     "ongame": {
       "command": "${CLAUDE_PLUGIN_ROOT}/bin/ongame-launcher",
-      "args": ["mcp"]
+      "args": [
+        "mcp"
+      ]
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest"
+      ]
     }
   }
 }
