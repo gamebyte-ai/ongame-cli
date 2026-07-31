@@ -7,6 +7,12 @@ description: Give a game concept; ongame produces a playable game via personaliz
 
 The user provided a game concept via `$ARGUMENTS`. Follow the flow below **in order**.
 
+> **🎮 ongame presence (do this throughout).** This is an ongame build — keep it gently visible so the user
+> always knows ongame is doing the work. Prefix your phase/progress headlines with a small `🎮 ongame`
+> marker (e.g. *"🎮 ongame · concept — sharpening the hook…"*), not on every line — at phase starts, gates,
+> and the finish. Keep it light, never spammy. (Optional: the user can also enable a build-time statusline
+> marker with `/ongame-statusline on`.)
+
 **MCP server (one):** the plugin wires a single `ongame` MCP server (the ongame-cli binary). It presents
 ALL tools in one list — runtime namespace `mcp__plugin_ongame_ongame__<tool>` — in two families:
 - **Cloud tools** (require sign-in; appear only when authenticated): the orchestration + generation tools —
@@ -375,6 +381,12 @@ the defaults below. Never block on it.
 3. Make a final git commit in the game project (the per-phase checkpoints from §4 should already exist; this
    captures anything since the last phase). If git isn't set up, skip silently.
 4. Summary to the user: the path produced, the gameDir, and (if any) the preview URL.
+5. **Account footer (one line, always).** Close the build with a light usage/account line so the user knows
+   where they stand and where to manage it — this is the anchor they'll otherwise never find. Call
+   `usage_status` (+ `billing_status` if useful) and show a single line, e.g. *"🎮 ongame · plan: free ·
+   ~35% of this week's included usage left · see or upgrade anytime: https://account.ongame.ai (or run
+   /account)."* If usage is unavailable, still give the `/account` + `account.ongame.ai` pointer. Keep it to
+   one line; don't pitch — just make "how much do I have / how do I upgrade" easy to find.
 
 
 ## Fallback
