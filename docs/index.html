@@ -6,9 +6,15 @@
 <title>ongame — describe a game, get a real one</title>
 <meta name="description" content="ongame turns a one-line idea into a playable, deployable game — research, design, code, real art & sound, levels and polish — inside Claude Code, with your approval at every step.">
 <link rel="icon" type="image/svg+xml" href="logo-icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,500;1,9..144,600&display=swap" rel="stylesheet">
 <style>
-  /* Palette: the ongame / gamebyte brand guideline — neutral grayscale surfaces (NO navy/blue tint),
-     amber brand, teal + terracotta accents. Ported verbatim from the shared brand tokens. */
+  /* Typography + palette: the ongame / gamebyte brand guideline.
+     Type — Geist (body/UI), Geist Mono (code), Fraunces (headline display serif; italic for emphasis).
+     Color — neutral GRAYSCALE surfaces (no navy/blue tint), a single warm amber brand accent (NOT a
+     multi-color gradient — the guideline deliberately replaced scattered amber→pink→purple gradients),
+     with teal + terracotta as quiet secondaries. Tokens ported verbatim from the brand's dark theme. */
   :root {
     --bg: #131313;
     --bg-2: #181818;
@@ -24,9 +30,11 @@
     --amber-deep: #cb8732;    /* logo gradient end */
     --teal: #40b9b9;          /* --secondary (dark) */
     --terracotta: #de8366;    /* --tertiary (dark) */
-    --sans: "SF Pro Rounded", ui-rounded, "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
-    --sans-body: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    --radius: 0.625rem;       /* brand base radius */
+    --display: "Fraunces", ui-serif, Georgia, "Times New Roman", serif;
+    --sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --sans-body: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   }
 
   * { box-sizing: border-box; }
@@ -74,15 +82,15 @@
   }
   .eyebrow::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 10px 1px var(--teal); }
 
+  h1, h2, h3 { font-optical-sizing: auto; }
   h1 {
-    font-family: var(--sans); font-weight: 800;
-    font-size: clamp(34px, 6.2vw, 62px); line-height: 1.03; letter-spacing: -0.025em;
+    font-family: var(--display); font-weight: 700;
+    font-size: clamp(36px, 6.4vw, 64px); line-height: 1.02; letter-spacing: -0.02em;
     margin: 24px 0 18px; text-wrap: balance;
   }
-  h1 .grad {
-    background: linear-gradient(100deg, var(--amber) 10%, var(--amber-soft) 55%, var(--teal) 120%);
-    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
-  }
+  /* Emphasis = a single warm amber accent + display italic (the brand's headline-emphasis pattern),
+     NOT a multi-color gradient — per the guideline that replaced the scattered amber→pink→purple gradients. */
+  h1 .grad { color: var(--amber); font-style: italic; }
   .lede { font-size: 19px; color: var(--ink-dim); max-width: 60ch; margin: 0 0 34px; }
   .lede strong { color: var(--ink); font-weight: 600; }
 
@@ -101,7 +109,7 @@
   .install-body code .f { color: var(--amber-soft); }
   .copy {
     flex: none; font-family: var(--sans); font-weight: 600; font-size: 13px;
-    color: var(--bg); background: var(--amber); border: none; border-radius: 9px; padding: 9px 15px; cursor: pointer;
+    color: var(--bg); background: var(--amber); border: none; border-radius: 10px; padding: 9px 15px; cursor: pointer;
     transition: transform .1s ease, background .12s ease;
   }
   .copy:hover { background: var(--amber-soft); }
@@ -126,7 +134,7 @@
   }
   .phase::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--amber); opacity: 0.55; }
   .phase .n { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
-  .phase h3 { font-family: var(--sans); font-weight: 700; font-size: 15px; margin: 4px 0 5px; }
+  .phase h3 { font-family: var(--display); font-weight: 600; font-size: 15.5px; margin: 4px 0 5px; }
   .phase p { margin: 0; font-size: 13px; color: var(--ink-dim); line-height: 1.45; }
   .pipe-note { margin-top: 16px; font-size: 14px; color: var(--ink-dim); }
   .pipe-note strong { color: var(--ink); font-weight: 600; }
@@ -135,14 +143,14 @@
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
   .card { background: var(--raised); border: 1px solid var(--line-soft); border-radius: 13px; padding: 20px 19px 22px; }
   .card .ic { font-size: 22px; display: block; margin-bottom: 10px; }
-  .card h3 { font-family: var(--sans); font-weight: 700; font-size: 16px; margin: 0 0 8px; }
+  .card h3 { font-family: var(--display); font-weight: 600; font-size: 17px; margin: 0 0 8px; }
   .card p { margin: 0; font-size: 14px; color: var(--ink-dim); }
 
   /* ── steps ── */
   .steps { display: grid; gap: 12px; }
   .stepcard { display: grid; grid-template-columns: 40px 1fr; gap: 16px; align-items: start; background: var(--raised); border: 1px solid var(--line-soft); border-radius: 12px; padding: 18px; }
   .stepcard .num { font-family: var(--mono); font-size: 15px; color: var(--amber); border: 1px solid var(--line); border-radius: 9px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; }
-  .stepcard h3 { font-family: var(--sans); font-weight: 700; font-size: 16px; margin: 3px 0 6px; }
+  .stepcard h3 { font-family: var(--display); font-weight: 600; font-size: 17px; margin: 3px 0 6px; }
   .stepcard p { margin: 0; font-size: 14.5px; color: var(--ink-dim); }
   .stepcard code { font-family: var(--mono); font-size: 13.5px; color: var(--amber-soft); background: var(--bg-2); padding: 2px 7px; border-radius: 6px; }
 
@@ -158,9 +166,9 @@
 
   /* ── closing CTA ── */
   .close-cta { margin-top: 82px; text-align: center; background: linear-gradient(180deg, var(--raised-2), var(--raised)); border: 1px solid var(--line); border-radius: 18px; padding: 44px 24px; }
-  .close-cta h2 { font-family: var(--sans); font-weight: 800; font-size: clamp(24px, 4vw, 34px); letter-spacing: -0.02em; margin: 0 0 10px; text-wrap: balance; }
+  .close-cta h2 { font-family: var(--display); font-weight: 700; font-size: clamp(25px, 4vw, 36px); letter-spacing: -0.015em; margin: 0 0 10px; text-wrap: balance; }
   .close-cta p { color: var(--ink-dim); margin: 0 0 22px; font-size: 16px; }
-  .btn { display: inline-block; font-family: var(--sans); font-weight: 700; font-size: 15px; color: var(--bg); background: var(--amber); border-radius: 11px; padding: 12px 22px; }
+  .btn { display: inline-block; font-family: var(--display); font-weight: 700; font-size: 15px; color: var(--bg); background: var(--amber); border-radius: 10px; padding: 12px 22px; }
   .btn:hover { background: var(--amber-soft); text-decoration: none; }
 
   /* ── footer ── */
