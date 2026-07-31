@@ -210,7 +210,7 @@
         <span class="step">step 1 / 2</span>
       </div>
       <div class="install-body">
-        <code id="cmd"><span class="p">$</span> curl <span class="f">-fsSL</span> https://raw.githubusercontent.com/gamebyte-ai/ongame-cli/main/install.sh <span class="f">|</span> sh</code>
+        <code id="cmd"><span class="p">$</span> curl <span class="f">-fsSL</span> https://cli.ongame.ai/install.sh <span class="f">|</span> sh</code>
         <button class="copy" id="copy" type="button">Copy</button>
       </div>
     </div>
@@ -316,7 +316,7 @@
 <script>
 (function () {
   var btn = document.getElementById('copy');
-  var cmd = 'curl -fsSL https://raw.githubusercontent.com/gamebyte-ai/ongame-cli/main/install.sh | sh';
+  var cmd = 'curl -fsSL https://cli.ongame.ai/install.sh | sh';
   btn.addEventListener('click', function () {
     var mark = function () { btn.textContent = 'Copied'; btn.setAttribute('data-copied', '1'); setTimeout(function () { btn.textContent = 'Copy'; btn.removeAttribute('data-copied'); }, 1600); };
     var fallback = function () {

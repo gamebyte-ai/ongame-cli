@@ -19,7 +19,7 @@ The actual `ongame-cli` binary (and everything it talks to) is closed source. Se
 ## Install
 
 ```
-curl -fsSL https://raw.githubusercontent.com/gamebyte-ai/ongame-cli/main/install.sh | sh
+curl -fsSL https://cli.ongame.ai/install.sh | sh
 ```
 
 This detects your OS/arch, downloads and checksum-verifies the matching `ongame-cli` binary from
