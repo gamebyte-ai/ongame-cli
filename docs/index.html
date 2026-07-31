@@ -3,443 +3,318 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ongame-cli — install the ongame game-making assistant</title>
-<meta name="description" content="One command installs ongame-cli: a self-updating CLI + Claude Code / Codex plugin for the ongame AI game-making assistant.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2315131c'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23f2a13a'/%3E%3C/svg%3E">
+<title>ongame — describe a game, get a real one</title>
+<meta name="description" content="ongame turns a one-line idea into a playable, deployable game — research, design, code, real art & sound, levels and polish — inside Claude Code, with your approval at every step.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230e0b1a'/%3E%3Ccircle cx='16' cy='16' r='7.5' fill='%23f2a13a'/%3E%3C/svg%3E">
 <style>
   :root {
-    --bg: #15131c;
-    --bg-raised: #1d1a26;
-    --bg-terminal: #0e0c14;
-    --line: #322d40;
-    --line-soft: #262232;
-    --ink: #f3ede2;
-    --ink-dim: #b8afc4;
-    --ink-faint: #7d7590;
-    --amber: #f2a13a;
-    --amber-dim: #c98a38;
-    --mint: #5ee6c5;
-    --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
-    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --bg: #0e0b1a;
+    --bg-2: #141021;
+    --raised: #1b1533;
+    --raised-2: #221b3d;
+    --line: #2c2447;
+    --line-soft: #221c39;
+    --ink: #f4f0ff;
+    --ink-dim: #b9b1d6;
+    --ink-faint: #7d7599;
+    --amber: #f5a733;
+    --amber-soft: #ffc07a;
+    --mint: #52e6c4;
+    --violet: #9a7bff;
+    --sans: "SF Pro Rounded", ui-rounded, "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+    --sans-body: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
   }
 
   * { box-sizing: border-box; }
-  html { color-scheme: dark; }
+  html { color-scheme: dark; scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { animation: none !important; transition: none !important; } }
 
   body {
     margin: 0;
     background:
-      radial-gradient(1200px 600px at 15% -10%, rgba(242,161,58,0.10), transparent 60%),
-      radial-gradient(900px 500px at 100% 0%, rgba(94,230,197,0.06), transparent 55%),
+      radial-gradient(1100px 620px at 12% -8%, rgba(245,167,51,0.14), transparent 58%),
+      radial-gradient(900px 560px at 92% 4%, rgba(154,123,255,0.13), transparent 55%),
+      radial-gradient(700px 500px at 60% 100%, rgba(82,230,196,0.07), transparent 60%),
       var(--bg);
     color: var(--ink);
-    font-family: var(--sans);
+    font-family: var(--sans-body);
     line-height: 1.55;
     -webkit-font-smoothing: antialiased;
   }
 
   a { color: var(--mint); text-decoration: none; }
   a:hover { text-decoration: underline; }
-  a:focus-visible, button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; border-radius: 6px; }
 
-  .wrap { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 24px; }
 
+  /* ── header ── */
   header.top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 22px 0;
-    border-bottom: 1px solid var(--line-soft);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 22px 0; border-bottom: 1px solid var(--line-soft);
   }
-  .brand { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 15px; letter-spacing: 0.02em; }
-  .brand .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 12px 2px rgba(242,161,58,0.55); }
-  .top nav { display: flex; gap: 22px; font-size: 14px; color: var(--ink-dim); }
+  .brand { display: flex; align-items: center; gap: 9px; font-family: var(--sans); font-weight: 700; font-size: 19px; letter-spacing: -0.01em; }
+  .brand .pad { font-size: 20px; filter: saturate(1.1); }
+  .top nav { display: flex; gap: 24px; font-size: 15px; }
   .top nav a { color: var(--ink-dim); }
-  .top nav a:hover { color: var(--ink); }
+  .top nav a:hover { color: var(--ink); text-decoration: none; }
+  .top nav a.cta { color: var(--amber); font-weight: 600; }
 
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    font-family: var(--mono);
-    font-size: 12px;
-    letter-spacing: 0.04em;
-    color: var(--ink-faint);
-    border: 1px solid var(--line);
-    background: var(--bg-raised);
-    border-radius: 999px;
-    padding: 5px 12px;
+  /* ── hero ── */
+  main { padding: 68px 0 30px; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 12.5px; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--ink-faint); border: 1px solid var(--line); background: var(--bg-2);
+    border-radius: 999px; padding: 6px 13px;
   }
-  .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--mint); }
-
-  main { padding: 64px 0 40px; }
+  .eyebrow::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 10px 1px var(--mint); }
 
   h1 {
-    font-family: var(--mono);
-    font-weight: 600;
-    font-size: clamp(30px, 5vw, 46px);
-    line-height: 1.15;
-    letter-spacing: -0.01em;
-    margin: 22px 0 14px;
-    text-wrap: balance;
+    font-family: var(--sans); font-weight: 800;
+    font-size: clamp(34px, 6.2vw, 62px); line-height: 1.03; letter-spacing: -0.025em;
+    margin: 24px 0 18px; text-wrap: balance;
   }
-  h1 .accent { color: var(--amber); }
+  h1 .grad {
+    background: linear-gradient(100deg, var(--amber) 10%, var(--amber-soft) 55%, var(--mint) 120%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
+  }
+  .lede { font-size: 19px; color: var(--ink-dim); max-width: 60ch; margin: 0 0 34px; }
+  .lede strong { color: var(--ink); font-weight: 600; }
 
-  .lede {
-    font-size: 18px;
-    color: var(--ink-dim);
-    max-width: 56ch;
-    margin: 0 0 34px;
+  /* ── install card ── */
+  .install {
+    background: linear-gradient(180deg, var(--raised-2), var(--raised));
+    border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
+    box-shadow: 0 34px 70px -34px rgba(0,0,0,0.7);
   }
+  .install-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); }
+  .install-head .lbl { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); }
+  .install-head .step { margin-left: auto; font-family: var(--mono); font-size: 11.5px; color: var(--amber); letter-spacing: 0.04em; }
+  .install-body { display: flex; align-items: center; gap: 14px; padding: 18px 18px; }
+  .install-body code { font-family: var(--mono); font-size: 15px; color: var(--ink); white-space: pre-wrap; overflow-wrap: break-word; flex: 1; }
+  .install-body code .p { color: var(--mint); }
+  .install-body code .f { color: var(--amber-soft); }
+  .copy {
+    flex: none; font-family: var(--sans); font-weight: 600; font-size: 13px;
+    color: var(--bg); background: var(--amber); border: none; border-radius: 9px; padding: 9px 15px; cursor: pointer;
+    transition: transform .1s ease, background .12s ease;
+  }
+  .copy:hover { background: var(--amber-soft); }
+  .copy:active { transform: translateY(1px); }
+  .copy[data-copied="1"] { background: var(--mint); }
+  .install-then { margin: 14px 2px 0; font-size: 14.5px; color: var(--ink-dim); }
+  .install-then code { font-family: var(--mono); font-size: 13.5px; color: var(--amber-soft); background: var(--bg-2); padding: 2px 7px; border-radius: 6px; }
 
-  .term {
-    background: var(--bg-terminal);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 30px 60px -30px rgba(0,0,0,0.6);
-  }
-  .term-bar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 11px 14px;
-    border-bottom: 1px solid var(--line-soft);
-    background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
-  }
-  .term-bar span { width: 10px; height: 10px; border-radius: 50%; background: #443f52; }
-  .term-bar .label { margin-left: 8px; font-family: var(--mono); font-size: 12px; color: var(--ink-faint); }
-  .term-body {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 20px 18px;
-    font-family: var(--mono);
-    font-size: 14.5px;
-  }
-  .term-body code {
-    color: var(--ink);
-    white-space: pre-wrap;
-    overflow-wrap: break-word;
-  }
-  .term-body code .prompt { color: var(--mint); }
-  .term-body code .flag { color: var(--amber-dim); }
-  .copy-btn {
-    flex: none;
-    font-family: var(--mono);
-    font-size: 12px;
-    letter-spacing: 0.03em;
-    color: var(--ink-dim);
-    background: var(--bg-raised);
-    border: 1px solid var(--line);
-    border-radius: 7px;
-    padding: 7px 11px;
-    cursor: pointer;
-    transition: color .12s ease, border-color .12s ease;
-  }
-  .copy-btn:hover { color: var(--ink); border-color: var(--amber-dim); }
-  .copy-btn[data-copied="1"] { color: var(--mint); border-color: var(--mint); }
-
-  .platforms {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-top: 18px;
-  }
-  .platforms .pill {
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--ink-dim);
-    border: 1px solid var(--line);
-    border-radius: 7px;
-    padding: 5px 10px;
-  }
+  .platforms { display: flex; gap: 9px; flex-wrap: wrap; margin-top: 20px; }
+  .platforms .pill { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); border: 1px solid var(--line); border-radius: 8px; padding: 5px 11px; }
   .platforms .pill.soon { color: var(--ink-faint); border-style: dashed; }
 
-  section { margin-top: 76px; }
-  section h2 {
-    font-family: var(--mono);
-    font-size: 13px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--ink-faint);
-    margin: 0 0 22px;
-  }
+  /* ── section scaffolding ── */
+  section { margin-top: 82px; }
+  .sec-label { font-family: var(--mono); font-size: 12.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 24px; }
 
-  .steps { display: grid; gap: 14px; }
-  .step {
-    display: grid;
-    grid-template-columns: 34px 1fr;
-    gap: 16px;
-    padding: 18px 18px 18px 16px;
-    background: var(--bg-raised);
-    border: 1px solid var(--line-soft);
-    border-radius: 10px;
+  /* ── pipeline ── */
+  .pipe { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .phase {
+    background: var(--raised); border: 1px solid var(--line-soft); border-radius: 12px; padding: 14px 14px 16px;
+    position: relative; overflow: hidden;
   }
-  .step .num {
-    font-family: var(--mono);
-    font-size: 13px;
-    color: var(--amber);
-    border: 1px solid var(--line);
-    border-radius: 7px;
-    width: 30px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .step h3 { margin: 2px 0 6px; font-size: 16px; font-weight: 600; }
-  .step p { margin: 0; color: var(--ink-dim); font-size: 14.5px; }
-  .step pre {
-    margin: 10px 0 0;
-    font-family: var(--mono);
-    font-size: 13px;
-    background: var(--bg-terminal);
-    border: 1px solid var(--line-soft);
-    border-radius: 7px;
-    padding: 10px 12px;
-    overflow-x: auto;
-    color: var(--ink);
-  }
+  .phase::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--amber); opacity: 0.55; }
+  .phase .n { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+  .phase h3 { font-family: var(--sans); font-weight: 700; font-size: 15px; margin: 4px 0 5px; }
+  .phase p { margin: 0; font-size: 13px; color: var(--ink-dim); line-height: 1.45; }
+  .pipe-note { margin-top: 16px; font-size: 14px; color: var(--ink-dim); }
+  .pipe-note strong { color: var(--ink); font-weight: 600; }
 
-  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
-  .card {
-    background: var(--bg-raised);
-    border: 1px solid var(--line-soft);
-    border-radius: 10px;
-    padding: 18px 18px 20px;
-  }
-  .card h3 { font-size: 15px; margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }
-  .card h3 .ic { color: var(--amber); font-family: var(--mono); }
-  .card p { margin: 0; color: var(--ink-dim); font-size: 14px; }
+  /* ── how / value cards ── */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .card { background: var(--raised); border: 1px solid var(--line-soft); border-radius: 13px; padding: 20px 19px 22px; }
+  .card .ic { font-size: 22px; display: block; margin-bottom: 10px; }
+  .card h3 { font-family: var(--sans); font-weight: 700; font-size: 16px; margin: 0 0 8px; }
+  .card p { margin: 0; font-size: 14px; color: var(--ink-dim); }
 
+  /* ── steps ── */
+  .steps { display: grid; gap: 12px; }
+  .stepcard { display: grid; grid-template-columns: 40px 1fr; gap: 16px; align-items: start; background: var(--raised); border: 1px solid var(--line-soft); border-radius: 12px; padding: 18px; }
+  .stepcard .num { font-family: var(--mono); font-size: 15px; color: var(--amber); border: 1px solid var(--line); border-radius: 9px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; }
+  .stepcard h3 { font-family: var(--sans); font-weight: 700; font-size: 16px; margin: 3px 0 6px; }
+  .stepcard p { margin: 0; font-size: 14.5px; color: var(--ink-dim); }
+  .stepcard code { font-family: var(--mono); font-size: 13.5px; color: var(--amber-soft); background: var(--bg-2); padding: 2px 7px; border-radius: 6px; }
+
+  /* ── platform table ── */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line-soft); border-radius: 12px; }
   table.support { width: 100%; border-collapse: collapse; font-size: 14px; }
-  table.support th, table.support td {
-    text-align: left;
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--line-soft);
-  }
+  table.support th, table.support td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); }
+  table.support th:first-child, table.support td:first-child { padding-left: 16px; }
   table.support th { color: var(--ink-faint); font-weight: 500; font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+  table.support tr:last-child td { border-bottom: none; }
   table.support td.ok { color: var(--mint); font-family: var(--mono); }
   table.support td.soon { color: var(--ink-faint); font-family: var(--mono); }
-  .table-wrap { overflow-x: auto; border: 1px solid var(--line-soft); border-radius: 10px; }
-  .table-wrap table { margin: 0; }
-  .table-wrap th:first-child, .table-wrap td:first-child { padding-left: 16px; }
 
-  .closed-note {
-    display: flex;
-    gap: 14px;
-    align-items: flex-start;
-    background: var(--bg-raised);
-    border: 1px solid var(--line-soft);
-    border-radius: 10px;
-    padding: 18px;
-    font-size: 14.5px;
-    color: var(--ink-dim);
-  }
-  .closed-note .ic { font-family: var(--mono); color: var(--amber); flex: none; }
+  /* ── closing CTA ── */
+  .close-cta { margin-top: 82px; text-align: center; background: linear-gradient(180deg, var(--raised-2), var(--raised)); border: 1px solid var(--line); border-radius: 18px; padding: 44px 24px; }
+  .close-cta h2 { font-family: var(--sans); font-weight: 800; font-size: clamp(24px, 4vw, 34px); letter-spacing: -0.02em; margin: 0 0 10px; text-wrap: balance; }
+  .close-cta p { color: var(--ink-dim); margin: 0 0 22px; font-size: 16px; }
+  .btn { display: inline-block; font-family: var(--sans); font-weight: 700; font-size: 15px; color: var(--bg); background: var(--amber); border-radius: 11px; padding: 12px 22px; }
+  .btn:hover { background: var(--amber-soft); text-decoration: none; }
 
-  footer {
-    margin-top: 90px;
-    padding: 26px 0 40px;
-    border-top: 1px solid var(--line-soft);
-    display: flex;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 12px;
-    font-size: 13px;
-    color: var(--ink-faint);
-  }
-  footer nav { display: flex; gap: 18px; }
+  /* ── footer ── */
+  footer { margin-top: 72px; padding: 26px 0 44px; border-top: 1px solid var(--line-soft); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; font-size: 13.5px; color: var(--ink-faint); }
+  footer nav { display: flex; gap: 20px; }
   footer a { color: var(--ink-faint); }
   footer a:hover { color: var(--ink); }
 
   @media (max-width: 560px) {
-    .top nav { display: none; }
-    .term-body { flex-direction: column; }
-    .copy-btn { align-self: flex-end; }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    * { transition: none !important; }
+    .top nav a:not(.cta) { display: none; }
+    .install-body { flex-direction: column; align-items: stretch; }
+    .copy { align-self: flex-end; }
   }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="brand"><span class="dot"></span> ongame-cli</div>
+    <div class="brand"><span class="pad">🎮</span> ongame</div>
     <nav>
-      <a href="#install">Install</a>
-      <a href="#how-it-updates">Updates</a>
-      <a href="#support">Platforms</a>
-      <a href="https://account.ongame.ai">Account</a>
-      <a href="https://github.com/gamebyte-ai/ongame-cli">GitHub</a>
+      <a href="#how">How it works</a>
+      <a href="#pipeline">Pipeline</a>
+      <a href="https://account.ongame.ai" class="cta">Account</a>
     </nav>
   </header>
 
   <main>
-    <span class="badge">closed-source binary · self-updating</span>
-    <h1>Install <span class="accent">ongame</span> with one command.</h1>
+    <span class="eyebrow">AI game-making · in Claude Code</span>
+    <h1>Describe a game.<br><span class="grad">Get a real one.</span></h1>
     <p class="lede">
-      ongame-cli is the CLI and Claude&nbsp;Code / Codex plugin transport for ongame, an AI
-      game-making assistant. One line installs a checksum-verified binary, wires up your agentic
-      tool, and keeps itself current on every launch — no reinstalls, no manual updates.
+      Tell ongame the game you want. It takes your idea through research, design, code, <strong>real
+      generated art &amp; sound</strong>, level tuning, and polish — then deploys it. A guided, approval-gated
+      pipeline that runs right inside Claude&nbsp;Code, not a one-shot prompt.
     </p>
 
-    <div class="term" id="install">
-      <div class="term-bar">
-        <span></span><span></span><span></span>
-        <span class="label">terminal</span>
+    <div class="install" id="install">
+      <div class="install-head">
+        <span class="lbl">get started — one line</span>
+        <span class="step">step 1 / 2</span>
       </div>
-      <div class="term-body">
-        <code id="install-cmd"><span class="prompt">$</span> curl <span class="flag">-fsSL</span> https://raw.githubusercontent.com/gamebyte-ai/ongame-cli/main/install.sh <span class="flag">|</span> sh</code>
-        <button class="copy-btn" id="copy-btn" type="button">copy</button>
+      <div class="install-body">
+        <code id="cmd"><span class="p">$</span> curl <span class="f">-fsSL</span> https://raw.githubusercontent.com/gamebyte-ai/ongame-cli/main/install.sh <span class="f">|</span> sh</code>
+        <button class="copy" id="copy" type="button">Copy</button>
       </div>
     </div>
+    <p class="install-then">
+      Then, in Claude&nbsp;Code, just say <code>/make-game a cozy match-3 with a weather twist</code> — the
+      installer wires up the plugin for you.
+    </p>
 
     <div class="platforms">
-      <span class="pill">macOS (arm64 / x64)</span>
-      <span class="pill">Linux (x64 / arm64)</span>
-      <span class="pill soon">Windows — coming soon</span>
+      <span class="pill">macOS · Apple Silicon &amp; Intel</span>
+      <span class="pill">Linux · x64 &amp; arm64</span>
+      <span class="pill soon">Windows · soon</span>
     </div>
 
-    <section>
-      <h2>What the installer does</h2>
+    <!-- pipeline -->
+    <section id="pipeline">
+      <p class="sec-label">The pipeline — 9 phases, your call at every gate</p>
+      <div class="pipe">
+        <div class="phase"><span class="n">01</span><h3>Research</h3><p>Find the angle worth building, not the obvious clone.</p></div>
+        <div class="phase"><span class="n">02</span><h3>Concept</h3><p>The hook, the core loop, and a visual first look — you approve it.</p></div>
+        <div class="phase"><span class="n">03</span><h3>Design</h3><p>A real game-design doc scoped to what you actually want.</p></div>
+        <div class="phase"><span class="n">04</span><h3>Code</h3><p>A fully-playable build first — mechanic before polish.</p></div>
+        <div class="phase"><span class="n">05</span><h3>Art</h3><p>Consistent, generated sprites, UI and backgrounds — real, not gray-box.</p></div>
+        <div class="phase"><span class="n">06</span><h3>Sound</h3><p>SFX and music wired into the moments that matter.</p></div>
+        <div class="phase"><span class="n">07</span><h3>Levels</h3><p>A difficulty curve tuned for retention, not random.</p></div>
+        <div class="phase"><span class="n">08</span><h3>Polish</h3><p>Juice, menus, transitions — the feel that makes it land.</p></div>
+        <div class="phase"><span class="n">09</span><h3>Deploy</h3><p>Built and shipped — a real URL you can play and share.</p></div>
+      </div>
+      <p class="pipe-note"><strong>You stay in control.</strong> ongame pauses at every gate to show you what it made and get your yes before moving on — and it verifies the game really runs in a browser before ever calling it playable.</p>
+    </section>
+
+    <!-- how it works -->
+    <section id="how">
+      <p class="sec-label">How it works</p>
       <div class="steps">
-        <div class="step">
+        <div class="stepcard">
           <div class="num">1</div>
           <div>
-            <h3>Detects your platform, fetches the right binary</h3>
-            <p>OS/arch detection (including Rosetta on Apple Silicon), downloads the matching
-            release asset, verifies its sha256 against a published checksum, and installs it to
-            <code>~/.ongame/bin</code>.</p>
+            <h3>Install once</h3>
+            <p>The one-liner above installs ongame and registers the Claude&nbsp;Code plugin automatically — nothing to paste. Already in a session? Run <code>/reload-plugins</code>.</p>
           </div>
         </div>
-        <div class="step">
+        <div class="stepcard">
           <div class="num">2</div>
           <div>
-            <h3>Wires up your agentic tool — automatically</h3>
-            <p>Detects Claude&nbsp;Code and registers the plugin for you (marketplace + install, no
-            commands to paste). Detects a Codex CLI install and patches its MCP config the same way.
-            Already in an open Claude&nbsp;Code session? Just run <code>/reload-plugins</code>.</p>
+            <h3>Sign in once</h3>
+            <p>The first cloud feature opens a quick browser sign-in — the assistant walks you through it. After that it's seamless.</p>
           </div>
         </div>
-        <div class="step">
+        <div class="stepcard">
           <div class="num">3</div>
           <div>
-            <h3>Start building</h3>
-            <p>Open a Claude&nbsp;Code (or Codex) session and type your idea:</p>
-            <pre>/make-game a cozy match-3 with a weather twist</pre>
-            <p>The first cloud feature opens a one-time browser sign-in — the agent walks you
-            through it, then takes your concept through research, design, code, real generated
-            art&nbsp;&amp;&nbsp;sound, levels, and polish, with your approval at every gate.</p>
+            <h3>Make games</h3>
+            <p>Say <code>/make-game &lt;your idea&gt;</code> and go. Check your plan and usage anytime with <code>/account</code>.</p>
           </div>
         </div>
       </div>
     </section>
 
-    <section id="how-it-updates">
-      <h2>How updates work</h2>
-      <div class="grid2">
-        <div class="card">
-          <h3><span class="ic">&gt;</span> No manual step, ever</h3>
-          <p>The plugin manifest is a tiny, near-permanent shim. All real version churn lives in
-          the <code>ongame-cli</code> binary itself, which checks for a newer release on every
-          launch.</p>
-        </div>
-        <div class="card">
-          <h3><span class="ic">&gt;</span> Verified before it runs</h3>
-          <p>Every self-update downloads a fresh checksum file and refuses to install anything
-          that doesn't match — a broken download just falls back to the version you already have.</p>
-        </div>
-        <div class="card">
-          <h3><span class="ic">&gt;</span> Never blocks your session</h3>
-          <p>Update checks are time-bounded. Offline, rate-limited, or on a slow network, the
-          existing binary launches immediately — self-update is best-effort, not a gate.</p>
-        </div>
-        <div class="card">
-          <h3><span class="ic">&gt;</span> Takes effect next session</h3>
-          <p>Same as any other Claude&nbsp;Code/Codex config change — a new version is picked up
-          the next time you start a session, not mid-session.</p>
-        </div>
+    <!-- why -->
+    <section>
+      <p class="sec-label">Not just another AI wrapper</p>
+      <div class="cards">
+        <div class="card"><span class="ic">🎨</span><h3>Real assets, one art direction</h3><p>Generated sprites, characters, UI and sound in a single consistent style — wired into the game, not dumped in a folder.</p></div>
+        <div class="card"><span class="ic">🎚️</span><h3>Tuned to keep players</h3><p>Level curves and game-feel built on what actually retains, so the result plays like a game — not a demo.</p></div>
+        <div class="card"><span class="ic">✅</span><h3>Verified, then shipped</h3><p>Every build is checked in a real browser and deployed to a live URL. "Playable" means it actually plays.</p></div>
       </div>
     </section>
 
-    <section id="support">
-      <h2>Platform support</h2>
+    <!-- platforms -->
+    <section id="platforms">
+      <p class="sec-label">Platform support</p>
       <div class="table-wrap">
         <table class="support">
           <thead><tr><th>Platform</th><th>Architecture</th><th>Status</th></tr></thead>
           <tbody>
-            <tr><td>macOS</td><td>arm64 (Apple Silicon)</td><td class="ok">supported</td></tr>
-            <tr><td>macOS</td><td>x64 (Intel)</td><td class="ok">supported</td></tr>
+            <tr><td>macOS</td><td>Apple Silicon (arm64)</td><td class="ok">supported</td></tr>
+            <tr><td>macOS</td><td>Intel (x64)</td><td class="ok">supported</td></tr>
             <tr><td>Linux</td><td>x64</td><td class="ok">supported</td></tr>
             <tr><td>Linux</td><td>arm64</td><td class="ok">supported</td></tr>
-            <tr><td>Windows</td><td>x64</td><td class="soon">planned</td></tr>
+            <tr><td>Windows</td><td>x64</td><td class="soon">coming soon</td></tr>
           </tbody>
         </table>
       </div>
     </section>
 
-    <section>
-      <h2>Source &amp; licensing</h2>
-      <div class="closed-note">
-        <span class="ic">i</span>
-        <p>
-          This repository hosts only the installer, plugin manifest, and launcher — public so they
-          can be inspected and used to install the product. The <code>ongame-cli</code> binary
-          itself and the backend it talks to are closed-source, commercial software. See the
-          <a href="https://github.com/gamebyte-ai/ongame-cli/blob/main/LICENSE">license</a> for
-          exact terms.
-        </p>
-      </div>
-    </section>
+    <div class="close-cta">
+      <h2>Your idea is one line away from a game.</h2>
+      <p>Install ongame, open Claude&nbsp;Code, and describe it.</p>
+      <a href="#install" class="btn">Get started</a>
+    </div>
   </main>
 
   <footer>
-    <span>&copy; 2026 ongame</span>
+    <span>🎮 &copy; 2026 ongame</span>
     <nav>
-      <a href="https://account.ongame.ai">Manage account &amp; plan</a>
-      <a href="https://github.com/gamebyte-ai/ongame-cli">Repository</a>
-      <a href="https://github.com/gamebyte-ai/ongame-cli/releases">Releases</a>
-      <a href="https://github.com/gamebyte-ai/ongame-cli/blob/main/LICENSE">License</a>
+      <a href="https://account.ongame.ai">Account &amp; plan</a>
+      <a href="#how">How it works</a>
     </nav>
   </footer>
 </div>
 
 <script>
 (function () {
-  var btn = document.getElementById('copy-btn');
+  var btn = document.getElementById('copy');
   var cmd = 'curl -fsSL https://raw.githubusercontent.com/gamebyte-ai/ongame-cli/main/install.sh | sh';
   btn.addEventListener('click', function () {
-    var reset = function () {
-      btn.textContent = 'copy';
-      btn.removeAttribute('data-copied');
-    };
-    var mark = function () {
-      btn.textContent = 'copied';
-      btn.setAttribute('data-copied', '1');
-      setTimeout(reset, 1600);
-    };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(cmd).then(mark, function () {
-        fallbackCopy();
-      });
-    } else {
-      fallbackCopy();
-    }
-    function fallbackCopy() {
-      var ta = document.createElement('textarea');
-      ta.value = cmd;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      try { document.execCommand('copy'); mark(); } catch (e) { /* clipboard unavailable, no-op */ }
+    var mark = function () { btn.textContent = 'Copied'; btn.setAttribute('data-copied', '1'); setTimeout(function () { btn.textContent = 'Copy'; btn.removeAttribute('data-copied'); }, 1600); };
+    var fallback = function () {
+      var ta = document.createElement('textarea'); ta.value = cmd; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); mark(); } catch (e) { /* clipboard unavailable */ }
       document.body.removeChild(ta);
-    }
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(cmd).then(mark, fallback); } else { fallback(); }
   });
 })();
 </script>
