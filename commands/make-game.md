@@ -61,7 +61,7 @@ Nothing to compile or install — the plugin's MCP server is the self-updating `
 checks, both usually instant:
 
 1. **No `ongame` tools at all in the tool list** → the CLI binary isn't installed on this machine. Tell the
-   user to run the one-line installer (`curl -fsSL https://raw.githubusercontent.com/gamebyte-ai/ongame-cli/main/install.sh | sh`)
+   user to run the one-line installer (`curl -fsSL https://cli.ongame.ai/install.sh | sh`)
    and start a new session. Do not attempt to install it yourself from here.
 2. **Local tools present but cloud tools missing** → not signed in (or the backend was briefly unreachable at
    startup). Use the **`login` tool** per the Sign-in block above — the cloud tools appear in-session, then

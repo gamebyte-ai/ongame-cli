@@ -1,0 +1,23 @@
+name: install-sync
+# docs/install.sh is served at https://cli.ongame.ai/install.sh (GitHub Pages roots at docs/), while
+# https://raw.githubusercontent.com/.../main/install.sh serves the repo-root install.sh. Both must be
+# byte-identical so the two install URLs never drift. This guard fails the PR if they diverge.
+on:
+  pull_request:
+    paths: ['install.sh', 'docs/install.sh']
+  push:
+    branches: [main]
+    paths: ['install.sh', 'docs/install.sh']
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: docs/install.sh must equal install.sh
+        run: |
+          if ! diff -q install.sh docs/install.sh >/dev/null; then
+            echo "::error::docs/install.sh has drifted from install.sh — run: cp install.sh docs/install.sh"
+            diff install.sh docs/install.sh || true
+            exit 1
+          fi
+          echo "install.sh and docs/install.sh are identical."
