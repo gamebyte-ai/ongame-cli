@@ -1,0 +1,24 @@
+name: line-endings
+# Regression guard for the CRLF install bug (PR #9): a tracked file committed with CRLF breaks the shell shebangs
+# (`bad interpreter: /bin/sh^M`, `env: bash\r`) and silently kills the plugin on install. `.gitattributes` prevents
+# this on checkout AND normalizes on `git add`; this check fails the build if a CRLF blob ever lands anyway (e.g. the
+# .gitattributes is removed, or a file is force-added with --no-normalize).
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  no-crlf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: No CRLF in tracked files
+        run: |
+          bad=$(git ls-files --eol | awk '$1 ~ /crlf|mixed/ { print $NF }')
+          if [ -n "$bad" ]; then
+            echo "::error::CRLF/mixed line endings in tracked files (breaks script shebangs on install):"
+            echo "$bad"
+            echo "Fix: ensure .gitattributes has 'eol=lf', then: git add --renormalize . && git commit"
+            exit 1
+          fi
+          echo "All tracked files are LF. ✓"
