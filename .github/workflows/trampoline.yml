@@ -106,11 +106,13 @@ jobs:
           # 2. Stand up a fake ongame-cli.exe that echoes its argv and exits with a chosen code.
           Copy-Item (Get-Command node).Source (Join-Path $bin 'ongame-cli.exe')
           $script = Join-Path $bin 'fake.js'
-          Set-Content -Path $script -Encoding utf8 -Value @'
-const args = process.argv.slice(2);
-process.stdout.write('ARGV:' + JSON.stringify(args));
-process.exit(args.includes('--code42') ? 42 : 0);
-'@
+          # A string ARRAY rather than a PowerShell here-string: a here-string's closing delimiter
+          # must sit at column 0, which would terminate this indented YAML block scalar early.
+          Set-Content -Path $script -Encoding utf8 -Value @(
+            'const args = process.argv.slice(2);',
+            'process.stdout.write("ARGV:" + JSON.stringify(args));',
+            'process.exit(args.includes("--code42") ? 42 : 0);'
+          )
           # node.exe as the "CLI": the trampoline passes our arguments through verbatim, so the
           # script path arrives as its first argument.
           $r = Run @("`"$script`"", 'hook', 'phase jury', '--code42')
@@ -120,11 +122,11 @@ process.exit(args.includes('--code42') ? 42 : 0);
           Write-Host "argv passthrough (incl. an argument with a space) and exit-code passthrough OK"
 
           # 3. stdio is bidirectional and byte-clean through the trampoline (the MCP requirement).
-          Set-Content -Path $script -Encoding utf8 -Value @'
-let buf = '';
-process.stdin.on('data', d => { buf += d; });
-process.stdin.on('end', () => { process.stdout.write('ECHO:' + buf.trim()); });
-'@
+          Set-Content -Path $script -Encoding utf8 -Value @(
+            'let buf = "";',
+            'process.stdin.on("data", d => { buf += d; });',
+            'process.stdin.on("end", () => { process.stdout.write("ECHO:" + buf.trim()); });'
+          )
           $out = 'hello-through-the-trampoline' | & $exe "`"$script`""
           if ("$out" -notmatch 'ECHO:hello-through-the-trampoline') { throw "stdio did not round-trip through the trampoline: '$out'" }
           Write-Host "stdio round-trips cleanly through the trampoline"

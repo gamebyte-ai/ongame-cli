@@ -40,12 +40,24 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-/* Writes to stderr without pulling in the C runtime's stdio. */
+/*
+ * Writes to stderr without pulling in the C runtime's stdio.
+ *
+ * WriteFile + an explicit UTF-8 conversion, NOT WriteConsoleW: WriteConsoleW only works when the
+ * handle is a real console. Claude Code hands this process a PIPE for stderr, which is precisely
+ * the case that matters — with WriteConsoleW every diagnostic here would silently vanish exactly
+ * when someone needed to read it. WriteFile works for a console, a pipe and a redirected file
+ * alike.
+ */
 static void err(const wchar_t *s) {
+    char utf8[1024];
     DWORD written;
+    int n;
     HANDLE h = GetStdHandle(STD_ERROR_HANDLE);
     if (h == INVALID_HANDLE_VALUE || h == NULL) return;
-    WriteConsoleW(h, s, lstrlenW(s), &written, NULL);
+    n = WideCharToMultiByte(CP_UTF8, 0, s, -1, utf8, (int)sizeof(utf8), NULL, NULL);
+    if (n <= 1) return; /* n includes the NUL terminator */
+    WriteFile(h, utf8, (DWORD)(n - 1), &written, NULL);
 }
 
 /*
