@@ -9,9 +9,18 @@
 # do for other entries in that same file — which is why install.sh's PATH patch (step 3) must run
 # before this section, not after.
 #
-# install.sh appends this file's contents into `~/.codex/config.toml` verbatim (idempotent — it
-# checks for the `[mcp_servers.ongame]` header first and never duplicates it). If you're wiring this
-# up by hand instead of via install.sh, copy the block below into your own config.toml.
+# THIS FILE IS DOCUMENTATION, NOT THE IMPLEMENTATION. install.sh used to fetch it over the network and
+# append it; the block is now emitted by `ongame-cli install` (cli/src/install.ts, `codexSnippet`) so that
+# install.sh and install.ps1 share one implementation instead of two that drift. Keep the two in step if you
+# change either — cli/test/install.test.ts asserts this exact shape.
+#
+# One deliberate per-platform difference the binary applies: on WINDOWS `command` is the ABSOLUTE path to
+# `ongame-cli.exe` (e.g. `C:\\Users\\you\\.ongame\\bin\\ongame-cli.exe`, backslashes escaped for TOML),
+# because Codex resolves `command` with a plain PATH lookup that does not apply PATHEXT — a bare
+# `ongame-cli` finds nothing there. POSIX keeps the bare name below.
+#
+# If you're wiring this up by hand, copy the block below into your own config.toml (idempotently — the
+# installer checks for the `[mcp_servers.ongame]` header first and never duplicates it).
 
 [mcp_servers.ongame]
 command = "ongame-cli"

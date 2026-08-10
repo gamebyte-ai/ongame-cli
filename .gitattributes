@@ -1,8 +1,8 @@
 # Force LF on checkout for every text file, regardless of the user's core.autocrlf. Without this, a user whose git has
 # core.autocrlf=true gets CRLF on `claude plugin install`, which breaks the shell-script shebangs and silently kills the
-# plugin: bin/ongame-launcher → "bad interpreter: /bin/sh^M" (the MCP server never starts, no ongame tools appear) and
-# hooks/browser-check.sh → "env: bash\r: No such file or directory" (SessionStart hook error). .gitattributes overrides
-# core.autocrlf, so these are ALWAYS checked out with LF.
+# plugin: bin/ongame-launcher → "bad interpreter: /bin/sh^M" — the MCP server never starts and no ongame tools appear.
+# (The `.sh` hooks that hit the same bug are gone; they live in the binary now. install.sh and test/launcher_test.sh
+# still depend on this.) .gitattributes overrides core.autocrlf, so these are ALWAYS checked out with LF.
 * text=auto eol=lf
 
 # Explicit intent for the executables (the extensionless launcher isn't matched by *.sh).
