@@ -93,10 +93,18 @@ jobs:
           New-Item -ItemType Directory -Force -Path $bin | Out-Null
           $env:ONGAME_INSTALL_DIR = $root
 
-          function Run($arguments) {
+          # One launch mechanism for every case. Start-Process with explicit redirects, rather than
+          # PowerShell's native-command call operator + pipeline: the latter applies its own
+          # argument and stream handling to native executables, which is a property of PowerShell,
+          # not of the trampoline, and would make the results meaningless either way they came out.
+          function Run($arguments, $stdinFile) {
             $o = Join-Path $env:RUNNER_TEMP 'o.txt'; $e = Join-Path $env:RUNNER_TEMP 'e.txt'
-            $p = Start-Process -FilePath $exe -ArgumentList $arguments -NoNewWindow -Wait -PassThru `
-                   -RedirectStandardOutput $o -RedirectStandardError $e
+            $common = @{
+              FilePath = $exe; ArgumentList = $arguments; NoNewWindow = $true; Wait = $true; PassThru = $true
+              RedirectStandardOutput = $o; RedirectStandardError = $e
+            }
+            if ($stdinFile) { $common['RedirectStandardInput'] = $stdinFile }
+            $p = Start-Process @common
             return @{ code = $p.ExitCode; out = (Get-Content $o -Raw); err = (Get-Content $e -Raw) }
           }
 
@@ -135,8 +143,10 @@ jobs:
             'process.stdin.on("data", d => { buf += d; });',
             'process.stdin.on("end", () => { process.stdout.write("ECHO:" + buf.trim()); });'
           )
-          $out = 'hello-through-the-trampoline' | & $exe "`"$script`""
-          if ("$out" -notmatch 'ECHO:hello-through-the-trampoline') { throw "stdio did not round-trip through the trampoline: '$out'" }
+          $stdin = Join-Path $env:RUNNER_TEMP 'stdin.txt'
+          Set-Content -Path $stdin -Value 'hello-through-the-trampoline' -NoNewline -Encoding ascii
+          $r = Run @("`"$script`"") $stdin
+          if ($r.out -notmatch 'ECHO:hello-through-the-trampoline') { throw "stdio did not round-trip through the trampoline: out='$($r.out)' err='$($r.err)'" }
           Write-Host "stdio round-trips cleanly through the trampoline"
 
           # 4. Kill-on-close: killing the trampoline must not orphan the child (Windows does not
