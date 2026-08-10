@@ -8,4 +8,12 @@
 # Explicit intent for the executables (the extensionless launcher isn't matched by *.sh).
 *.sh            text eol=lf
 *.js            text eol=lf
+*.ps1           text eol=lf
 bin/ongame-launcher text eol=lf
+bin/win/*.c     text eol=lf
+
+# The Windows trampoline is a committed PE binary. `* text=auto` above would only need ONE
+# autodetect miss to "normalize" line endings inside it and corrupt the executable — which would
+# fail as a broken plugin on Windows, not as a visible diff. Marked binary explicitly so git never
+# touches its bytes and never tries to diff it.
+bin/ongame-launcher.exe binary
