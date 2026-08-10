@@ -71,7 +71,26 @@ $BinPath     = Join-Path $BinDir $BinName
 # Everything this script says goes to the information stream / stderr, never stdout — same rule install.sh
 # follows, and the same reason: a piped stdout must stay clean.
 function Write-Step([string]$Message) { [Console]::Error.WriteLine($Message) }
-function Stop-Install([string]$Message) { throw $Message }
+
+# Failure reporting, kept in the same shape as install.sh's `error()`: `error: <what went wrong>` on stderr,
+# then stop.
+#
+# ADVERSARIAL-REVIEW FIX — do NOT let the actionable text be the exception message. PowerShell renders an
+# uncaught `throw` as a full error record: the "Exception: <path>:74" header, the source line of THIS helper,
+# a `~~~~` squiggle under `throw $Message`, and the message itself word-wrapped into a `|`-gutter with ANSI
+# colour codes. MEASURED on a real run: the multi-line antivirus/checksum guidance came out shredded across
+# six gutter lines pointing at a script the user never opened (`irm | iex` — there is no file to look at).
+# Printing the message plainly FIRST and throwing a short marker second keeps the record to one line and puts
+# the part the user must act on in front of them, exactly as the POSIX installer does.
+#
+# Still `throw`, deliberately NOT `exit 1`: the documented front door is `irm ... | iex` typed at a prompt,
+# where `exit` terminates the USER'S SHELL — taking the error message off the screen with it. A terminating
+# error stops the install, leaves the window open, and still gives `pwsh -File` / `pwsh -Command` callers
+# (and therefore CI) a non-zero exit code.
+function Stop-Install([string]$Message) {
+  [Console]::Error.WriteLine("error: $Message")
+  throw 'ongame-cli was not installed (see the error above).'
+}
 
 # ---------------------------------------------------------------------------
 # Native-command invocation, made safe under $ErrorActionPreference='Stop'.
