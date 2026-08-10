@@ -46,7 +46,11 @@ jobs:
           cl /nologo /O1 /GS- /W4 /WX bin\win\ongame-launcher.c /Fe:build\ongame-launcher.exe /Fo:build\ /link /Brepro /SUBSYSTEM:CONSOLE
           if ($LASTEXITCODE -ne 0) { throw "compile failed" }
           Write-Host "rebuilt size: $((Get-Item build\ongame-launcher.exe).Length) bytes"
-          Write-Host "committed size: $((Get-Item bin\ongame-launcher.exe).Length) bytes"
+          if (Test-Path bin\ongame-launcher.exe) {
+            Write-Host "committed size: $((Get-Item bin\ongame-launcher.exe).Length) bytes"
+          } else {
+            Write-Host "committed size: (not committed yet — bootstrap run)"
+          }
 
       # Also how the committed binary is produced in the first place: download this artifact and
       # commit it as bin/ongame-launcher.exe. Nobody ever builds it on a personal machine.
