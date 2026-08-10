@@ -119,7 +119,11 @@ jobs:
           )
           # node.exe as the "CLI": the trampoline passes our arguments through verbatim, so the
           # script path arrives as its first argument.
-          $r = Run @("`"$script`"", 'hook', 'phase jury', '--code42')
+          # Each element must carry its OWN quotes: PowerShell's -ArgumentList joins the array with
+          # spaces and does NOT quote for you, so an unquoted 'phase jury' would be split into two
+          # arguments before the trampoline ever saw it — a harness artifact that would look exactly
+          # like a passthrough bug. Quoting here is what actually exercises verbatim passthrough.
+          $r = Run @("`"$script`"", 'hook', '"phase jury"', '--code42')
           if ($r.code -ne 42) { throw "exit-code passthrough: expected 42, got $($r.code)" }
           if ($r.out -notmatch '"hook"') { throw "argv passthrough lost 'hook': $($r.out)" }
           if ($r.out -notmatch 'phase jury') { throw "argv passthrough mangled a quoted argument containing a space: $($r.out)" }
