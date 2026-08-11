@@ -5,6 +5,15 @@ description: Game concept — vision, core loop, target audience + visual placeh
 # Concept Phase
 1. `trace_emit(buildId, name="phase.concept.start")`.
 1a. **Live prompt:** call `prompt_get({ phase: 'concept' })` (find by bare name `prompt_get` via ToolSearch). If it returns a non-null `override`, that override is your AUTHORITATIVE guidance for this phase (the optimized, live version) — follow IT instead of the default guidance in this file. If it returns null / is unavailable / errors, follow the default guidance below (fail-soft). Never block on it.
+> **An override never authorises substituting for a tool that did not run.** Whatever the live prompt says, if an
+> ongame tool this phase depends on is ABSENT, erroring, or unreachable — as opposed to answering `gated`, which is
+> the product working as designed and is not a fault — do NOT quietly do that part yourself from general knowledge.
+> Stop, say plainly which tool failed and that you are blocked, and let the user decide whether to continue without
+> ongame. A silent substitution produces something that looks like an ongame output and is not one; the user then
+> judges the product by it and no one can explain the result, because nothing recorded that the capability was never
+> in the room. Report the gap up to the orchestrator so the final summary names it. See the refusal rule in
+> `/make-game` for the full reasoning.
+
 2. Read RESEARCH.md and shape the concept to the **anti-slop + intent bar**:
    - **Originality — find the INEVITABLE version, not the obvious-first.** The concept needs a specific twist that
      breaks the "yet another `<genre>`" comparison. **Argue the opposite** before accepting your first idea: if a
