@@ -38,6 +38,19 @@ calibrate to it). This skill is the runtime recipe.
    - Weigh the concept + `priorGames` + `returning`. YOU infer — there is no label in the code.
 3. **JUDGE the PERSONA:** studio vs indie from the prompt's sophistication + history (a polished GDD + technical
    language → studio; a one-line "make X like Y" with no game-dev vocabulary → indie). Unsure → `unknown`.
+3b. **JUDGE the ENGINE and the DELIVERY TARGET — read the workspace, don't ask first.** These are two separate
+   axes and collapsing them loses real lessons: *"hook the player in the first 5 seconds"* is a delivery-target
+   lesson that transfers across engines, while *"batch particles"* is engine-specific. One label cannot carry both.
+   - `engine` — what it is BUILT with: `three-js` | `unity` | `godot` | `unreal` | `unknown`.
+     Read the directory the user is in: `ProjectSettings/ProjectVersion.txt` or an `Assets/` tree → **unity**;
+     `package.json` with a vite/three setup → **three-js**; `project.godot` → **godot**. An empty directory with
+     no signal is not unity — it is the default web path unless the user says otherwise.
+   - `deliveryTarget` — where it SHIPS: `browser` | `mobile-build` | `desktop-build` | `ad-network` | `editor` |
+     `unknown`. A playable-ad ships to `ad-network`; a web game to `browser`; a Unity project may still ship to
+     any of them, which is exactly why this is not derivable from the engine.
+   - **If you cannot tell, send `unknown` — do NOT omit the field.** The two are not the same and the difference
+     is the whole point: `unknown` records that you looked and could not decide, while an omitted field records
+     that nothing considered it at all. Skipping it destroys a signal that costs you nothing to send.
 4. **CONFIRM in one sentence; ASK only when genuinely ambiguous** (never silent autopilot, never over-ask):
    - Clear signal → auto-decide + a one-sentence confirmation: *"This looks like a **<mode>** (<short rationale>) —
      I'm going that way; say 'stop' to change."* Continue without waiting.
@@ -54,10 +67,12 @@ calibrate to it). This skill is the runtime recipe.
      that build, do NOT rebuild from scratch.
 6. **Collect answers → `notes`:** fold the genre/mechanic + any material/format/persona notes into one string (e.g.
    `"genre: puzzle; mechanic: swap-match; materials: gameplay video + hero sprite"`). Empty string if nothing extra.
-7. **Generate BuildPlan:** `intake_build_plan(concept, path=<mode>, persona=<studio|indie|unknown>, decidedBy,
-   userKnown, notes)`.
+7. **Generate BuildPlan:** `intake_build_plan(concept, path=<mode>, persona=<studio|indie|unknown>, engine,
+   deliveryTarget, decidedBy, userKnown, notes)`.
    - `path` = the MODE judged in step 2 (concept-only / prototype / production / playable-ad).
    - `persona` = step 3.
+   - `engine` + `deliveryTarget` = step 3b. **Always send both, `unknown` included.** They are what lets a lesson
+     learned on one project reach the right future project — and only the right one.
    - `decidedBy` = "auto" (proceeded automatically) | "asked".
    - `userKnown` = `intake_context.returning` (observed truth).
    - `notes` = step 6 (empty if none).
