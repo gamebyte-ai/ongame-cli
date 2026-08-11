@@ -5,6 +5,34 @@ All notable changes to `ongame-cli` are documented here. Distribution/plugin-man
 they're released together conceptually, even though the CLI binary's own build lives in a
 separate private repo.
 
+## [1.5.0] - Concept-driven assets
+
+The `concept` phase already produced a menu mock and in-game frames with the HUD, and the `assets`
+phase never looked at them — it built its manifest from the design doc and the approved pictures went
+unused. The gap is now closed by asking.
+
+- **New:** before building the asset manifest, the assets phase finds the concept visuals (reading
+  `docs/CONCEPT.md`, checking the files exist and are real generations rather than gray-box
+  placeholders) and asks whether the game should look like them. Plain language, in the agent's own
+  voice — never pipeline vocabulary.
+- Partial answers are honoured per group: "keep this menu" sources the menu from the concept and the
+  rest from the doc. An unanswered question is unresolved, not consent — asked once more, then it
+  falls back to the doc and says so, that being the cheaper and reversible path.
+- When a group is sourced from the concept, the visual is copied into `assets/reference/`, uploaded
+  via `forge_reference` / `reference_upload`, and the returned `assetId` becomes that group's `editOf`
+  anchor — so "it will look like the concept" is wired, not just promised. Sprite sheets are carved
+  out explicitly (they generate from the prompt and ignore `editOf`) and reported as style-matched by
+  description.
+- Backed by the gated `pattern:concept-deconstruction` knowledge: types and a placement table rather
+  than one asset per visible object, and a shared frame extracted once instead of baked into every
+  item.
+
+## [1.4.x] - Not documented at the time
+
+Shipped without changelog entries; recorded here for continuity: phase-skill sync from source (1.4.0),
+the build-record instructions customers had never received (1.4.1), and the telemetry level-event
+correction (1.4.2).
+
 ## [1.3.0] - Windows x64 support
 
 First-class Windows support. Nothing in the payload is platform-specific any more: one manifest, one
@@ -49,7 +77,8 @@ launcher name, one implementation of every piece of logic.
   shebangs and silently killed the plugin:
   - `bin/ongame-launcher` → `bad interpreter: /bin/sh^M` — the MCP server never started, so **none of the
     ongame tools appeared** in the session.
-  - `hooks/browser-check.sh` → `env: bash: No such file or directory` — the SessionStart hook error.
+  - `hooks/browser-check.sh` → `env: bash
+: No such file or directory` — the SessionStart hook error.
   Repo blobs were already LF; the corruption happened at checkout on the user's machine. `.gitattributes`
   overrides `core.autocrlf`, fixing it at the source for every install. Version bumped so the version-gated
   auto-update pulls the fix into a fresh, LF-clean plugin cache.
