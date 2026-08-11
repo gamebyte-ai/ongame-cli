@@ -1,0 +1,163 @@
+name: trampoline
+
+# `bin/ongame-launcher.exe` is a committed binary — the one file in this repo whose contents cannot
+# be reviewed by reading the diff. This job removes the trust problem: on any change under bin/ it
+# rebuilds the trampoline from `bin/win/ongame-launcher.c` on a real Windows runner and proves the
+# committed artifact still corresponds to that source, then exercises it end to end.
+#
+# Byte-equality is asserted when the toolchain reproduces it (MSVC /Brepro), and the job says so in
+# its output either way; when it does not, the FUNCTIONAL assertions below are what carry the
+# guarantee, and they are the properties that actually matter: correct install-path resolution,
+# argv passthrough, exit-code passthrough, stderr-only diagnostics, and no orphaned child.
+
+on:
+  pull_request:
+    paths: ['bin/**', '.github/workflows/trampoline.yml']
+  push:
+    branches: [main]
+    paths: ['bin/**', '.github/workflows/trampoline.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-verify:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # MSVC is preinstalled on windows-latest but `cl.exe` is not on PATH until the developer
+      # environment is entered. vswhere + the DevShell module are both shipped with Visual Studio, so
+      # this needs no third-party action.
+      - name: build the trampoline from source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          if (-not $vs) { throw "no Visual Studio installation found on this runner" }
+          Import-Module (Join-Path $vs 'Common7\Tools\Microsoft.VisualStudio.DevShell.dll')
+          Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
+
+          New-Item -ItemType Directory -Force -Path build | Out-Null
+          # /O1 = optimize for size (this is a trampoline, not a hot path); /GS- drops the stack
+          # cookie runtime dependency; /Brepro asks the linker for a deterministic, timestamp-free
+          # PE so a rebuild can be compared byte for byte.
+          cl /nologo /O1 /GS- /W4 /WX bin\win\ongame-launcher.c /Fe:build\ongame-launcher.exe /Fo:build\ /link /Brepro /SUBSYSTEM:CONSOLE
+          if ($LASTEXITCODE -ne 0) { throw "compile failed" }
+          Write-Host "rebuilt size: $((Get-Item build\ongame-launcher.exe).Length) bytes"
+          if (Test-Path bin\ongame-launcher.exe) {
+            Write-Host "committed size: $((Get-Item bin\ongame-launcher.exe).Length) bytes"
+          } else {
+            Write-Host "committed size: (not committed yet — bootstrap run)"
+          }
+
+      # Also how the committed binary is produced in the first place: download this artifact and
+      # commit it as bin/ongame-launcher.exe. Nobody ever builds it on a personal machine.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ongame-launcher-exe
+          path: build/ongame-launcher.exe
+          if-no-files-found: error
+
+      - name: committed artifact corresponds to its source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not (Test-Path bin\ongame-launcher.exe)) {
+            Write-Host "::warning::bin/ongame-launcher.exe is not committed yet (bootstrap run) — download the ongame-launcher-exe artifact from this run and commit it."
+            exit 0
+          }
+          $a = (Get-FileHash bin\ongame-launcher.exe   -Algorithm SHA256).Hash
+          $b = (Get-FileHash build\ongame-launcher.exe -Algorithm SHA256).Hash
+          if ($a -eq $b) {
+            Write-Host "BYTE-IDENTICAL to a fresh build of bin/win/ongame-launcher.c ($a)"
+          } else {
+            # Not automatically a failure: /Brepro is best-effort and a toolchain update changes
+            # codegen. The functional assertions in the next step are then the real guarantee, so
+            # this is reported loudly rather than silently tolerated.
+            Write-Host "::warning::the committed .exe is not byte-identical to a fresh build (committed=$a rebuilt=$b) — relying on the functional assertions below. If bin/win/ongame-launcher.c changed, recommit the rebuilt binary."
+          }
+
+      - name: functional contract
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Test what actually ships — the committed binary — falling back to the fresh build only
+          # on the bootstrap run, before that binary exists.
+          $exe = if (Test-Path bin\ongame-launcher.exe) { (Resolve-Path bin\ongame-launcher.exe).Path }
+                 else { (Resolve-Path build\ongame-launcher.exe).Path }
+          Write-Host "exercising: $exe"
+          $root = Join-Path $env:RUNNER_TEMP 'tramp test'   # deliberate space in the path
+          $bin  = Join-Path $root 'bin'
+          New-Item -ItemType Directory -Force -Path $bin | Out-Null
+          $env:ONGAME_INSTALL_DIR = $root
+
+          # One launch mechanism for every case. Start-Process with explicit redirects, rather than
+          # PowerShell's native-command call operator + pipeline: the latter applies its own
+          # argument and stream handling to native executables, which is a property of PowerShell,
+          # not of the trampoline, and would make the results meaningless either way they came out.
+          function Run($arguments, $stdinFile) {
+            $o = Join-Path $env:RUNNER_TEMP 'o.txt'; $e = Join-Path $env:RUNNER_TEMP 'e.txt'
+            $common = @{
+              FilePath = $exe; ArgumentList = $arguments; NoNewWindow = $true; Wait = $true; PassThru = $true
+              RedirectStandardOutput = $o; RedirectStandardError = $e
+            }
+            if ($stdinFile) { $common['RedirectStandardInput'] = $stdinFile }
+            $p = Start-Process @common
+            return @{ code = $p.ExitCode; out = (Get-Content $o -Raw); err = (Get-Content $e -Raw) }
+          }
+
+          # 1. No installed CLI -> exit 1, hint on STDERR, nothing on stdout.
+          $r = Run @('mcp')
+          if ($r.code -ne 1) { throw "missing-binary case: expected exit 1, got $($r.code)" }
+          if ($r.out) { throw "missing-binary case: wrote to stdout ('$($r.out)') — stdout is the JSON-RPC channel" }
+          if ($r.err -notmatch 'not installed') { throw "missing-binary case: no install hint on stderr (got '$($r.err)')" }
+          Write-Host "missing binary -> exit 1, hint on stderr, stdout clean"
+
+          # 2. Stand up a fake ongame-cli.exe that echoes its argv and exits with a chosen code.
+          Copy-Item (Get-Command node).Source (Join-Path $bin 'ongame-cli.exe')
+          $script = Join-Path $bin 'fake.js'
+          # A string ARRAY rather than a PowerShell here-string: a here-string's closing delimiter
+          # must sit at column 0, which would terminate this indented YAML block scalar early.
+          Set-Content -Path $script -Encoding utf8 -Value @(
+            'const args = process.argv.slice(2);',
+            'process.stdout.write("ARGV:" + JSON.stringify(args));',
+            'process.exit(args.includes("--code42") ? 42 : 0);'
+          )
+          # node.exe as the "CLI": the trampoline passes our arguments through verbatim, so the
+          # script path arrives as its first argument.
+          # Each element must carry its OWN quotes: PowerShell's -ArgumentList joins the array with
+          # spaces and does NOT quote for you, so an unquoted 'phase jury' would be split into two
+          # arguments before the trampoline ever saw it — a harness artifact that would look exactly
+          # like a passthrough bug. Quoting here is what actually exercises verbatim passthrough.
+          $r = Run @("`"$script`"", 'hook', '"phase jury"', '--code42')
+          if ($r.code -ne 42) { throw "exit-code passthrough: expected 42, got $($r.code)" }
+          if ($r.out -notmatch '"hook"') { throw "argv passthrough lost 'hook': $($r.out)" }
+          if ($r.out -notmatch 'phase jury') { throw "argv passthrough mangled a quoted argument containing a space: $($r.out)" }
+          Write-Host "argv passthrough (incl. an argument with a space) and exit-code passthrough OK"
+
+          # 3. stdio is bidirectional and byte-clean through the trampoline (the MCP requirement).
+          Set-Content -Path $script -Encoding utf8 -Value @(
+            'let buf = "";',
+            'process.stdin.on("data", d => { buf += d; });',
+            'process.stdin.on("end", () => { process.stdout.write("ECHO:" + buf.trim()); });'
+          )
+          $stdin = Join-Path $env:RUNNER_TEMP 'stdin.txt'
+          Set-Content -Path $stdin -Value 'hello-through-the-trampoline' -NoNewline -Encoding ascii
+          $r = Run @("`"$script`"") $stdin
+          if ($r.out -notmatch 'ECHO:hello-through-the-trampoline') { throw "stdio did not round-trip through the trampoline: out='$($r.out)' err='$($r.err)'" }
+          Write-Host "stdio round-trips cleanly through the trampoline"
+
+          # 4. Kill-on-close: killing the trampoline must not orphan the child (Windows does not
+          #    cascade termination — this is what the Job Object is for).
+          Set-Content -Path $script -Encoding utf8 -Value 'setTimeout(() => {}, 60000);'
+          $p = Start-Process -FilePath $exe -ArgumentList @("`"$script`"") -PassThru -WindowStyle Hidden
+          Start-Sleep -Seconds 2
+          $before = @(Get-CimInstance Win32_Process -Filter "Name='ongame-cli.exe'").Count
+          if ($before -lt 1) { throw "orphan test: the child never started" }
+          Stop-Process -Id $p.Id -Force
+          Start-Sleep -Seconds 3
+          $after = @(Get-CimInstance Win32_Process -Filter "Name='ongame-cli.exe'").Count
+          if ($after -ne 0) { throw "orphan test: $after ongame-cli.exe still running after the trampoline was killed — the Job Object is not doing its job" }
+          Write-Host "killing the trampoline takes the child with it (no orphans)"

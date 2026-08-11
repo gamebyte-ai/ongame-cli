@@ -1,13 +1,14 @@
 name: install-sync
-# docs/install.sh is served at https://cli.ongame.ai/install.sh (GitHub Pages roots at docs/), while
-# https://raw.githubusercontent.com/.../main/install.sh serves the repo-root install.sh. Both must be
-# byte-identical so the two install URLs never drift. This guard fails the PR if they diverge.
+# docs/install.sh and docs/install.ps1 are served at https://cli.ongame.ai/install.{sh,ps1} (GitHub Pages
+# roots at docs/), while https://raw.githubusercontent.com/.../main/install.{sh,ps1} serves the repo-root
+# copies. Each pair must be byte-identical so the two install URLs never drift. This guard fails the PR if
+# either diverges.
 on:
   pull_request:
-    paths: ['install.sh', 'docs/install.sh']
+    paths: ['install.sh', 'docs/install.sh', 'install.ps1', 'docs/install.ps1']
   push:
     branches: [main]
-    paths: ['install.sh', 'docs/install.sh']
+    paths: ['install.sh', 'docs/install.sh', 'install.ps1', 'docs/install.ps1']
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -21,3 +22,11 @@ jobs:
             exit 1
           fi
           echo "install.sh and docs/install.sh are identical."
+      - name: docs/install.ps1 must equal install.ps1
+        run: |
+          if ! diff -q install.ps1 docs/install.ps1 >/dev/null; then
+            echo "::error::docs/install.ps1 has drifted from install.ps1 — run: cp install.ps1 docs/install.ps1"
+            diff install.ps1 docs/install.ps1 || true
+            exit 1
+          fi
+          echo "install.ps1 and docs/install.ps1 are identical."

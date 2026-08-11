@@ -100,9 +100,17 @@
     border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
     box-shadow: 0 34px 70px -34px rgba(0,0,0,0.7);
   }
-  .install-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); }
+  .install-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); flex-wrap: wrap; }
   .install-head .lbl { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); }
   .install-head .step { margin-left: auto; font-family: var(--mono); font-size: 11.5px; color: var(--amber); letter-spacing: 0.04em; }
+  .os-tabs { display: flex; gap: 4px; margin-left: 10px; }
+  .os-tab {
+    font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint); background: transparent;
+    border: 1px solid var(--line-soft); border-radius: 7px; padding: 4px 9px; cursor: pointer;
+    transition: color .12s ease, border-color .12s ease, background .12s ease;
+  }
+  .os-tab:hover { color: var(--ink-dim); }
+  .os-tab[aria-selected="true"] { color: var(--ink); border-color: var(--line); background: var(--bg-2); }
   .install-body { display: flex; align-items: center; gap: 14px; padding: 18px 18px; }
   .install-body code { font-family: var(--mono); font-size: 15px; color: var(--ink); white-space: pre-wrap; overflow-wrap: break-word; flex: 1; }
   .install-body code .p { color: var(--teal); }
@@ -120,7 +128,6 @@
 
   .platforms { display: flex; gap: 9px; flex-wrap: wrap; margin-top: 20px; }
   .platforms .pill { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); border: 1px solid var(--line); border-radius: 8px; padding: 5px 11px; }
-  .platforms .pill.soon { color: var(--ink-faint); border-style: dashed; }
 
   /* ── section scaffolding ── */
   section { margin-top: 82px; }
@@ -162,7 +169,7 @@
   table.support th { color: var(--ink-faint); font-weight: 500; font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
   table.support tr:last-child td { border-bottom: none; }
   table.support td.ok { color: var(--teal); font-family: var(--mono); }
-  table.support td.soon { color: var(--ink-faint); font-family: var(--mono); }
+  table.support td.note { color: var(--ink-faint); font-size: 13px; }
 
   /* ── closing CTA ── */
   .close-cta { margin-top: 82px; text-align: center; background: linear-gradient(180deg, var(--raised-2), var(--raised)); border: 1px solid var(--line); border-radius: 18px; padding: 44px 24px; }
@@ -207,22 +214,33 @@
     <div class="install" id="install">
       <div class="install-head">
         <span class="lbl">get started — one line</span>
+        <div class="os-tabs" role="tablist" aria-label="Choose your platform">
+          <button class="os-tab" type="button" role="tab" id="tab-unix" aria-selected="true" aria-controls="cmd-unix" data-os="unix">macOS · Linux</button>
+          <button class="os-tab" type="button" role="tab" id="tab-win" aria-selected="false" aria-controls="cmd-win" data-os="win">Windows</button>
+        </div>
         <span class="step">step 1 / 2</span>
       </div>
+      <!-- Both commands live in the markup and one is hidden, rather than being written in by script: a
+           visitor with JS disabled still gets a real, copyable command instead of an empty box. The exact
+           text to copy is on data-copy so the shell prompt glyph is never part of it. -->
       <div class="install-body">
-        <code id="cmd"><span class="p">$</span> curl <span class="f">-fsSL</span> https://cli.ongame.ai/install.sh <span class="f">|</span> sh</code>
+        <code class="cmd" id="cmd-unix" role="tabpanel" aria-labelledby="tab-unix"
+              data-copy="curl -fsSL https://cli.ongame.ai/install.sh | sh"><span class="p">$</span> curl <span class="f">-fsSL</span> https://cli.ongame.ai/install.sh <span class="f">|</span> sh</code>
+        <code class="cmd" id="cmd-win" role="tabpanel" aria-labelledby="tab-win" hidden
+              data-copy="irm https://cli.ongame.ai/install.ps1 | iex"><span class="p">&gt;</span> irm https://cli.ongame.ai/install.ps1 <span class="f">|</span> iex</code>
         <button class="copy" id="copy" type="button">Copy</button>
       </div>
     </div>
     <p class="install-then">
-      Then, in Claude&nbsp;Code, just say <code>/make-game a cozy match-3 with a weather twist</code> — the
-      installer wires up the plugin for you.
+      <span class="os-note" data-os="win" hidden>Run it in PowerShell — Windows&nbsp;PowerShell&nbsp;5.1 (already on
+      every Windows machine) or PowerShell&nbsp;7. </span>Then, in Claude&nbsp;Code, just say
+      <code>/make-game a cozy match-3 with a weather twist</code> — the installer wires up the plugin for you.
     </p>
 
     <div class="platforms">
       <span class="pill">macOS · Apple Silicon &amp; Intel</span>
       <span class="pill">Linux · x64 &amp; arm64</span>
-      <span class="pill soon">Windows · soon</span>
+      <span class="pill">Windows · x64</span>
     </div>
 
     <!-- pipeline -->
@@ -285,13 +303,14 @@
       <p class="sec-label">Platform support</p>
       <div class="table-wrap">
         <table class="support">
-          <thead><tr><th>Platform</th><th>Architecture</th><th>Status</th></tr></thead>
+          <thead><tr><th>Platform</th><th>Architecture</th><th>Status</th><th>Notes</th></tr></thead>
           <tbody>
-            <tr><td>macOS</td><td>Apple Silicon (arm64)</td><td class="ok">supported</td></tr>
-            <tr><td>macOS</td><td>Intel (x64)</td><td class="ok">supported</td></tr>
-            <tr><td>Linux</td><td>x64</td><td class="ok">supported</td></tr>
-            <tr><td>Linux</td><td>arm64</td><td class="ok">supported</td></tr>
-            <tr><td>Windows</td><td>x64</td><td class="soon">coming soon</td></tr>
+            <tr><td>macOS</td><td>Apple Silicon (arm64)</td><td class="ok">supported</td><td class="note"></td></tr>
+            <tr><td>macOS</td><td>Intel (x64)</td><td class="ok">supported</td><td class="note"></td></tr>
+            <tr><td>Linux</td><td>x64</td><td class="ok">supported</td><td class="note"></td></tr>
+            <tr><td>Linux</td><td>arm64</td><td class="ok">supported</td><td class="note"></td></tr>
+            <tr><td>Windows</td><td>x64</td><td class="ok">supported</td><td class="note">Windows 10/11. Git for Windows is not required.</td></tr>
+            <tr><td>Windows</td><td>arm64</td><td class="ok">supported</td><td class="note">Runs the x64 build under Windows' built-in emulation.</td></tr>
           </tbody>
         </table>
       </div>
@@ -316,8 +335,28 @@
 <script>
 (function () {
   var btn = document.getElementById('copy');
-  var cmd = 'curl -fsSL https://cli.ongame.ai/install.sh | sh';
+  var tabs = [].slice.call(document.querySelectorAll('.os-tab'));
+  var panels = { unix: document.getElementById('cmd-unix'), win: document.getElementById('cmd-win') };
+  var notes = [].slice.call(document.querySelectorAll('.os-note'));
+
+  function select(os) {
+    Object.keys(panels).forEach(function (key) { panels[key].hidden = (key !== os); });
+    tabs.forEach(function (t) { t.setAttribute('aria-selected', String(t.getAttribute('data-os') === os)); });
+    notes.forEach(function (n) { n.hidden = (n.getAttribute('data-os') !== os); });
+  }
+  tabs.forEach(function (t) { t.addEventListener('click', function () { select(t.getAttribute('data-os')); }); });
+
+  // Auto-select for Windows visitors. userAgentData is the modern, un-frozen signal; the userAgent string is
+  // the fallback for everything that predates it (and Win64 covers the 32-bit-browser-on-64-bit-Windows case).
+  var uaPlatform = (navigator.userAgentData && navigator.userAgentData.platform) || '';
+  if (/^Windows$/i.test(uaPlatform) || (!uaPlatform && /Windows|Win32|Win64|WOW64/i.test(navigator.userAgent || ''))) {
+    select('win');
+  }
+
   btn.addEventListener('click', function () {
+    // Always the VISIBLE command — the tab the visitor is actually looking at, never a hardcoded copy of it.
+    var visible = panels.win.hidden ? panels.unix : panels.win;
+    var cmd = visible.getAttribute('data-copy');
     var mark = function () { btn.textContent = 'Copied'; btn.setAttribute('data-copied', '1'); setTimeout(function () { btn.textContent = 'Copy'; btn.removeAttribute('data-copied'); }, 1600); };
     var fallback = function () {
       var ta = document.createElement('textarea'); ta.value = cmd; ta.style.position = 'fixed'; ta.style.opacity = '0';

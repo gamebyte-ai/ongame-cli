@@ -1,240 +1,54 @@
 #!/bin/sh
 #
-# ongame-launcher — the ONLY file Claude Code's plugin.json ever points at, and (by design) the
-# only file in this repo meant to almost never change again. All real version churn — new tools,
-# bugfixes, the moat proxy, everything — lives in `~/.ongame/bin/ongame-cli`, a separate compiled
-# binary this script downloads, verifies, and execs into. That split is what makes "no manual
-# `/plugin marketplace update`, ever" true: Claude Code only re-reads plugin.json on session start,
-# so plugin.json itself must basically never need a bump; the actual CLI can update on every launch.
+# ongame-launcher — the POSIX twin of `bin/ongame-launcher.exe` (a small C trampoline), and the ONLY file Claude
+# Code's plugin.json ever points at. One command string serves every platform: the manifest names
+# `${CLAUDE_PLUGIN_ROOT}/bin/ongame-launcher`, and on Windows an extensionless spawn path resolves to its `.exe`
+# sibling (MEASURED under both Node's spawn and cross-spawn, even with this sh script sitting right beside it).
 #
-# Job, in order, per the plan's Repo-topology section:
-#   1. If `~/.ongame/bin/ongame-cli` does not exist at all, this is a fresh machine that never ran
-#      install.sh — print the exact install command and exit non-zero. We do NOT bootstrap a first
-#      install from here (that stays install.sh's job, which also wires PATH/shell-rc/other agentic
-#      tools) — this file only maintains an install that already exists.
-#   2. Otherwise, best-effort check GitHub Releases for a newer tag, download + sha256-verify +
-#      atomically swap if so. ANY failure in this step (offline, rate-limited, corrupt download,
-#      checksum mismatch) is swallowed to stderr — it must never block startup on the existing,
-#      already-working binary. Every network call is individually bounded via curl's own --max-time,
-#      so there's no unified-timeout wrapper to build here (unlike the previous Node.js version,
-#      which needed a Promise.race since Node has no per-call cutoff as simple as a curl flag) — and
-#      critically, no dependency on `timeout`/`gtimeout`, which is NOT guaranteed present on stock
-#      macOS (BSD userland ships neither; verified empirically against a real fresh-install test).
-#   3. exec into the (possibly just-updated) real CLI with `mcp` + any passthrough argv. POSIX sh's
-#      `exec` is a TRUE process-image replacement — stdio and the pid carry over for free, so the
-#      JSON-RPC stdio protocol passes through transparently and Claude Code sees no difference from
-#      talking to the real binary directly. (The previous Node.js version had no such primitive and
-#      had to spawn a child + manually forward signals/exit code — a real simplification here, not
-#      just a language swap.)
+# This file is a TRAMPOLINE and nothing else. All real version churn — new tools, bugfixes, the moat proxy, and
+# as of the Windows work SELF-UPDATE ITSELF — lives in `${ONGAME_INSTALL_DIR:-$HOME/.ongame}/bin/ongame-cli`, the
+# compiled binary this script execs into. That split is what makes "no manual `/plugin marketplace update`, ever"
+# true: Claude Code only re-reads plugin.json on session start, so plugin.json (and this file) must basically
+# never need a bump, while the actual CLI can update on every launch.
 #
-# Rewritten from Node.js to POSIX sh (2026-07) specifically to drop the one accidental dependency
-# this file had on a system-wide `node` binary — verified via a bare-PATH sandbox test that stock
-# macOS does NOT guarantee `node` on PATH, while `/bin/sh` + `curl` are always present (install.sh
-# already banks on exactly this assumption). Node/npm is still a real, structural dependency
-# elsewhere in the product (e.g. `preview_start` shells out to `npm run dev` for a generated game's
-# dev server) — this file only removes the ACCIDENTAL, avoidable Node dependency at the one place
-# Claude Code invokes directly before anything else has a chance to run. Windows is unaffected by
-# this change either way: it has no compiled `ongame-cli` binary and no install path yet (explicit
-# fast-follow — see the plan's Repo-topology section) — it will need its own launcher artifact
-# (likely a small .exe or .ps1/.cmd shim) whenever that day comes, regardless of what this file is.
+# Job, in order:
+#   1. If the binary does not exist, this is a fresh machine that never ran install.sh — print the exact install
+#      command and exit non-zero. We do NOT bootstrap a first install from here (that stays install.sh's job,
+#      which also wires PATH/shell-rc/other agentic tools).
+#   2. exec into it. POSIX sh's `exec` is a TRUE process-image replacement — stdio and the pid carry over for
+#      free, so the JSON-RPC stdio protocol passes through transparently and Claude Code sees no difference from
+#      talking to the real binary directly.
 #
-# Deliberately dependency-free beyond curl + POSIX-standard utilities (sh, sed, grep, awk, uname,
-# mktemp, mv, chmod) — no npm install step, no lockfile, no node_modules to go stale.
+# WHY SELF-UPDATE IS NO LONGER HERE (it was, until the Windows x64 work): the Windows twin is a ~10KB C
+# trampoline with no curl, no sh and no sha256, and Claude Code does not even register the Bash tool on a Windows
+# box without Git for Windows — so keeping the updater in shell would have meant writing it a SECOND time in C or
+# PowerShell and maintaining two implementations of the one operation that can brick a user's install. It now
+# lives in `cli/src/updater.ts`, compiled into the binary that already ships to every platform, and runs at the
+# top of `ongame-cli mcp` (the cold-start path only). Every hard-won lesson from the sh version — the separate
+# metadata/asset timeouts, URL construction instead of parsing the `assets` array, basename-matched checksums,
+# the CHECKED chmod, swallowing every failure to stderr — was carried over verbatim and is now covered by real
+# unit tests in `cli/test/updater.test.ts` instead of a bash harness.
 #
-# Testability: the two endpoint roots below default to the real GitHub hosts and are NOT meant to
-# be overridden in production — they exist so a test harness can point this script at a local mock
-# server instead of live GitHub for deterministic failure-path testing (network error, malformed
-# JSON, checksum mismatch), without touching production behavior at all.
+# Deliberately dependency-free: sh and nothing else. No curl, no node, no npm install, no lockfile — verified
+# against a bare-PATH sandbox, since stock macOS guarantees `/bin/sh` and very little else.
 
 set -u
 
-if [ -z "${HOME:-}" ]; then
-  printf '[ongame-launcher] HOME is not set — cannot locate ~/.ongame. This is unusual; check how this process was spawned.\n' >&2
-  exit 1
-fi
-
-REPO="gamebyte-ai/ongame-cli"
-API_ROOT="${ONGAME_LAUNCHER_API_ROOT:-https://api.github.com}"
-DOWNLOAD_ROOT="${ONGAME_LAUNCHER_DOWNLOAD_ROOT:-https://github.com}"
-API="${API_ROOT}/repos/${REPO}/releases/latest"
+INSTALL_DIR="${ONGAME_INSTALL_DIR:-${HOME:-}/.ongame}"
+BIN_PATH="${INSTALL_DIR}/bin/ongame-cli"
 INSTALL_SH_URL="https://cli.ongame.ai/install.sh"
 
-ONGAME_HOME="${HOME}/.ongame"
-BIN_DIR="${ONGAME_HOME}/bin"
-BIN_PATH="${BIN_DIR}/ongame-cli"
-VERSION_FILE="${BIN_DIR}/.ongame-cli.version"
-
-# Seconds, not ms (curl's --max-time is seconds-granularity) — small metadata fetch vs. the much
-# larger binary+checksums download get separate, deliberately generous bounds. The previous Node
-# version used a single 3000ms cap for EVERY network call, including the ~60-100MB binary download
-# itself — that demanded ~33MB/s sustained throughput to ever succeed, which real-world connections
-# routinely don't hit, so self-update would silently keep losing to "download failed" and falling
-# back on plenty of ordinary networks even though nothing was actually wrong. Kept here as a
-# deliberate fix-while-porting, not silent scope creep — called out explicitly in the PR.
-RELEASE_FETCH_TIMEOUT=3
-ASSET_FETCH_TIMEOUT=10
-
-log() {
-  # stdout is the JSON-RPC channel once we exec into the real CLI — everything from THIS script,
-  # before that handoff, must go to stderr so it can never be mistaken for a protocol frame.
-  printf '[ongame-launcher] %s\n' "$*" >&2
-}
-
-# ---------------------------------------------------------------------------
-# Step 1: the one hard-fail case. Everything after this point degrades gracefully and always falls
-# through to Step 3.
-# ---------------------------------------------------------------------------
-if [ ! -x "$BIN_PATH" ]; then
-  log "ongame-cli is not installed."
-  log "Run this to install it:  curl -fsSL ${INSTALL_SH_URL} | sh"
+# stdout is the JSON-RPC channel once we exec into the real CLI — everything from THIS script must go to stderr
+# so it can never be mistaken for a protocol frame.
+if [ -z "${ONGAME_INSTALL_DIR:-}" ] && [ -z "${HOME:-}" ]; then
+  printf '[ongame-launcher] neither ONGAME_INSTALL_DIR nor HOME is set — cannot locate ~/.ongame. This is unusual; check how this process was spawned.\n' >&2
   exit 1
 fi
 
-# ---------------------------------------------------------------------------
-# Step 2: best-effort self-update. Mirrors install.sh's own asset-naming, URL-construction, and
-# checksum-verification logic (the same two lessons learned there — GitHub's release JSON is fully
-# minified so field extraction can't assume whitespace, and release-asset URLs follow a documented,
-# stable convention so there's no need to parse the `assets` array out of that JSON at all) rather
-# than re-deriving either from scratch.
-# ---------------------------------------------------------------------------
-self_update() {
-  # Sweep any stale `.update-*` temp directories left behind by a PREVIOUS invocation that was
-  # hard-killed (SIGKILL, OOM-kill, host teardown) between mktemp and this function's own cleanup —
-  # a signal-safe cleanup mechanism (trap) can't run under those termination modes, so a leftover
-  # directory (each holding a full ~60-100MB downloaded binary) would otherwise persist forever with
-  # no other code path ever revisiting it. Cheap (a directory listing + rm), so it runs on every
-  # launch regardless of whether an update is even needed this time.
-  for d in "${BIN_DIR}"/.update-*; do
-    [ -d "$d" ] || continue
-    rm -rf "$d"
-  done
+if [ ! -x "$BIN_PATH" ]; then
+  printf '[ongame-launcher] ongame-cli is not installed.\n' >&2
+  printf '[ongame-launcher] Run this to install it:  curl -fsSL %s | sh\n' "$INSTALL_SH_URL" >&2
+  exit 1
+fi
 
-  os_raw=$(uname -s)
-  arch_raw=$(uname -m)
-
-  case "$os_raw" in
-    Darwin) asset_os=macos ;;
-    Linux)  asset_os=linux ;;
-    *) log "unrecognized platform ${os_raw} — skipping self-update check."; return 0 ;;
-  esac
-  case "$arch_raw" in
-    arm64|aarch64) asset_arch=arm64 ;;
-    x86_64|amd64)  asset_arch=x64 ;;
-    *) log "unrecognized architecture ${arch_raw} — skipping self-update check."; return 0 ;;
-  esac
-  asset_name="ongame-cli-${asset_os}-${asset_arch}"
-
-  command -v curl >/dev/null 2>&1 || { log "curl not found on PATH — skipping self-update check."; return 0; }
-
-  release_json=$(curl -fsSL --max-time "$RELEASE_FETCH_TIMEOUT" -H "user-agent: ongame-launcher" "$API" 2>/dev/null) || {
-    log "could not check for updates (network error) — continuing with the installed binary."
-    return 0
-  }
-
-  tag_name=$(printf '%s' "$release_json" | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -n1 | sed -E 's/.*:[[:space:]]*"([^"]*)"/\1/')
-  if [ -z "$tag_name" ]; then
-    log "malformed release metadata from GitHub (no tag_name) — skipping self-update check."
-    return 0
-  fi
-
-  current_version=""
-  if [ -f "$VERSION_FILE" ]; then
-    current_version=$(cat "$VERSION_FILE" 2>/dev/null) || current_version=""
-  fi
-  if [ "$current_version" = "$tag_name" ]; then
-    return 0
-  fi
-
-  bin_url="${DOWNLOAD_ROOT}/${REPO}/releases/download/${tag_name}/${asset_name}"
-  checksums_url="${DOWNLOAD_ROOT}/${REPO}/releases/download/${tag_name}/checksums.txt"
-
-  # Temp dir INSIDE BIN_DIR (not system /tmp) — same filesystem as BIN_PATH, so the final `mv` below
-  # is a true atomic rename() rather than a cross-filesystem copy+unlink that could leave a torn
-  # file behind if interrupted mid-swap.
-  tmp_dir=$(mktemp -d "${BIN_DIR}/.update-XXXXXX" 2>/dev/null) || {
-    log "could not create a temp directory for the update — continuing with the installed binary."
-    return 0
-  }
-
-  # Download the binary + checksums.txt in parallel (background + wait) — mirrors the previous
-  # version's Promise.all, so a slow/stalled connection costs at most ASSET_FETCH_TIMEOUT once, not
-  # once per file.
-  ( curl -fsSL --max-time "$ASSET_FETCH_TIMEOUT" -o "${tmp_dir}/bin" "$bin_url" 2>/dev/null ) &
-  bin_pid=$!
-  ( curl -fsSL --max-time "$ASSET_FETCH_TIMEOUT" -o "${tmp_dir}/checksums.txt" "$checksums_url" 2>/dev/null ) &
-  cks_pid=$!
-
-  bin_status=0
-  wait "$bin_pid" 2>/dev/null || bin_status=$?
-  cks_status=0
-  wait "$cks_pid" 2>/dev/null || cks_status=$?
-
-  if [ "$bin_status" != "0" ] || [ "$cks_status" != "0" ] || [ ! -s "${tmp_dir}/bin" ] || [ ! -s "${tmp_dir}/checksums.txt" ]; then
-    log "download failed for release ${tag_name} — continuing with the installed binary."
-    rm -rf "$tmp_dir"
-    return 0
-  fi
-
-  expected=$(awk -v want="$asset_name" '
-    { n = split($2, parts, "/"); base = parts[n]; sub(/^\*/, "", base); if (base == want) { print $1; exit } }
-  ' "${tmp_dir}/checksums.txt")
-  if [ -z "$expected" ]; then
-    log "release ${tag_name} checksums.txt has no entry for ${asset_name} — skipping."
-    rm -rf "$tmp_dir"
-    return 0
-  fi
-
-  if command -v sha256sum >/dev/null 2>&1; then
-    actual=$(sha256sum "${tmp_dir}/bin" | awk '{print $1}')
-  elif command -v shasum >/dev/null 2>&1; then
-    actual=$(shasum -a 256 "${tmp_dir}/bin" | awk '{print $1}')
-  else
-    log "neither sha256sum nor shasum is available — skipping self-update verification."
-    rm -rf "$tmp_dir"
-    return 0
-  fi
-
-  if [ "$expected" != "$actual" ]; then
-    log "checksum verification failed for ${tag_name} (expected ${expected}, got ${actual}) — refusing to install, continuing with the current binary."
-    rm -rf "$tmp_dir"
-    return 0
-  fi
-
-  # Atomic swap: chmod +x, then rename over BIN_PATH. Safe even if another ongame-cli process
-  # currently has BIN_PATH open/running — POSIX rename() leaves existing open file descriptors
-  # pointing at the old inode, so an in-flight process is unaffected; only new opens see the swap.
-  # chmod's exit status IS checked (unlike a bare `chmod +x` before this fix) — an unchecked failure
-  # here would let `mv` proceed anyway and overwrite a good, working, executable BIN_PATH with a
-  # non-executable one, breaking the CLI until the user re-runs install.sh by hand.
-  if ! chmod +x "${tmp_dir}/bin"; then
-    log "could not make the downloaded binary executable — refusing to install, continuing with the current binary."
-    rm -rf "$tmp_dir"
-    return 0
-  fi
-  if mv "${tmp_dir}/bin" "$BIN_PATH" 2>/dev/null; then
-    printf '%s' "$tag_name" > "$VERSION_FILE"
-    log "updated ongame-cli ${current_version:-"(unknown)"} -> ${tag_name}."
-  else
-    log "could not install the downloaded update — continuing with the current binary."
-  fi
-  rm -rf "$tmp_dir"
-  return 0
-}
-
-# Defensive, not a full guarantee: a shell defers a pending TERM/INT until it regains control from
-# whatever foreground command it's blocked on (each self_update() network call is already bounded by
-# its own curl --max-time, so it was never going to hang indefinitely either way) — so this trap's
-# real effect is narrower than "cancels self_update on demand": it only pre-empts the small windows
-# of self_update()'s own shell-side logic (the temp-dir sweep, uname/case checks) that run BETWEEN
-# blocking network calls, turning what would otherwise be an unconditional kill into a clean exec.
-# Costs nothing to have even where it can't help. (SIGKILL still can't be trapped — nothing to do
-# about that case.)
-trap 'exec "$BIN_PATH" "$@"' TERM INT
-
-self_update
-
-# ---------------------------------------------------------------------------
-# Step 3: exec into the real CLI. Nothing left for this script to do afterward — the process image
-# is replaced outright.
-# ---------------------------------------------------------------------------
 exec "$BIN_PATH" "$@"

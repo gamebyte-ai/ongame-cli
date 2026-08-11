@@ -12,24 +12,32 @@ statusline** — it wraps and delegates to it, and restores it exactly on `off`.
 **If `$ARGUMENTS` is empty:** briefly explain the two options and ask which they want (`on` or `off`) via
 one `AskUserQuestion`. Do not run anything until they choose.
 
-**If `on`:** run this with Bash (the toggle safely edits `~/.claude/settings.json`, backs it up, saves the
-user's original statusline to delegate to, and points at a stable wrapper path):
+Both actions are subcommands of the installed `ongame-cli` binary — no `jq`, no script to copy, nothing to
+`chmod`. Use the path for the user's platform:
 
-```
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/ongame-statusline-toggle.sh" on "${CLAUDE_PLUGIN_ROOT}"
-```
+| platform | command for `on` | command for `off` |
+| --- | --- | --- |
+| macOS / Linux | `~/.ongame/bin/ongame-cli statusline install` | `~/.ongame/bin/ongame-cli statusline uninstall` |
+| Windows | `"%USERPROFILE%\.ongame\bin\ongame-cli.exe" statusline install` | `"%USERPROFILE%\.ongame\bin\ongame-cli.exe" statusline uninstall` |
 
-Then tell the user, in one line: it's on, it shows only during a build, their own statusline is preserved,
-and they can turn it off anytime with `/ongame-statusline off`. **The change takes effect on the next
-statusline refresh / next session** (like any Claude Code settings change).
+(If the user set `ONGAME_INSTALL_DIR` at install time, the binary lives under that directory's `bin/`
+instead.)
 
-**If `off`:** run
+Run it with Bash. **If the Bash tool is not available** — that is the normal state on Windows without Git
+for Windows — do not try to work around it: print the one-line command above and ask the user to run it in
+their terminal, then confirm what it printed.
 
-```
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/ongame-statusline-toggle.sh" off
-```
+The command safely edits `~/.claude/settings.json`: it takes a timestamped backup, saves the user's current
+`statusLine.command` verbatim so the new one can delegate to it, points `statusLine.command` at the absolute
+path of the installed binary (forward slashes, so the same string works under both Git Bash and PowerShell —
+statusline is the one Claude Code surface that is always shell-executed), and preserves every other key.
+`uninstall` restores their original command exactly, or removes the key if they had none. Both are
+idempotent, and `install` doubles as a refresh if they changed their statusline while ours was on.
 
-and confirm their original statusline is restored.
+After `on`, tell the user in one line: it's on, it shows only during a build, their own statusline is
+preserved, and they can turn it off anytime with `/ongame-statusline off`. **The change takes effect on the
+next statusline refresh / next session** (like any Claude Code settings change).
 
-Relay the script's own output honestly (it reports success or an error such as missing `jq`). This is a
-cosmetic, fully-reversible convenience — never block anything on it.
+Relay the command's own output honestly (it reports success, and warns if the install path contains a space
+— which the statusline can't survive under PowerShell). This is a cosmetic, fully-reversible convenience —
+never block anything on it.

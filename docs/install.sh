@@ -8,10 +8,11 @@
 #      latest GitHub Release, verify sha256, install to ~/.ongame/bin/, chmod +x.
 #   2. Add ~/.ongame/bin to PATH by patching whichever shell rc file exists (idempotent — checks for
 #      a marker before appending, so re-running this script is always safe).
-#   3. Detect `claude` on PATH: if found, print the exact in-session `/plugin marketplace add` +
-#      `/plugin install` commands (NOT run automatically — see the note below on why).
-#   4. Detect `~/.codex/`: if found, patch `~/.codex/config.toml`'s `[mcp_servers.ongame]` section
-#      (append-only, checks for the section header first so re-running never duplicates it).
+#   3. Hand off to `ongame-cli install` — the freshly verified binary does the rest of the wiring
+#      (Claude Code plugin registration, Codex `[mcp_servers.ongame]`, the version file), because
+#      install.ps1 must do exactly the same thing and one implementation cannot drift from itself.
+#
+# Windows has its own installer: `irm https://cli.ongame.ai/install.ps1 | iex`.
 #
 # Structural pattern (fail loudly, one-line progress messages, HTTPS-only) follows the
 # rustup/bun install.sh convention — `set -eu` (POSIX sh, not bash: no `pipefail`, so pipelines
@@ -20,8 +21,17 @@
 set -eu
 
 REPO="gamebyte-ai/ongame-cli"
-GITHUB="https://github.com"
-API="https://api.github.com/repos/${REPO}/releases/latest"
+# TEST-ONLY SEAMS. Identical in name and meaning to the ones cli/src/updater.ts already honours, so the whole
+# download path — release lookup, asset URL construction, checksum verification — can be exercised end to end
+# against a local mock server in CI instead of being the one production path nothing ever tests. Production never
+# sets them; unset, these are exactly the literals they always were.
+#
+# NOT a weakening of the trust chain: the sha256 check below is unconditional and is performed against
+# checksums.txt fetched from the SAME root as the binary, so a redirected root must still produce an internally
+# consistent pair — the seam moves the whole chain, it cannot skip a link. And anyone who can set env vars on
+# this shell can already prepend to PATH, which is strictly more powerful than this.
+GITHUB="${ONGAME_LAUNCHER_DOWNLOAD_ROOT:-https://github.com}"
+API="${ONGAME_LAUNCHER_API_ROOT:-https://api.github.com}/repos/${REPO}/releases/latest"
 INSTALL_DIR="${ONGAME_INSTALL_DIR:-$HOME/.ongame}"
 BIN_DIR="${INSTALL_DIR}/bin"
 BIN_NAME="ongame-cli"
@@ -34,11 +44,13 @@ command -v curl >/dev/null 2>&1 || error "curl is required to install ongame-cli
 # ---------------------------------------------------------------------------
 # 1. OS/arch detection → this repo's release-asset naming convention.
 #
-# VERIFIED (not guessed): the private repo's `cli/package.json` build scripts + `cli/BUILD.md`
-# already produce four real binaries named `ongame-cli-macos-arm64`, `ongame-cli-macos-x64`,
-# `ongame-cli-linux-x64`, `ongame-cli-linux-arm64` — note the OS segment is "macos", NOT "darwin",
-# even though `uname -s` reports "Darwin". $OS below stays "darwin" (used for the Rosetta check,
-# which cares about the actual platform) — a separate $ASSET_OS is what feeds ASSET_NAME.
+# VERIFIED (not guessed) against `cli/package.json`'s build scripts + `.github/workflows/release-cli.yml`'s
+# publish list: the release carries FIVE binaries — `ongame-cli-macos-arm64`, `ongame-cli-macos-x64`,
+# `ongame-cli-linux-x64`, `ongame-cli-linux-arm64` and `ongame-cli-windows-x64.exe`. Only the first four are
+# reachable from this script (the Windows one is served by install.ps1, which is what the unsupported-OS
+# branch below points at) — note the OS segment is "macos", NOT "darwin", even though `uname -s` reports
+# "Darwin". $OS below stays "darwin" (used for the Rosetta check, which cares about the actual platform) —
+# a separate $ASSET_OS is what feeds ASSET_NAME.
 # ---------------------------------------------------------------------------
 os_raw=$(uname -s)
 arch_raw=$(uname -m)
@@ -46,7 +58,12 @@ arch_raw=$(uname -m)
 case "$os_raw" in
   Darwin) OS=darwin; ASSET_OS=macos ;;
   Linux)  OS=linux;  ASSET_OS=linux ;;
-  *) error "unsupported OS: $os_raw (ongame-cli v1 supports macOS and Linux; Windows is a fast-follow — see the plan's Repo-topology section)" ;;
+  # Windows is supported now, just not by THIS script — it lands here from Git Bash/MSYS, where `uname -s`
+  # reports MINGW64_NT-*. PowerShell is the right host there (it is present on every Windows install, unlike
+  # Git Bash), so point at install.ps1 rather than dead-ending.
+  MINGW*|MSYS*|CYGWIN*|Windows_NT)
+    error "this script is for macOS and Linux. On Windows, run this in PowerShell instead:  irm https://cli.ongame.ai/install.ps1 | iex" ;;
+  *) error "unsupported OS: $os_raw (ongame-cli supports macOS, Linux and Windows; on Windows run in PowerShell:  irm https://cli.ongame.ai/install.ps1 | iex)" ;;
 esac
 
 case "$arch_raw" in
@@ -112,12 +129,14 @@ curl -fsSL -o "${tmp_dir}/${ASSET_NAME}" "$bin_url" || error "download failed: $
 curl -fsSL -o "${tmp_dir}/checksums.txt" "$checksums_url" || error "download failed: ${checksums_url}"
 
 info "Verifying checksum..."
-# Match on BASENAME, not exact suffix: cli/package.json's local `checksums` script
-# (`shasum -a 256 dist-bin/ongame-cli-* > dist-bin/checksums.txt`, run from the `cli/` root) embeds a
-# `dist-bin/` prefix on every recorded filename. If the not-yet-built release workflow
-# (release-cli.yml) reuses that script as-is instead of `cd`-ing into `dist-bin/` first, the
-# published checksums.txt would carry the same prefix — awk splitting on "/" and comparing only the
-# last path segment means this still verifies correctly either way.
+# Match on BASENAME, not exact suffix. VERIFIED by running the real thing: cli/package.json's `checksums`
+# script is `cd dist-bin && shasum -a 256 ongame-cli-* > checksums.txt`, and release-cli.yml runs exactly
+# that script — because it `cd`s into dist-bin first, the published checksums.txt records BARE basenames
+# with no `dist-bin/` prefix. (An earlier version of this comment claimed the opposite; it described a
+# variant of the script that no longer exists.) The awk below splits on "/" and compares only the last path
+# segment anyway, so it keeps verifying correctly if the recording side ever grows a path prefix again —
+# a cheap tolerance, not a live requirement. `sub(/^\*/…)` strips the binary-mode marker `sha256sum` emits
+# and `shasum` does not.
 expected=$(awk -v want="$ASSET_NAME" '
   { n = split($2, parts, "/"); base = parts[n]; sub(/^\*/, "", base); if (base == want) { print $1; exit } }
 ' "${tmp_dir}/checksums.txt")
@@ -177,73 +196,26 @@ fi
 info "Open a new shell (or run: export PATH=\"${BIN_DIR}:\$PATH\") to use ongame-cli directly."
 
 # ---------------------------------------------------------------------------
-# 4. Claude Code detection — register the marketplace + install the plugin AUTOMATICALLY.
+# 4. Post-install wiring — HANDED TO THE BINARY.
 #
-# Both `claude plugin marketplace add` and `claude plugin install` are real, non-interactive
-# top-level CLI subcommands (verified empirically in a clean container). Two hard-won specifics:
-#   - The marketplace source MUST be the full HTTPS URL: the bare `owner/repo` shorthand resolves to
-#     an SSH clone URL (git@github.com:...), which fails on any machine without a GitHub SSH key —
-#     i.e. most end-user machines.
-#   - Both steps are guarded idempotently (list-then-act), so re-running install.sh never duplicates
-#     or errors on an already-registered marketplace / already-installed plugin.
-# Any failure falls back to printing the in-session commands — never a hard stop this late in an
-# otherwise-successful install.
+# `ongame-cli install` registers the Claude Code plugin (marketplace + plugin, both list-then-act
+# guarded so re-running never duplicates anything, and always via the full HTTPS marketplace URL —
+# the bare `owner/repo` shorthand resolves to an SSH clone URL and fails without a GitHub SSH key),
+# patches Codex CLI's `[mcp_servers.ongame]` if `$CODEX_HOME`/`~/.codex` exists, and records the
+# installed release tag for the launcher's self-update check.
+#
+# Why it moved out of this script: there are now TWO installers — this one and install.ps1 for
+# Windows — and that logic is identical on both except for one string (the Codex `command` value).
+# Duplicating it in PowerShell would guarantee the two drift; the binary that both installers just
+# finished verifying is the one place they can share. This script keeps only what genuinely differs
+# per platform: arch detection, download, checksum verification, PATH.
+#
+# It reports every outcome on stderr and ALWAYS exits 0 by contract — an absent Codex, a missing or
+# broken `claude` CLI must never turn an otherwise-successful install into a failure. `|| true` is
+# belt-and-braces against `set -e` should that contract ever be violated.
 # ---------------------------------------------------------------------------
-if command -v claude >/dev/null 2>&1; then
-  info ""
-  info "Claude Code detected — registering the ongame plugin..."
-  plugin_setup_failed=""
-  if claude plugin marketplace list 2>/dev/null | grep -q "ongame-cli"; then
-    info "Marketplace already registered."
-  elif ! claude plugin marketplace add "https://github.com/${REPO}"; then
-    plugin_setup_failed=1
-  fi
-  if [ -z "$plugin_setup_failed" ]; then
-    if claude plugin list 2>/dev/null | grep -q "ongame@ongame-cli"; then
-      info "Plugin already installed."
-    elif ! claude plugin install ongame@ongame-cli; then
-      plugin_setup_failed=1
-    fi
-  fi
-  if [ -z "$plugin_setup_failed" ]; then
-    info ""
-    info "ongame is ready. Open a Claude Code session and run:  /make-game <your game idea>"
-    info "(If a session is already open, run /reload-plugins there first.)"
-    info "First cloud call will open a browser sign-in — the agent handles it."
-  else
-    info ""
-    info "Automatic plugin setup didn't complete — run these inside a Claude Code session instead:"
-    info ""
-    info "  /plugin marketplace add ${REPO}"
-    info "  /plugin install ongame@ongame-cli"
-    info ""
-  fi
-fi
-
-# ---------------------------------------------------------------------------
-# 5. Codex CLI detection — patch ~/.codex/config.toml's [mcp_servers.ongame] section.
-#    Append-only: checks for the section header first so re-running this script never duplicates it.
-# ---------------------------------------------------------------------------
-CODEX_DIR="$HOME/.codex"
-if [ -d "$CODEX_DIR" ]; then
-  CODEX_CONFIG="${CODEX_DIR}/config.toml"
-  SNIPPET_URL="https://raw.githubusercontent.com/${REPO}/main/codex/config-snippet.toml"
-  if [ -f "$CODEX_CONFIG" ] && grep -qF "[mcp_servers.ongame]" "$CODEX_CONFIG" 2>/dev/null; then
-    info "Codex CLI detected — [mcp_servers.ongame] already present in ${CODEX_CONFIG}, leaving it untouched."
-  else
-    info "Codex CLI detected — adding [mcp_servers.ongame] to ${CODEX_CONFIG}"
-    touch "$CODEX_CONFIG"
-    # Bare "ongame-cli" (relying on the PATH patch from step 3) rather than an absolute path: unlike
-    # a GUI-launched MCP client, Codex CLI is itself invoked from a shell, so it inherits the same
-    # PATH a terminal session would — this matches codex/config-snippet.toml exactly (that file's
-    # shape is verified against a real local ~/.codex/config.toml, not guessed), so the fallback
-    # below (used only if the network fetch of that file fails) can never silently drift from it.
-    {
-      printf '\n# ongame-cli (added by install.sh)\n'
-      curl -fsSL "$SNIPPET_URL" || printf '[mcp_servers.ongame]\ncommand = "ongame-cli"\nargs = ["mcp"]\nstartup_timeout_sec = 120.0\n'
-    } >> "$CODEX_CONFIG"
-  fi
-fi
+info ""
+"${BIN_DIR}/${BIN_NAME}" install --version "$tag_name" || true
 
 info ""
 info "Done. ongame-cli ${tag_name} is installed at ${BIN_DIR}/${BIN_NAME}."

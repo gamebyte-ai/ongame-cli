@@ -1,11 +1,19 @@
 # Force LF on checkout for every text file, regardless of the user's core.autocrlf. Without this, a user whose git has
 # core.autocrlf=true gets CRLF on `claude plugin install`, which breaks the shell-script shebangs and silently kills the
-# plugin: bin/ongame-launcher → "bad interpreter: /bin/sh^M" (the MCP server never starts, no ongame tools appear) and
-# hooks/browser-check.sh → "env: bash\r: No such file or directory" (SessionStart hook error). .gitattributes overrides
-# core.autocrlf, so these are ALWAYS checked out with LF.
+# plugin: bin/ongame-launcher → "bad interpreter: /bin/sh^M" — the MCP server never starts and no ongame tools appear.
+# (The `.sh` hooks that hit the same bug are gone; they live in the binary now. install.sh and test/launcher_test.sh
+# still depend on this.) .gitattributes overrides core.autocrlf, so these are ALWAYS checked out with LF.
 * text=auto eol=lf
 
 # Explicit intent for the executables (the extensionless launcher isn't matched by *.sh).
 *.sh            text eol=lf
 *.js            text eol=lf
+*.ps1           text eol=lf
 bin/ongame-launcher text eol=lf
+bin/win/*.c     text eol=lf
+
+# The Windows trampoline is a committed PE binary. `* text=auto` above would only need ONE
+# autodetect miss to "normalize" line endings inside it and corrupt the executable — which would
+# fail as a broken plugin on Windows, not as a visible diff. Marked binary explicitly so git never
+# touches its bytes and never tries to diff it.
+bin/ongame-launcher.exe binary
