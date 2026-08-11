@@ -42,7 +42,98 @@ take an **explicit `gameDir`** (no ambient cwd).
 
 ---
 
-## 1. Extract the FULL asset manifest (GAME_DESIGN.md anchor)
+## 1. Extract the FULL asset manifest
+
+### 1a. FIRST — where do this game's visuals come from?
+
+Settle this **before** you write a single manifest row: the answer decides what the rows are, so
+building the text manifest first and retrofitting it afterwards produces a manifest nobody chose.
+
+**Look for concept visuals.** You start in a fresh context and did NOT inherit the `concept` phase's
+result, so nothing is "already known" — go and read it:
+
+1. Read `docs/CONCEPT.md` and collect the visual paths it recorded (the concept phase materializes a
+   menu mock plus 2-3 in-game frames with the HUD and attaches their paths).
+2. Confirm those files actually exist on disk under `{gameDir}`, and that they are **real
+   generations, not gray-box placeholders** — the concept phase flags placeholders when forge was
+   gated or unavailable, and a placeholder is not a visual anyone wants their game to match.
+3. A user-supplied reference image (`{gameDir}/assets/reference/`) counts exactly the same way.
+
+**Nothing real found → skip straight to 1b.** There is nothing to ask about and asking would be noise.
+
+**Real visuals found → ASK the user.** Two genuinely different games come out of the two answers, and
+it is their call:
+
+- **From the concept** — the shipped game looks like the picture they already approved.
+- **From the design doc** — you author fresh visuals in the frozen art direction; the concept stays a
+  mood reference.
+
+Ask it the way a person would, in your own voice, **naming what changes for them** — never in pipeline
+vocabulary. Do not say "deconstruct", "manifest", "extraction" or "asset types". Something with the
+shape of:
+
+> "Az önce gösterdiğim konsept görsellerini beğendin mi? İstersen oyunu birebir onlardaki gibi
+> yapayım — menü, HUD ve karakterler o görsellerden çıkar. İstersen onları ilham olarak bırakıp
+> görselleri sıfırdan üretirim."
+
+Read the answer for **intent**, not keywords — and respect its SCOPE:
+
+- **Whole set** ("aynen böyle olsun") → source every group that the concept covers from the concept.
+- **Partial** ("bu menü kalsın", "şu karakterleri istiyorum") → source ONLY the groups they named from
+  the concept; author the rest from the doc. Do not widen a partial preference into a full match.
+- **The doc** → 1b as written.
+- **Unanswered** — they replied about something else, or enthused about the design without addressing
+  the visuals → **unresolved, not consent.** Ask once more, plainly; never bank silence as a yes.
+  **If the second reply still doesn't answer, stop asking** and go with 1b, the design doc. Do not
+  ask a third time and do not stall the phase. That default is deliberate: it is the cheaper path and
+  the reversible one — regenerating from the concept later costs one more pass, whereas spending the
+  concept budget on an unconfirmed guess cannot be taken back. Say plainly which way you went and that
+  a word from them switches it.
+
+**For every group sourced from the concept, first make the concept REACHABLE by forge.** This step is
+not optional and not implied: what survives across phases is a path on disk, and forge runs remotely —
+it cannot open your filesystem. Skip this and §2/§3 will mint a fresh anchor from `ART_PREFIX` and
+generate art with no relationship to the picture the user just approved, while you report that you
+matched it.
+
+For each selected concept visual:
+
+1. **Copy it into `{gameDir}/assets/reference/` first.** `reference_upload` reads only from
+   `assets/reference/` or `.ongame/screenshots/`, and the concept phase materialized these under
+   `assets/forge/` — handing over the recorded path unchanged returns `unsafe reference path` and no
+   `assetId`, which would leave the group silently unanchored.
+2. `forge_reference` (`ongame`) → `{uploadUrl, token}`, then
+   `reference_upload(gameDir, path, uploadUrl, token)` (ongame-local) → `assetId`.
+
+That `assetId` is the **anchor for its group**: each asset in the group is requested with
+`editOf = <that assetId>` and a prompt describing only the difference. It replaces the
+`ART_PREFIX`-derived anchor for these groups — `ART_PREFIX` still supplies the shared style language,
+but the concept image is what the group is consistent WITH. Groups sourced from the doc keep the
+ordinary §2 anchor.
+
+**Except sprite sheets, which cannot be reference-anchored at all** (§3: sprite generates from the
+prompt only; `editOf` is ignored there). So for a concept-sourced animated character: generate the
+2d-static of that character anchored to the concept first, then write the sprite prompt to describe
+THAT result in detail — colours, silhouette, costume — so it is matched by description. Tell the user
+which assets those are and that they are style-matched rather than reference-locked; a sprite that
+drifts is then an expected, visible thing to iterate on, not a silent break of the promise you made.
+
+Then call `knowledge_get({ key: 'pattern:concept-deconstruction' })` and follow it before writing those
+rows.
+Splitting a picture has two failure modes that cost real money and are easy to walk into: **one asset
+per visible object** (twenty-six soldiers become twenty-six assets rather than three types plus a
+placement table), and **a shared frame baked into every item** (six inventory cards instead of one
+reusable frame plus six icons — so a seventh item needs a whole new card). The pattern carries the
+type/instance manifest shape, when to redraw an asset versus cut it out, the deterministic check that
+catches a silently-bad extraction, and the rule that the model decides *what* while code measures
+*where*.
+
+For every group they did **not** choose, continue with 1b — and do not quietly split the concept for
+those anyway; they chose.
+
+---
+
+### 1b. Build the manifest (GAME_DESIGN.md anchor)
 
 Read `docs/GAME_DESIGN.md`. Write down EVERY visual the game needs. Manifest = a single table;
 each row is an asset. **Do not skip any visual** — screens, HUD, entities, menu.
