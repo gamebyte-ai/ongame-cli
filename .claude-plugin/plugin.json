@@ -1,7 +1,7 @@
 {
   "name": "ongame",
   "description": "ongame — AI game-making: /make-game takes a concept through a personalized, approval-gated phase pipeline to a playable, deployable game. This plugin is a thin shim; the self-updating ongame-cli binary it launches does the real work.",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "author": {
     "name": "ongame"
   },
