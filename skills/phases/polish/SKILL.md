@@ -20,7 +20,7 @@ from scratch; **compose** what's already in the engine.
 
 1. `trace_emit({buildId, name="phase.polish.start"})`.
 1a. **Live prompt:** call `prompt_get({ phase: 'polish' })` (find by bare name `prompt_get` via ToolSearch). If it returns a non-null `override`, that override is your AUTHORITATIVE guidance for this phase (the optimized, live version) — follow IT instead of the default guidance in this file. If it returns null / is unavailable / errors, follow the default guidance below (fail-soft). Never block on it.
-2. **Fetch the profile:** `profile_get()` (ongame) → `{ priorGames[], decisionsCount }`. This phase has
+2. **Fetch the profile:** `profile_get()` → `{ priorGames[], decisionsCount }`. This phase has
    **many options** (9 sub-phases) → stamping all of them onto every game is over-engineering. JUDGE the scope
    **based on the user** (agentic — there is no label in code, YOU infer it from the raw history):
    - **If the history leans toward complete/polished games** (`priorGames` consistently production, polish preference
@@ -119,6 +119,17 @@ Resolve `ParticleManager` and `TimelineManager` from DI, tick them in `onStep` i
 > All these effects are triggered in the **Controller** (when Board state changes), the **View** only renders.
 > The effect does NOT BLOCK input — the input lock already exists in the code phase during cascade resolving.
 
+**If the game has ABILITIES** (spells, skills, ultimates, dashes, projectiles with a status effect —
+action/RPG/shooter/MOBA-shaped, 2D or 3D), the juice above is not enough: an ability effect has to
+match its own mechanic (radius, windup, duration) or it misinforms the player, and the naive
+additive-burst-plus-bloom attempt reliably reads as a glowing blob. Call
+`knowledge_get({ key: 'pattern:ability-vfx' })` **before authoring the first effect** — it carries the
+mechanic→composition grammar, tuned billboard/particle numbers, the eight failure modes with fixes,
+and the freeze-frame verification harness. It also answers the renderer question (**short version:
+do not migrate to WebGPU for this**). Fetch it only for ability-shaped games; a match-3 or endless
+runner does not need it. Gated/unavailable → handle exactly as in Sub-phase 9.5 below (never
+improvise a half-version), and continue.
+
 ## Sub-phase 6 — Transitions (screen transitions + tween easing)
 - Between screens: `UIEvents.createScreen(id, {type: SCREEN_TRANSITION_TYPES.FADE_IN |
   SLIDE_IN_LEFT | SLIDE_IN_RIGHT | SLIDE_IN_UP | SLIDE_IN_DOWN, durationMs})`. Splash→menu FADE,
@@ -203,11 +214,11 @@ did not clearly improve, keep its old assets.
 
 ## Sub-phase 10 — Telemetry provisioning (deploy wiring, Channel B)
 - Provision shipped-game **player telemetry** so the deployed game feeds the flywheel ("which games retain") in **two steps**:
-  1. `telemetry_provision({gameId: <game slug>})` (ongame) → returns `{ingestKey, endpoint, sdkUrl, snippet}`. This mints
+  1. `telemetry_provision({gameId: <game slug>})` → returns `{ingestKey, endpoint, sdkUrl, snippet}`. This mints
      a per-game **public ingest key** (gate, via your OAuth identity — a tenant mints only its own) and builds the
      `ongame-telemetry` SDK snippet (NO disk write — it returns the snippet). The SDK auto-emits
      `session_start`/`session_end` + level events with an anonymous install id (D1/D7 retention); no PII.
-  2. `telemetry_inject(gameDir, indexFile, snippet)` (ongame) → writes the returned `snippet` into the SOURCE
+  2. `telemetry_inject(gameDir, indexFile, snippet)` → writes the returned `snippet` into the SOURCE
      `index.html` on disk.
 - **Idempotent + graceful:** re-running `telemetry_inject` does not double-inject; if telemetry provisioning is unavailable
   (no `{snippet}` returned) skip the inject — the SDK then fails silent → it NEVER blocks the build or breaks gameplay.
@@ -223,24 +234,52 @@ did not clearly improve, keep its old assets.
      (`.html`→`text/html`, `.js`→`application/javascript`, `.css`→`text/css`, `.png`→`image/png`,
      `.json`→`application/json`, `.mp3`→`audio/mpeg`, `.glb`→`model/gltf-binary`, `.webp`→`image/webp`, else
      `application/octet-stream`).
-  3. `publish_game({gameId: <game slug>, files: [{path, contentType}, ...]})` (ongame) → returns
+  3. `publish_game({gameId: <game slug>, files: [{path, contentType}, ...]})` → returns
      `{uploads, publicUrl, signing}`. This tenant-scopes every object key under `games/{tenantId}/{gameId}/` (tenant from
      your OAuth identity, never self-asserted) and mints a V4 signed PUT URL per file (NO upload happens here).
-  4. `publish_upload({gameDir, subdir: "dist", uploads})` (ongame) → reads each built file from `dist/` and PUTs it
+  4. `publish_upload({gameDir, subdir: "dist", uploads})` → reads each built file from `dist/` and PUTs it
      to its signed URL. Returns `{uploaded:[{path,status}], skipped?, failed?}`.
   5. **Only if `failed` AND `skipped` are both empty:** **report the `publicUrl`** to the user — that is the live,
      shareable game. **If `failed` is non-empty** (one or more PUTs returned a non-2xx status — expired signed-URL TTL,
      missing bucket, blocked public access), the game is **NOT** fully live: do NOT hand over the `publicUrl` as a working
      link. Surface it as a **partial/failed publish** (list the failed paths+statuses), and keep the locally-playable
      fallback (`npm run dev`) instead.
+  6. **Live-serve check (a successful upload is NOT a successful serve — CDN stale-edge).** A CDN edge can keep
+     serving the PREVIOUS bytes of a **stable-named** file (`index.html`, a hand-named `.glb`) after a clean
+     republish, with no error anywhere — upload 200, page loads, old game. So before handing over `publicUrl`,
+     verify the live response is THIS build **by bytes, not by filename**: fetch the live `index.html` (with a
+     no-cache request) and compare its **digest/bytes against `dist/index.html`** — don't merely check that it
+     references the expected bundle names, because Vite hashes *content*, so an HTML-only or asset-only change
+     can rebuild to IDENTICAL bundle filenames and a stale HTML would still "look right". Same rule for any
+     **stable-named asset** the game fetches at runtime (a `public/` GLB/audio kept under one name): the durable
+     fix is a **content-addressed filename** (rename per build); a `?v=<build-hash>` query is second-best and
+     only helps if the CDN's cache key includes the query string — when you rely on it, verify the live asset's
+     digest too. One matching response proves one edge (yours), not all PoPs — that residual is acceptable; a
+     MISMATCHED response is not. A stale serve = NOT live: treat like a failed publish (surface it, don't hand
+     over the URL as working).
+  7. **Stamp the build record — ONLY after step 6's live-byte check passed** (all PUTs ok in step 4 AND the live
+     bytes are THIS build): emit `trace_emit(buildId=<buildId>, name="publish.done", payload={gameId: <game slug>})`
+     (ongame). Server-side this writes `publishedUrl`/`publishedAt` onto the build record; the URL is
+     reconstructed from your verified identity + the build's own gameId, and the emitted `gameId` must MATCH the
+     build's (a mismatch is refused — it means the uploaded location and this record diverged). Skip on any
+     partial/failed/stale publish — an unshipped build must never be recorded as published.
 - **Graceful + signing fallback:** if `publish_game` returns `signing:"direct"` (the host SA cannot mint signed URLs),
   `publish_upload` skips those files (`skipped`) — surface that the operator must finish the upload out of band (a host
   IAM step); the build still produced `dist/`. If hosting is entirely unavailable, the game is still locally playable
   (`npm run dev`) — hosting NEVER blocks the build.
-- **Deterministic sub-score (`deploy_success`):** right after the build + publish objective check, emit the result —
-  `brain_score({gameId: <slug>, phase: "polish", name: "deploy_success", value: <1 if vite build was clean AND publish_upload returned failed+skipped both empty (game fully live at publicUrl) else 0>, buildId: <buildId>, comment: "<build + publish result>"})`
-  (ongame). Judge-independent backbone, distinct from the gate's self-judged `phase_quality`. Fail-soft: a failed
-  `brain_score` NEVER blocks the build; no-op if `buildId`/brain is absent.
+- **Deterministic sub-score (`deploy_success`) — only when the deploy step actually RAN:** right after the build +
+  publish objective check, emit the result —
+  `brain_score({gameId: <slug>, phase: "polish", name: "deploy_success", value: <1 if vite build was clean AND publish_upload returned failed+skipped both empty AND the live-serve check (step 6) confirmed publicUrl serves THIS build (not a stale edge) else 0>, buildId: <buildId>, comment: "<build + publish + live-serve result>"})`
+  (ongame). Judge-independent backbone, distinct from the gate's self-judged `phase_quality`.
+  - **If the deploy step never APPLIED, this is `unverified`, which is NOT a `0`** — same rule as the code phase's
+    `playable`. "Never applied" means there was nothing to run or nothing to run it against: the target is not a web
+    build (no `vite build`/`dist/` in the first place — a Unity/native project ships through its own engine build,
+    which this phase does not drive), or hosting is entirely unavailable so no publish was attempted. In those cases
+    **do not write the `deploy_success` score at all** — a `0` tells the flywheel this build objectively FAILED to
+    deploy, indistinguishable from a real broken deploy, and poisons the signal. Instead tell the user plainly that
+    the build is *not deploy-verified* and what the next step is on their target. A `0` is only for a deploy you
+    actually attempted and that actually failed (a broken build, a failed/partial upload, a stale live URL).
+  - Fail-soft: a failed `brain_score` NEVER blocks the build; no-op if `buildId`/brain is absent.
 
 ## Finish (gate + wiring)
 - **Is gameplay unbroken:** the `window.__game` smoke before/after the effects must give the same result;
@@ -254,7 +293,7 @@ did not clearly improve, keep its old assets.
   `metadata: { decision: <the MAIN choice — the POLISH SCOPE selected (Full 1–9 / Core juice 4+5+9 / Juice-only 5) and the headline juice/menu direction>, why: <the RATIONALE — explicitly cite what drove it: the `profile_get` history lean (production→full vs idea-exploration→core) or the AskUserQuestion answer, plus any `brain_recall` retention/juice lesson and the GAME_DESIGN.md game type that shaped the sub-phase ordering> }`
   `}})` — ONE emit (the phase's headline decision), no-op if `buildId` is absent.
 - **Visual evidence — REQUIRED for a production build; the last chance to catch a broken look before you call it done.**
-  A polished build you never looked at is a claim, not a fact. `preview_start(gameDir)` (ongame) → a live dev
+  A polished build you never looked at is a claim, not a fact. `preview_start(gameDir)` → a live dev
   URL; with the browser tool (ToolSearch `browser_navigate` / `browser_resize` / `browser_take_screenshot` /
   `browser_click`), first `browser_resize` to **390×844** (mobile-first — matches how most players will actually see
   it), then navigate there. **Walk the screens this phase actually built, not just the first one** — splash→menu,
@@ -264,6 +303,50 @@ did not clearly improve, keep its old assets.
   **Dead-interaction check:** polish is exactly where buttons get wired (Play, Settings toggle, Retry/Menu on
   game-over) — if a tap meant to do something leaves the screenshot effectively unchanged, treat that button as
   suspected dead before calling the build done.
+  **Phone-reality check (the 390×844 viewport is NOT a phone).** Resizing gives you a phone's *size* and nothing
+  else: the session still reports a **fine pointer**, has **no safe-area insets**, and never misses a tap. So the
+  three ways a game is fine on your screen and unusable on a real handset all pass silently here. Check each, and
+  where the tool cannot emulate the condition, say **unverified** rather than passing it:
+  (a) **Pointer type** — `browser_evaluate` **both** `matchMedia('(pointer: coarse)').matches` and
+  `matchMedia('(any-pointer: coarse)').matches`: `pointer` describes only the PRIMARY pointer, so a hybrid or
+  touch-capable device reports `false` there while still being touched — `any-pointer` is what tells you a coarse
+  input exists at all. Better still, confirm touch directly (`'ontouchstart' in window` / `navigator.maxTouchPoints`).
+  If the tool can emulate touch (a touch-enabled context / device emulation), turn it on and re-walk the core verb;
+  a control that only reacts to `hover`/`mousemove` is DEAD on a handset and this is the only way to see it. If it
+  cannot, report the core verb as **unverified for touch** and confirm from the code that no REQUIRED interaction
+  depends on hover (hover may only *enhance*).
+  (b) **Touch-target size** — the build rule is ≥44 CSS px (§ sub-phase 9); the gate is where it gets checked, not
+  assumed. **Measure the RIGHT surface:** a gamelabs HUD draws its buttons into the CANVAS, so they are not DOM
+  elements — `getBoundingClientRect()` over `document` finds nothing and an empty set "passes" vacuously. Read
+  `__game.diagnostics.hitAreas` (the code phase publishes each control's rect in CSS px, viewport coords — §9) and
+  flag anything under 44×44; for a genuinely DOM-based UI, measure the elements directly. **An EMPTY result is not
+  a pass** — on a screen where you can plainly see controls, an empty `hitAreas` means the surface is unwired, so
+  report **unmeasured**, exactly as when neither surface exists. Cross-check the ids you got against the controls
+  you actually just interacted with in the walk above: a control you clicked that has no entry is a hole in the
+  surface, not a control that passed. A 30px button is clickable with a mouse and a coin-flip with a thumb.
+  (c) **Safe area** — a desktop browser reports `env(safe-area-inset-*)` as **0**, so a control tucked under a notch
+  or the home indicator is invisible here by construction. This one is a SOURCE assertion, and say so: `viewport-fit=cover`
+  must be in the meta viewport, and each edge-pinned element must consume the inset for **the edge it actually
+  occupies** — `top` for a status bar, `bottom` for a thumb bar, `left`/`right` for anything hugging a side in
+  landscape (a phone in landscape puts the notch on a SIDE). Demanding all four everywhere would fail correct
+  layouts; demanding none is how a control ends up under the home indicator. Claiming it "looked fine" from a
+  notch-less browser is not evidence either way.
+  **Canvas-geometry check (dpr silent misalignment):** a game can "work" — logic fine, clean console — while
+  every overlay/hit-target sits visibly offset from the canvas content, because the canvas CSS size, its backing
+  size and the renderer's resolution disagree (a classic symptom: everything lands at ~1/dpr of where it should
+  on a dpr=1.5 screen). Assert with the instrument, in two separate claims:
+  (a) **CSS geometry** — the canvas `getBoundingClientRect()` fills its intended CSS area (fullscreen game →
+  ≈`window.innerWidth/innerHeight`); and `canvas.width/height` ≈ `rect × <the resolution the game CONFIGURED>` —
+  which is the renderer's `resolution` (often deliberately capped, e.g. `min(devicePixelRatio, 2)`), **not**
+  blindly `devicePixelRatio`: rendering below native dpr is a valid perf choice that costs sharpness, not
+  alignment, so comparing against raw dpr false-fails a correct game.
+  (b) **Coordinate mapping** — alignment itself: pick a canvas-anchored landmark the DOM/HUD also positions
+  against (a button over a board cell, a health bar over a unit) and confirm via `elementFromPoint` /
+  `getBoundingClientRect` that the two land in the same place.
+  This failure mode only EXISTS at `devicePixelRatio > 1` — a check run in a dpr=1 browser session passes
+  vacuously. If the browser tool can emulate dpr (device-scale emulation), run the check at dpr 2; if it
+  cannot and the session reports `devicePixelRatio <= 1`, report this check as **unverified at dpr>1** rather
+  than passed.
   **Modal-occlusion check:** when a modal/overlay/panel is OPEN (shop, settings, pause, confirm, game-over), nothing
   should render OVER it. Screenshot each open modal and look: is its content fully on top, or is a HUD bar / score / a
   leftover element bleeding through above it — **especially along the modal's top edge**, where a stray top-bar tends to
@@ -296,7 +379,7 @@ did not clearly improve, keep its old assets.
   preflight 0.1):** say so to the user with the one-line enable step, skip the screenshots (the jury silently degrades to
   text-only — nothing breaks; never hard-block), and do **not** describe the game as "polished", "shipped", "playable",
   "working", or "complete" as if you saw it — say *"built, not visually/runtime verified"*. Never fake the look.
-- **Independent quality check (advisory):** call `phase_review({ phase:'polish', buildId, gameId, artifact:<the polish plan + the juice/menu changes applied — a summary, not every line>, context:{ genre:<mechanic>, intent:<user intent / mode + persona scope signal> } })` (bare name `phase_review` via ToolSearch) → `{ verdict, score, feedback:[{issue, confidence}], strengths:[{issue, confidence}] }`. **ADVISORY — you decide:** on `verdict:'revise'`, weigh each `feedback.issue` (con) against `strengths` (pro — what's already working, keep it): scope-calibration to the user · concrete high-impact JUICE scaled by weight · non-regression — the working game still works; where you agree a con improves feel, adjust (your judgment, keep `tsc` clean + the smoke identical), then you MAY re-review (a cap bounds re-runs). On `'pass'`/`'skip'` (or free/unavailable) proceed. Relay both the pros AND cons to the user in YOUR OWN voice (never mention an external check or how it works) — a balanced "what's working / what to watch" note is more useful than only listing problems. Fail-soft: never block.
+- **Independent quality check (advisory):** call `phase_review({ phase:'polish', buildId, gameId, artifact:<the polish plan + the juice/menu changes applied — a summary, not every line>, context:{ genre:<mechanic>, intent:<user intent / mode + persona scope signal> } })` (bare name `phase_review` via ToolSearch) → `{ verdict, score, feedback:[{issue, confidence}], strengths:[{issue, confidence}] }`. **ADVISORY — you decide:** on `verdict:'revise'`, weigh each `feedback.issue` (con) against `strengths` (pro — what's already working, keep it): scope-calibration to the user · concrete high-impact JUICE scaled by weight · non-regression — the working game still works; where you agree a con improves feel, adjust (your judgment, keep `tsc` clean + the smoke identical), then you MAY re-review (a cap bounds re-runs). On `'pass'`/`'skip'` (or free/unavailable) proceed. **But a `'skip'` is not an approval — check `reason`, and treat ONLY `gated` as benign.** `gated` means the user isn't entitled to the review; that is expected and needs no remark. EVERY other reason means the review did not actually run on this artifact — `no-providers` (all providers failed), `unavailable` (reviewer unreachable), `rate-limited`, `cap` (re-review budget spent), `unknown-build`, `no-images` — and so does any reason you don't recognise, because a new one will be added before this line is updated. In all of those the phase went UNREVIEWED: the quality gate did not open, it was never closed. Still proceed (fail-soft is the rule), but do NOT carry it forward as if it had been checked, and tell the user plainly in your own voice that you had no second opinion on this one and it rests on your judgment alone. **And a verdict is only as strong as the panel behind it — read `perProvider` as `k of N`:** N is its length (the panel that was meant to answer), k the entries whose `score` is not null (the ones that actually did). `k = N` is the ordinary case. `k < N` but `k >= 2` is a PARTIAL panel: more than one provider contributed, which is all the number proves — it does NOT establish that any single rubric dimension was scored twice, since two providers can answer on disjoint dimensions and leave every one of them singly-scored. So note the reduced panel in passing rather than presenting full-jury health. `k = 1` is thinner still: with no second scorer there is no cross-check at all, which is the entire point of a panel, so that one model's bias goes unchallenged — a single-scorer `pass` is not WRONG, it is one opinion, and you disclose it the way you would a review that did not run. Never block on any of this; fail-soft holds throughout — the duty is accuracy about what was checked, not refusal. Relay both the pros AND cons to the user in YOUR OWN voice (never mention an external check or how it works) — a balanced "what's working / what to watch" note is more useful than only listing problems. Fail-soft: never block.
 - `state_advance({buildId})` + `trace_emit({buildId, name="phase.polish.done"})`.
 
 > **Correction-learning:** if this phase is re-running because the user **corrected** the polish/feel (rejected the

@@ -18,19 +18,24 @@ single language.
 > step: you author `src/assets.ts`, generate the real art in one art-direction, and SWAP the gray-box shapes for real
 > sprites WITHOUT changing the mechanic. The game already plays — you make it look published.
 
-> **Automatic visual review:** every `assets_materialize` call is automatically reviewed by the quality jury against
-> the generated image(s) themselves (visual quality / style coherence / readability) — no extra call needed on your
-> part. If it surfaces something, you'll see it as context after the call; verify each point (valid + on-context)
-> before regenerating, and relay both what's working and what to fix to the user in your own voice.
+> **Automatic visual review (best-effort, not guaranteed):** an `assets_materialize` call is normally reviewed by the
+> quality jury against the generated image(s) themselves (visual quality / style coherence / readability) — no extra
+> call needed on your part. If it surfaces something, you'll see it as context after the call; verify each point
+> (valid + on-context) before regenerating, and relay both what's working and what to fix to the user in your own
+> voice. **But silence is NOT a pass.** The review only runs when the build is entitled to it AND the images actually
+> landed where the reviewer reads — the directory you materialized into. It stays silent (never an error) when the
+> tier isn't entitled, when nothing image-shaped was written, or on any transport failure. So if you get no jury
+> context back, treat these assets as **unreviewed**, judge them yourself, and say so plainly — never report them as
+> jury-approved.
 
 ---
 
 ## 0. Start
 
 `trace_emit(buildId, name="phase.assets.start")` (ongame). Thread the **`buildId`** (captured
-from `state_init`'s return) into all orchestration/cloud tool calls
+from `state_init`'s return) into all orchestration/secret tool calls on **ongame**
 (`forge_request`, `sound_request`, `telemetry_provision`, `brain_*`, `trace_emit`, `state_*`). The
-The tools that write to disk (`assets_materialize`, `telemetry_inject`, `preview_*`)
+**ongame** tools that write to disk (`assets_materialize`, `telemetry_inject`, `preview_*`)
 take an **explicit `gameDir`** (no ambient cwd).
 
 **Live prompt:** call `prompt_get({ phase: 'assets' })` (find by bare name `prompt_get` via ToolSearch). If it returns a non-null `override`, that override is your AUTHORITATIVE guidance for this phase (the optimized, live version) — follow IT instead of the default guidance in this file. If it returns null / is unavailable / errors, follow the default guidance below (fail-soft). Never block on it.
@@ -62,6 +67,17 @@ language).
 > budget; do not do unnecessary generation (Pareto: generate the visuals the game actually
 > renders).
 
+> **Building the manifest from a CONCEPT IMAGE instead of text?** (a user-supplied reference, a
+> concept-phase visual, a screenshot to match.) Splitting a picture has two failure modes that cost
+> real money and are easy to walk into: **one asset per visible object** (twenty-six soldiers become
+> twenty-six assets rather than three types plus a placement table), and **a shared frame baked into
+> every item** (six inventory cards instead of one reusable frame plus six icons — so a seventh item
+> needs a whole new card). If either shape is in the picture, call
+> `knowledge_get({ key: 'pattern:concept-deconstruction' })` and follow it: it carries the
+> type/instance manifest shape, when to redraw an asset versus cut it out, the deterministic check
+> that catches a silently-bad extraction, and the rule that the model decides *what* while code
+> measures *where*.
+
 ---
 
 ## 2. CONSISTENT art direction — shared art-direction prefix
@@ -92,13 +108,13 @@ asset-specific description`.
 Generation is a **two-step HYBRID** (the secret stays server-side; the bytes come back in the
 return, the client writes them to disk):
 
-1. **`forge_request(spec)`** (cloud) — if the forge service is up, it returns a **small ref
+1. **`forge_request(spec)`** (ongame, OAuth) — if the forge service is up, it returns a **small ref
    manifest plus a `download` slot**: `{ assets: [{ kind, fileRef | bytesBase64, model, meta:{ assetId, ... },
    placeholder: false, ... }], download: { url, token } }`. Ref entries carry a sealed `fileRef` instead of
    bytes — the manifest stays ~1-2KB in context; **NO `path`, NO disk write**. If forge is unreachable, it
    automatically falls back to **gray-box fallback** (`placeholder: true`); in that case **notify**
    the user and flag it in the phase output — do not say "done" with gray-box.
-2. **`assets_materialize(gameDir, assets, download)`** (local write, token-less) — hand it the `assets`
+2. **`assets_materialize(gameDir, assets, download)`** (ongame, token-less) — hand it the `assets`
    array AND the `download` slot from step 1 (the slot's token lives **15 min** — materialize promptly; it is
    required to pull `fileRef` entries, inline-only manifests need none). It writes the bytes to disk and
    **returns `{ paths }`** (ref fetch failures land in `errors` — that file is skipped, you decide: regenerate
@@ -163,6 +179,17 @@ return, the client writes them to disk):
   Web/mobile defaults are safe (decimation ~30k); increase for a hero/close-up object. The prompt should
   describe a **single object + clean/simple background** (Trellis first generates a 2D base, then converts to GLB).
   If you have a ready clean visual on hand, make it directly the 3D source with `editOf=<path>` (skips 2D base generation).
+- **`normalize?`** (every 3D kind — **use it**) — `{ class, targetHeightMeters? }`. Without it a generated GLB
+  arrives in whatever space its source model happened to use (a cm-scaled, Z-up armature is common), and the game
+  ends up carrying per-model `scale.set(0.01)` / `position.y` hacks — the exact debt this exists to remove. With it
+  the asset comes back **canonical: 1u=1m, base resting on y=0, centered on XZ**, so scene code can place it with no
+  correction. **`class`** is your judgment about what the thing IS: `character` / `creature` scale to
+  **`targetHeightMeters`**, which YOU supply from the game's own scale profile in GAME_DESIGN.md (a hero is not
+  universally 1.7m — an ARPG hero, a chess piece and a kaiju are all `character`); `prop` / `structure` /
+  `attachment` are **never rescaled** (at 1u=1m their real size is already the answer) and are only grounded +
+  centered. Same field, same meaning on the async path — but you pass it to **`asset_job_status` when you POLL**
+  (normalization happens at delivery), not at submit. Fail-soft: a model that cannot be measured confidently ships
+  **untouched with a `warnings` entry** rather than being scaled by a number nobody trusts — read the warnings.
 - **`charParams?`** (3d-char, STATIC MESH ONLY) — `{ targetPolycount, pbr, poseMode, enableSafetyChecker }`.
   Rigging/animation are NOT here — they're `forge_rig`'s params (§3.5). `poseMode: 't-pose'` still
   matters at generate time (cleaner base mesh for the rig step to work from): in the prompt, **exact T-pose**
@@ -175,14 +202,16 @@ return, the client writes them to disk):
 Both 3D kinds are submit-only through this path — nothing blocks, nothing bills until a poll actually delivers
 the asset (a job you never poll again costs nothing, per the tool's own contract):
 
-1. **Submit generation:** `forge_generate_async({ kind: '3d-static'|'3d-char', prompt, ... })` → `{ jobRef,
-   status:'queued', kind }` immediately.
+1. **Submit generation:** `forge_generate_async({ kind: '3d-static'|'3d-char', prompt, gameId: <slug>, ... })` →
+   `{ jobRef, status:'queued', kind }` immediately. Pass `gameId` at SUBMIT too — it is sealed into the jobRef so
+   the spend is attributed to this game when the completing poll meters it (build-record telemetry).
 2. **Poll:** `asset_job_status({ jobRef, gameId? })` → `{status:'queued'}` or `{status:'in_progress'}` (check back
    later, your judgment on cadence — there's no fixed interval enforced) or, once done, `{status:'completed',
    assets:[...], download}` (hand straight to `assets_materialize`, same as `forge_request`'s success shape) or
    `{status:'failed', reason, spent:false, retryable, detail?}`. Do NOT poll a `jobRef` again after a
-   `completed`/`failed` response — both are terminal. Pass `gameId` HERE (not at submit) to tag the eventual
-   asset for game-scoped `asset_library_list` recall — see §3's gameId note.
+   `completed`/`failed` response — both are terminal. Pass `gameId` at the poll TOO — the poll-time value tags
+   the delivered asset for game-scoped `asset_library_list` recall (the submit-time value covers spend
+   attribution; they serve different sinks) — see §3's gameId note.
 3. **Rigging (3d-char only, optional):** once the static mesh's `asset_job_status` call reports `completed`,
    take that asset's `meta.assetId` and call `forge_rig({ modelRef: <that assetId>, heightMeters? })` →
    another `{jobRef, status:'queued'}` — poll it the SAME way via `asset_job_status`. Rigging is a separate job
@@ -236,9 +265,51 @@ never generated as an independent prompt (independent prompts yield unrelated-lo
 > The shared **`ART_PREFIX`** (§2) still goes into every prompt — chain + prefix together give the single language.
 > **Check outputs by eye**; for a member that deviates, tighten the difference-prompt and reprint.
 
+> **Multi-reference combine (`editOf` as an ARRAY):** `editOf` also takes an array of up to **14** references
+> (the edit model's documented limit — exceeding it is a loud schema error, nothing is silently dropped;
+> order is preserved and each entry may be any accepted form above, mixed freely). Use it when the result must
+> genuinely COMBINE sources — "this character in this scene's palette", "merge these two props into one" — and
+> say in the prompt what each reference contributes. A single-anchor chain (one assetId) is still the DEFAULT
+> for ordinary set-consistency; reach for multi-reference when one anchor cannot express the ask. **3D kinds
+> take exactly ONE reference** (image-to-3d has a single source) — to drive 3D from several references, combine
+> them with a 2D edit first, then pass THAT result's assetId as the 3D `editOf`.
+
+> **EXTRACTION/ISOLATION silently returns MORE than you asked — count, don't eyeball.** When you use `editOf` to
+> pull ONE element out of a busy image ("isolate only the barrel, remove every other object"), the model can hand
+> back the WHOLE SCENE re-laid-out as a tidy asset sheet — flat backdrop, clean silhouettes, nothing in the
+> response saying "I gave you everything". Measured on a real deconstruction run: **3 of 6** parts came back as
+> full sheets, and all three *looked* perfect; the error was invisible until the pixels were counted. Do not accept
+> an isolate on appearance:
+> - **Measure the separated foreground regions, and treat the number as a TRIGGER — not a verdict.** After
+>   materializing: transparent output → connected regions of the alpha mask; opaque output → flood inward from the
+>   border through pixels that MATCH THE BACKDROP COLOUR (only those — flooding everything border-connected would
+>   erase an unwanted object that happens to touch the frame), and the foreground is what the flood cannot reach.
+>   Make the measurement reproducible by stating what you used: sample the backdrop from the four corners and
+>   require them to agree (if they don't, the backdrop isn't flat — see below); compare with **max per-channel
+>   absolute difference in sRGB** against a tolerance you name (~8-12/255 covers JPEG ringing without swallowing
+>   art); and ignore regions under a named minimum size (a few percent of the image) so antialiasing fringes are
+>   not counted. **More regions than you expected does NOT by itself prove a leak** — go LOOK at the image. The
+>   leak has a distinctive signature: the extra regions are recognisably OTHER NAMED ELEMENTS of the source scene,
+>   laid out side by side like a catalogue page. That is what you reject. If you want a hard accept/reject gate
+>   rather than a trigger, then declare an expected **region** count or range up front — never compare a declared
+>   *subject* count against a measured *region* count and call the difference a failure.
+> - **Do NOT infer the expectation from the picture.** Two regions warrants a LOOK when you asked for "the barrel"
+>   and warrants nothing at all when you asked for "the pillars" — the expectation lives in YOUR request, not in
+>   the image, so the image can never supply it. (Measured: `pillars` really is a legitimate two-region element.)
+>   Same rule as 3D normalization: state the expectation, then measure against it; never guess it back out of the
+>   output — and where you have not stated one, the measurement is a prompt to inspect, not a result.
+> - **Know exactly what this is and is not.** A region count APPROXIMATES a subject count; it is not the same
+>   thing, and it fails in both directions: (a) touching or overlapping subjects merge into ONE region, so a leak
+>   glued to the wanted object still counts as 1; (b) a single legitimate subject can be several regions — a
+>   floating shield, sparks, a detached shadow — which is the other reason you DECLARE the expected count instead
+>   of assuming 1. And the opaque path needs a genuinely flat backdrop: over a textured or gradient background the
+>   flood stops immediately and the whole frame reads as one region, which proves nothing. When the backdrop is not
+>   flat, or the count disagrees with what you can plainly see, report the asset as **unmeasured** — never as
+>   verified. A clean count is evidence of "no *separated* extras", not proof of a single subject.
+
 **User-shared reference image:** if the user shared a screenshot/artwork the game's look should follow, make IT the
-anchor: copy it into `{gameDir}/assets/reference/` → `forge_reference` (mints `{uploadUrl, token}`) →
-`reference_upload(gameDir, path, uploadUrl, token)` (ongame) → `assetId` → use as `editOf` for the set.
+anchor: copy it into `{gameDir}/assets/reference/` → `forge_reference` (ongame, mints `{uploadUrl, token}`) →
+`reference_upload(gameDir, path, uploadUrl, token)` → `assetId` → use as `editOf` for the set.
 **Intent decides fidelity (your judgment):** a 1:1 remake of the shared game → derive assets that MATCH the reference
 exactly; otherwise → ADAPT the reference to our game's own style.
 
@@ -351,7 +422,7 @@ trace_emit(buildId, name="phase.output", payload={
 }) (no-op if buildId is absent).
 ```
 
-Then `state_advance(buildId)` + `trace_emit(buildId, name="phase.assets.done")` (in the
+Then `state_advance(buildId)` + `trace_emit(buildId, name="phase.assets.done")` (both ongame; in the
 payload: number of real assets generated, number that fell back to gray-box, art-direction prefix
 summary).
 
