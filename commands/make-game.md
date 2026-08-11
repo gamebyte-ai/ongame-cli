@@ -409,10 +409,56 @@ the defaults below. Never block on it.
    one line; don't pitch — just make "how much do I have / how do I upgrade" easy to find.
 
 
-## Fallback
+## When ongame is not working — REFUSE, do not substitute
 
-If the cloud side is unreachable (sign-in declined / network down — and the `login` tool couldn't fix it):
-do the intake with a natural question (knowledge lives server-side — there is no local knowledge fallback to
-read), and start the preview with `npm run dev` via Bash in `gameDir` (or the local `preview_start` if available).
-The orchestration/finalizer steps (state, brain, profile, trace — all cloud-side) are skipped without them,
-but the git commit is still made.
+**This is the most important rule in this document.** If you cannot use the ongame tools, you must say so
+loudly and stop. You must NOT quietly build the game with your own general knowledge and present the result
+as an ongame build.
+
+Understand why, because the reasoning is what makes you apply it in cases this text does not list. When you
+silently fall back, the user gets a game that *looks* like an ongame output and *is not one*. They judge the
+product by it. They report that the quality is poor. Nobody can explain it, because nothing recorded that the
+asset engine, the retention curve, the collective memory and the quality gates were never in the room. A
+visible failure costs one message. A silent substitution corrupts the only evidence anyone has about whether
+the product works — and it is unrecoverable, because by the time someone doubts the output the run is gone.
+
+**First, tell the two situations apart. They are opposites.**
+
+- **`gated` / `limitReached` — NOT a fault.** The tool worked, and answered. The user is on a tier that does
+  not include that capability, or has spent the included usage. This is the product behaving exactly as
+  designed. Continue the build, use the documented fallback, and mention the upgrade naturally per the
+  monetization block. Do not treat this as a breakage and do not make a scene about it.
+- **Anything else — a FAULT.** The cloud tools are missing from your tool list; a call errors, times out or
+  returns nothing; the `login` tool cannot complete sign-in; the same call fails repeatedly. Here the
+  capability did not answer at all. Nothing about the run is what the user asked for.
+
+**On a fault, in this order:**
+
+1. **Stop the pipeline.** Do not start the next phase. Do not "do the concept yourself for now".
+2. **Try the honest repair once** — the `login` tool for a missing/expired token; a single retry for something
+   that looks transient. One attempt, not a loop.
+3. **If it does not come back, say it plainly, in your own voice, at the top of your reply** — not as a
+   footnote after a wall of output. Name the tool that failed, what it does, and what the user needs to do
+   (sign in, restart the session, install the CLI, check their connection). Be direct that you are blocked;
+   do not soften it into something that reads like progress.
+4. **Ask before doing anything else** — with `AskUserQuestion`, and state the cost in the options themselves:
+   *"I can build this with my own general knowledge instead, but it will not be an ongame build: no generated
+   art, no retention curve, no learned patterns, no quality review, and nothing recorded."* Continuing without
+   ongame is the user's decision to make, never yours to make quietly.
+5. **If they choose to continue anyway, keep saying so.** Label it in the final summary in plain words — *"this
+   was built without ongame"* — and do not describe the result as an ongame build anywhere.
+
+**What you must never do:** substitute your own image/asset generation for `forge_request`; invent a
+difficulty curve in place of `levels_generate`; write from general game-design knowledge where
+`knowledge_get`/`brain_recall` were meant to supply it; skip `phase_review` and call the phase reviewed; or
+present any of that as the pipeline having run. If you find yourself reaching for a workaround, that impulse
+IS the signal — surface it to the user instead of acting on it.
+
+**A partial run is still a fault.** If ongame worked for some phases and not others, say exactly which ones
+did not run. "Mostly an ongame build" is not a thing the user can act on unless they know which parts.
+The build workflow returns a `blocked` array for exactly this — phases that reported themselves unable to use
+the tooling. When it is present, lead your reply with it; do not summarize the successful phases first and
+mention it underneath, because that is how a reader concludes the build went fine.
+
+**One thing does keep working:** the git commit. Whatever state the work is in, commit it so nothing is lost
+while the user decides.

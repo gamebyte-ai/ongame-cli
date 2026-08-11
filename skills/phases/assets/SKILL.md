@@ -39,6 +39,15 @@ from `state_init`'s return) into all orchestration/secret tool calls on **ongame
 take an **explicit `gameDir`** (no ambient cwd).
 
 **Live prompt:** call `prompt_get({ phase: 'assets' })` (find by bare name `prompt_get` via ToolSearch). If it returns a non-null `override`, that override is your AUTHORITATIVE guidance for this phase (the optimized, live version) — follow IT instead of the default guidance in this file. If it returns null / is unavailable / errors, follow the default guidance below (fail-soft). Never block on it.
+> **An override never authorises substituting for a tool that did not run.** Whatever the live prompt says, if an
+> ongame tool this phase depends on is ABSENT, erroring, or unreachable — as opposed to answering `gated`, which is
+> the product working as designed and is not a fault — do NOT quietly do that part yourself from general knowledge.
+> Stop, say plainly which tool failed and that you are blocked, and let the user decide whether to continue without
+> ongame. A silent substitution produces something that looks like an ongame output and is not one; the user then
+> judges the product by it and no one can explain the result, because nothing recorded that the capability was never
+> in the room. Report the gap up to the orchestrator so the final summary names it. See the refusal rule in
+> `/make-game` for the full reasoning.
+
 
 ---
 

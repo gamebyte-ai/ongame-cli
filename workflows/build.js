@@ -66,7 +66,15 @@ for (const phaseKey of toRun) {
           `skip silently; never block on the commit. This is a per-phase rollback point so a later phase or a bad ` +
           `re-iterate can't clobber good earlier work. `
         : '') +
-      `When done, return a single-line JSON summary: {"phase":"${phaseKey}","ok":true,"artifacts":[...]}.` +
+      `IF AN ONGAME TOOL THIS PHASE NEEDS IS ABSENT, ERRORING OR UNREACHABLE, STOP AND SAY SO — do not do that ` +
+      `part yourself from general knowledge and do not report the phase as done. An answer of 'gated' is NOT this ` +
+      `case: that is the product working as designed, so continue and use the documented fallback. Everything else ` +
+      `means the capability was never in the room, and a phase that silently substituted for it produces something ` +
+      `that looks like an ongame output and is not one — the user then judges the product by it and nobody can ` +
+      `explain the result. Return ok:false with a "blocked" field naming the tool and what failed; the orchestrator ` +
+      `surfaces it to the user, who decides whether to continue without ongame. ` +
+      `When done, return a single-line JSON summary: {"phase":"${phaseKey}","ok":true,"artifacts":[...]}. ` +
+      `If blocked: {"phase":"${phaseKey}","ok":false,"blocked":{"tool":"<name>","what":"<absent|error|unreachable>"}}.` +
       (notes
         ? ` This is a RE-RUN after user feedback (iteration). The user's corrections: "${notes}". ` +
           `Existing artifacts for this phase are the REJECTED version — regenerate them honoring the corrections; ` +
@@ -77,4 +85,21 @@ for (const phaseKey of toRun) {
   results.push({ phase: phaseKey, out });
 }
 
-return { ran: toRun, results };
+/**
+ * A phase that reported itself BLOCKED must not be able to disappear into a wall of successful-looking output.
+ * The phase prompt promises the orchestrator surfaces it, so the orchestrator has to actually do that rather than
+ * leave it as a string somewhere in `results` for a reader to notice. Parsed leniently — an agent that writes prose
+ * around its JSON, or writes `ok: false` with a space, still gets heard, because the cost of missing this is the
+ * exact failure it exists to prevent: a build that quietly was not an ongame build.
+ */
+const blocked = results
+  .filter((r) => typeof r.out === 'string' && /"ok"\s*:\s*false|\bblocked\b/i.test(r.out))
+  .map((r) => ({ phase: r.phase, detail: String(r.out).slice(0, 400) }));
+
+if (blocked.length) {
+  log(`BLOCKED — ongame tooling did not work in ${blocked.length} phase(s): ${blocked.map((b) => b.phase).join(', ')}.`);
+  log('These phases did NOT run on ongame. Do not present this as a completed ongame build; tell the user which parts are missing and let them decide.');
+}
+
+return { ran: toRun, results, ...(blocked.length ? { blocked } : {}) };
+
