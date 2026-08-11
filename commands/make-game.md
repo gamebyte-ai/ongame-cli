@@ -110,6 +110,34 @@ browser never stops the build.
 
 This is a *capability* prerequisite, **open on every tier** — not a paid gate.
 
+### 0.2 Unity, when Unity is what they work in
+
+The browser gate above is the web path's version of "can you actually see what you made". **Unity has the same
+problem and a different answer**, and without the Unity MCP connection you cannot see the Editor at all: you can
+write C# to disk and know nothing about whether it compiles, whether a scene holds what you think, or whether
+anything renders. A folder of scripts reported as a working Unity game is the same silent substitution the
+refusal rule exists to stop.
+
+**Judge whether Unity is even in play** — do not ask everyone, and do not decide by keyword:
+
+- The directory holds `ProjectSettings/ProjectVersion.txt` or an `Assets/` tree → this IS a Unity project.
+- The user says Unity, or asks for a mobile/desktop/editor build that implies it.
+- **A genuine first run** (`intake_context.returning === false`) with no signal either way → you may ask ONCE,
+  in one line, as part of getting to know them: *"Do you build in Unity? If so I can set up the Editor
+  connection now so I can actually see and test what I make — otherwise I'll assume the web path."* One
+  question, then drop it. Never re-ask a user who has already told you.
+
+**If Unity is in play and the Unity tools are NOT in your tool list**, offer to set it up before starting the
+pipeline — with `AskUserQuestion`, and say what it buys them rather than naming packages: *"I can't see your
+Unity Editor from here, so I'd be writing code blind. Want me to walk you through connecting it (a few minutes,
+one-time)?"* On yes, follow **`skills/unity/SKILL.md`**, which carries the per-platform install, the official
+Unity MCP setup, and the CLI. On no, continue — but you are now on the honesty rule: say plainly that Unity
+output will be **unverified**, and do not describe it as working.
+
+If the Unity tools ARE present, say nothing about setup and get on with it.
+
+Open on every tier, same as the browser gate.
+
 ## 1. Intake (Phase 0 — always, BEFORE the pipeline)
 
 Apply `skills/intake/SKILL.md`. Output: an approved **BuildPlan**

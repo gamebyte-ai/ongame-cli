@@ -255,7 +255,9 @@ ground yourself in the ACTUAL installed surface — do not assume a method name/
   (the judge-independent backbone, distinct from the gate's self-judged `phase_quality`).
   - **If no compile check applied, this is `unverified`, which is NOT a `0`** — same rule as `playable` below. That
     is the case when the target is not a TypeScript project (a Unity/native build compiles in its own toolchain,
-    which this phase does not drive) or the check could not be run at all. Then **do not write the `compiles` score**:
+    which this phase does not drive) or the check could not be run at all. **On Unity, `unverified` is a floor, not
+    a destination** — with the Unity MCP connected you CAN read the Editor console and know whether it compiled, so
+    reach for that before settling for `unverified`; `skills/unity/SKILL.md` has the setup and the headless CLI. Then **do not write the `compiles` score**:
     a `0` claims the code objectively failed to compile and is indistinguishable from a real compile error, which
     poisons the flywheel. Say plainly that the build is *not compile-verified* here and what compiles it instead. A
     `0` is only for a check you actually ran that actually failed.
