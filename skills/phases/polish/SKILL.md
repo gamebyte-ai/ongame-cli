@@ -216,8 +216,20 @@ did not clearly improve, keep its old assets.
 - Provision shipped-game **player telemetry** so the deployed game feeds the flywheel ("which games retain") in **two steps**:
   1. `telemetry_provision({gameId: <game slug>})` → returns `{ingestKey, endpoint, sdkUrl, snippet}`. This mints
      a per-game **public ingest key** (gate, via your OAuth identity — a tenant mints only its own) and builds the
-     `ongame-telemetry` SDK snippet (NO disk write — it returns the snippet). The SDK auto-emits
-     `session_start`/`session_end` + level events with an anonymous install id (D1/D7 retention); no PII.
+     `ongame-telemetry` SDK snippet (NO disk write — it returns the snippet). The SDK auto-emits exactly two
+     events — `session_start` and `session_end` — with an anonymous install id (D1/D7 retention); no PII.
+  1b. **Instrument the level funnel YOURSELF — the SDK does not.** This is a real step, not a nicety: the
+     auto-emitted pair answers *"did anyone come back"* and nothing else. Retention curves, difficulty tuning
+     and the whole level-progression half of the flywheel are computed from `level_start` / `level_complete`,
+     and those exist only if the game's own code sends them. Add two calls in the game's level lifecycle:
+     ```js
+     globalThis.ongameTelemetry?.track('level_start',    { level: n });
+     globalThis.ongameTelemetry?.track('level_complete', { level: n, durationMs, score });
+     ```
+     The `?.` matters — the handle is absent when provisioning was skipped, and telemetry must never break
+     gameplay. Emit `level_start` where the level actually begins for the player (after any intro/countdown,
+     not at load) and `level_complete` only on a genuine win — a fail or a quit is not a completion, and
+     counting it as one silently inflates every retention number computed from it.
   2. `telemetry_inject(gameDir, indexFile, snippet)` → writes the returned `snippet` into the SOURCE
      `index.html` on disk.
 - **Idempotent + graceful:** re-running `telemetry_inject` does not double-inject; if telemetry provisioning is unavailable
