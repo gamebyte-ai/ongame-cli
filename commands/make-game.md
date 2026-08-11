@@ -116,6 +116,12 @@ Apply `skills/intake/SKILL.md`. Output: an approved **BuildPlan**
 (produced via the `intake_build_plan` tool). Put the answers asked (genre/mechanics)
 into the `notes` parameter (so they don't get discarded).
 
+> **Data-collection notice (show ONCE, in the first intake message):** include this line verbatim at
+> the end of your first intake reply — *"ℹ️ Build details (your requests, phase outputs, quality
+> scores) are recorded to your account to operate and improve the service."* Do not start emitting
+> `user.prompt`/`user.feedback` (step 2) if the user objects — continue the build without prompt
+> capture and note their objection.
+
 ## 1.5 Set up game-dir + worktree (AFTER intake, BEFORE state)
 
 1. **Derive slug:** convert the concept to a slug (`match-3` → `match3`, lowercase, alphanumeric).
@@ -145,7 +151,10 @@ The game's own `.gitignore` (from the template) covers `node_modules/`, `dist/`.
 Call `state_init(gameId=<slug>, plan=<BuildPlan>)` (`ongame`). It **returns `{ buildId, state }`** —
 **capture the `buildId`** and thread it through the whole build (every later cloud orchestration call
 addresses by it; the tenant is taken server-side from the OAuth token, never passed). Then
-`trace_emit(buildId=<buildId>, name="build.start", payload={path:<plan.path>})`.
+`trace_emit(buildId=<buildId>, name="build.start", payload={path:<plan.path>})`, followed by
+`trace_emit(buildId=<buildId>, name="user.prompt", payload={output:<the user's VERBATIM /make-game request + any
+intake answers they gave>})` — this persists what the user actually asked for onto the build record (concept alone
+is a distillation; the record needs the source).
 
 > **Hierarchical observability (build trace):** `build.start` + each `phase.<x>.start/done` open/close the
 > build's phase spans **server-side** (the build doc holds the active phase span), forwarded to Langfuse via the
@@ -255,6 +264,9 @@ approval/changes.
   **A change request here is a correction** — if it reflects the user steering you off what you produced (not just a
   clarification), also call `friction_report(buildId, gameId, phase, kind, agentDid, userWanted, evidence?)` with the
   DELTA (see the correction-learning block above), then re-run.
+  Before the re-invoke, also emit `trace_emit(buildId, name="user.feedback", payload={output:<the user's
+  correction VERBATIM>, metadata:{phase}})` — the correction is part of the build record (what the user asked
+  to change is as much "the prompts" as the original request).
 - **Once approved → continue:** call `approve_phase(buildId, phase)` to mark the phase approved (gate state
   machine), move on to Segment B.
 
@@ -282,7 +294,8 @@ args: { plan, phases: B, buildId, gameDir, pluginRoot: "${CLAUDE_PLUGIN_ROOT}" }
 When the `code` phase finishes, call `preview_start(gameDir=<gameDir>)` (`ongame`) → show the
 returned URL in the browser; present per **GATE PRESENTATION** (embed the playable-check context + URL).
 Confirm playability with the user. If they request changes,
-re-iterate only the `code` (and if needed `docs`) phase — same re-run mechanics as GATE 1:
+re-iterate only the `code` (and if needed `docs`) phase — same re-run mechanics as GATE 1 (including the
+`user.feedback` trace_emit with the verbatim correction):
 `record_iteration(buildId, phase)` immediately before the re-invoke (it re-opens the phase server-side),
 then build.js with `phases: [<phase(s) to redo>]` + `notes: <the correction>`, **without** the `completed` arg.
 **If the change is a correction** (the gameplay/feel/mechanic missed what the user wanted, they ask for it "again", or
@@ -375,8 +388,10 @@ the defaults below. Never block on it.
    the trajectory, `build.done` closes the trace, and the git commit captures the files. If an accepted
    polish pass ran after them, the record would mark the build complete before its final assets existed and
    the pass's outcome would fall outside the trace entirely. Offer first; record what actually shipped.
-1. `profile_record_build(concept=<plan.concept>, path=<plan.path>)` (`ongame`; the tenant is the verified
-   OAuth identity — no `gameDir`). This grows the raw history (`priorGames`) so that the next intake agent can judge
+1. `profile_record_build(concept=<plan.concept>, path=<plan.path>, gameId=<slug>, buildId=<buildId>)`
+   (`ongame`; the tenant is the verified OAuth identity — no `gameDir`). `buildId` is the UNIQUE join key from
+   this ledger entry to the build record (`game_summary` uses it; `gameId` groups re-builds of the same game).
+   This grows the raw history (`priorGames`) so that the next intake agent can judge
    the user's direction from history (personalization works on day 1).
 1.5. **`brain_capture`** (`ongame`; learn — flywheel): write the **real** lesson that comes out of this build's
    trajectory. Most of the time `scope:"user"` ("this user prefers this direction/preference"; the tenant is the
