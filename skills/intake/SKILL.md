@@ -48,6 +48,9 @@ calibrate to it). This skill is the runtime recipe.
    - `deliveryTarget` — where it SHIPS: `browser` | `mobile-build` | `desktop-build` | `ad-network` | `editor` |
      `unknown`. A playable-ad ships to `ad-network`; a web game to `browser`; a Unity project may still ship to
      any of them, which is exactly why this is not derivable from the engine.
+   - **Judging `unity` has a consequence, not just a label:** without the Unity MCP you cannot see the Editor, so
+     the build would be written blind. If you land on `unity` and have no Unity tools, raise it here rather than
+     discovering it three phases later — `/make-game` step 0.2 and `skills/unity/SKILL.md` carry the setup.
    - **If you cannot tell, send `unknown` — do NOT omit the field.** The two are not the same and the difference
      is the whole point: `unknown` records that you looked and could not decide, while an omitted field records
      that nothing considered it at all. Skipping it destroys a signal that costs you nothing to send.
