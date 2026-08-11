@@ -72,6 +72,29 @@ $BinPath     = Join-Path $BinDir $BinName
 # follows, and the same reason: a piped stdout must stay clean.
 function Write-Step([string]$Message) { [Console]::Error.WriteLine($Message) }
 
+# Downloads one file, preferring curl.exe.
+#
+# curl.exe ships in Windows 10 1803+ and Server 2019+ — every platform this installer supports — and it wins
+# on the two things that actually matter for a ~115MB asset. It renders its own progress meter, so the
+# install cannot be mistaken for a hung terminal (the first thing a real user reported); and it avoids
+# Invoke-WebRequest's per-chunk overhead, which on Windows PowerShell 5.1 makes a large download
+# dramatically slower than the connection warrants. `$ProgressPreference='SilentlyContinue'` above is what
+# suppresses IWR's own bar — necessary for speed there, and precisely why IWR alone shows nothing at all.
+#
+# IWR stays as the fallback so a machine without curl.exe, or a curl that fails for its own reasons, still
+# installs. A failure in EITHER path throws, and the caller turns that into the usual `error: ...` message.
+function Get-RemoteFile([string]$Url, [string]$Path) {
+  $curl = Get-Command curl.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($curl) {
+    # -f: fail loudly on an HTTP error instead of writing the error page to disk. -L: follow the release
+    # redirect to the CDN. --progress-bar: a meter on stderr, where everything else this script says goes.
+    & $curl.Source -fL --progress-bar -A $UserAgent -o $Path $Url
+    if ($LASTEXITCODE -eq 0) { return }
+    Write-Step "  curl could not fetch it (exit $LASTEXITCODE) — retrying with PowerShell's own downloader (no progress meter; please wait)..."
+  }
+  Invoke-WebRequest -Uri $Url -OutFile $Path -Headers @{ 'User-Agent' = $UserAgent } -UseBasicParsing
+}
+
 # Failure reporting, kept in the same shape as install.sh's `error()`: `error: <what went wrong>` on stderr,
 # then stop.
 #
@@ -203,10 +226,13 @@ try {
   $stagedBin = Join-Path $tmpDir $assetName
   $stagedSums = Join-Path $tmpDir 'checksums.txt'
 
-  Write-Step "Downloading $assetName..."
+  # The size is stated up front on purpose. The binary is ~115MB (the whole product, no runtime to install
+  # separately), and on a normal connection that is a minute or more of nothing happening. Without a number
+  # and a progress meter the install reads as HUNG — which is exactly how it was first reported.
+  Write-Step "Downloading $assetName (~115 MB — this is the entire product; expect a minute or so)..."
   foreach ($item in @(@{ Url = (Get-DownloadUrl $assetName); Path = $stagedBin }, @{ Url = (Get-DownloadUrl 'checksums.txt'); Path = $stagedSums })) {
     try {
-      Invoke-WebRequest -Uri $item.Url -OutFile $item.Path -Headers @{ 'User-Agent' = $UserAgent } -UseBasicParsing
+      Get-RemoteFile $item.Url $item.Path
     } catch {
       Stop-Install "download failed: $($item.Url) — $($_.Exception.Message)"
     }
