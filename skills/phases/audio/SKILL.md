@@ -137,7 +137,7 @@ toggle works. The toggle state is persistent via `storageService` (SettingsBindi
   materialized `.mp3` under `assets/forge/` (via `assets_materialize`'s returned `{ paths }`); the
   `load()` calls reference those resolved paths, not a guessed `audio/<id>.mp3`.
 - Even when sound generation is unavailable, the game opens and plays (silent) — gray-box parity.
-- **`trace_emit` the headline `phase.output`** (ONE per phase — the audio phase's main decision; nests as a Langfuse `generation` under the phase span, so the eval can read context→artifact→why). Emit it **after** the build is tsc-clean + the manifest is written, **before** `state_advance`:
+- **`trace_emit` the headline `phase.output`** (ONE per phase — the audio phase's main decision; nests as a `generation` observation under the phase span, so the eval can read context→artifact→why). Emit it **after** the build is tsc-clean + the manifest is written, **before** `state_advance`:
   ```
   trace_emit(buildId, name="phase.output", payload={
     input:    <the CONTEXT this phase consumed — the GAME_DESIGN.md core loop / genre / core verb that the sound manifest was derived from, plus the prior-phase inputs used (the game's interactive verbs + win/lose screens that the roles map to, and whether forge/sound_request was reachable)>,

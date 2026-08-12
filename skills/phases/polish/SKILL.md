@@ -222,14 +222,14 @@ continue — the build must never break. The golden rule still applies: the loop
 did not clearly improve, keep its old assets.
 
 ## Sub-phase 10 — Telemetry provisioning (deploy wiring, Channel B)
-- Provision shipped-game **player telemetry** so the deployed game feeds the flywheel ("which games retain") in **two steps**:
+- Provision shipped-game **player telemetry** so the deployed game feeds retention measurement ("which games retain") in **two steps**:
   1. `telemetry_provision({gameId: <game slug>})` → returns `{ingestKey, endpoint, sdkUrl, snippet}`. This mints
      a per-game **public ingest key** (gate, via your OAuth identity — a tenant mints only its own) and builds the
      `ongame-telemetry` SDK snippet (NO disk write — it returns the snippet). The SDK auto-emits exactly two
      events — `session_start` and `session_end` — with an anonymous install id (D1/D7 retention); no PII.
   1b. **Instrument the level funnel YOURSELF — the SDK does not.** This is a real step, not a nicety: the
      auto-emitted pair answers *"did anyone come back"* and nothing else. Retention curves, difficulty tuning
-     and the whole level-progression half of the flywheel are computed from `level_start` / `level_complete`,
+     and the whole level-progression half of that measurement are computed from `level_start` / `level_complete`,
      and those exist only if the game's own code sends them. Add two calls in the game's level lifecycle:
      ```js
      globalThis.ongameTelemetry?.track('level_start',    { level: n });
@@ -246,9 +246,8 @@ did not clearly improve, keep its old assets.
   Inject into the SOURCE `index.html` (before `vite build`) so the bundle carries it. This is Channel B (runtime player
   telemetry — the shipped game's browser SDK), distinct from Channel A (build-time orchestration traces via `trace_emit`).
 
-## Sub-phase 11 — Build + publish to public static hosting (deploy, the flywheel's front door)
-- Ship the game to a **public URL** so real player browsers load it and the telemetry SDK (Sub-phase 10) feeds the
-  flywheel. Telemetry is injected into the SOURCE `index.html` FIRST (Sub-phase 10) so `vite build` bundles it; THEN:
+## Sub-phase 11 — Build + publish to public static hosting (deploy)
+- Ship the game to a **public URL** so real player browsers load it and the telemetry SDK (Sub-phase 10) reports real play. Telemetry is injected into the SOURCE `index.html` FIRST (Sub-phase 10) so `vite build` bundles it; THEN:
   1. **Build:** `Bash`: `cd {gameDir} && npm run build` → produces `dist/`. Fix until the build is clean.
   2. **Enumerate the built files:** `Bash`: list every file under `dist/` as `dist`-relative paths, e.g.
      `cd {gameDir}/dist && find . -type f` → strip the leading `./`. Pair each with its content-type
@@ -296,7 +295,7 @@ did not clearly improve, keep its old assets.
     `playable`. "Never applied" means there was nothing to run or nothing to run it against: the target is not a web
     build (no `vite build`/`dist/` in the first place — a Unity/native project ships through its own engine build,
     which this phase does not drive), or hosting is entirely unavailable so no publish was attempted. In those cases
-    **do not write the `deploy_success` score at all** — a `0` tells the flywheel this build objectively FAILED to
+    **do not write the `deploy_success` score at all** — a `0` records that this build objectively FAILED to
     deploy, indistinguishable from a real broken deploy, and poisons the signal. Instead tell the user plainly that
     the build is *not deploy-verified* and what the next step is on their target. A `0` is only for a deploy you
     actually attempted and that actually failed (a broken build, a failed/partial upload, a stale live URL).
@@ -307,7 +306,7 @@ did not clearly improve, keep its old assets.
   input works during effects (the lock is only in the code-phase cascade). Preserve 60fps — particle
   `ParticleBudget`, avoid filters, no alloc every frame.
 - Fix until **`tsc --noEmit` clean** (gate).
-- **Observability (the phase's headline decision → Langfuse generation under the phase span):** BEFORE `state_advance`,
+- **Observability (the phase's headline decision → a `generation` observation under the phase span):** BEFORE `state_advance`,
   `trace_emit({buildId, name="phase.output", payload={`
   `input: <the context this phase consumed — the `profile_get` history signal that set the scope, any polish/juice `brain_recall` lesson(s) + `knowledge_get` key(s), and the prior-phase inputs used: GAME_DESIGN.md game type, the code-phase Controller/View seams, forge asset availability>,`
   `output: <the artifact produced — the polish sub-phases actually applied (e.g. splash/menu/settings/HUD/juice/transitions/bg/game-over/button-feedback), the file(s) written/edited, telemetry-injected? published publicUrl?, the `tsc --noEmit` clean + `window.__game` smoke result>,`

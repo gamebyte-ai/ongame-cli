@@ -6,7 +6,7 @@ self-update launcher can be inspected by anyone before running them on their mac
 visibility is a transparency choice, not an open-source release — see LICENSE for the actual terms
 governing use of this repository's contents and the `ongame-cli` binary it installs.
 
-The `ongame-cli` binary itself, and the backend services (moat) it talks to, are closed-source and
+The `ongame-cli` binary itself, and the backend services it talks to, are closed-source and
 contain no third-party open-source code requiring separate attribution here. If a future release
 bundles third-party components under their own licenses, those licenses and attributions will be
 listed in this file.

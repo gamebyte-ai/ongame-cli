@@ -231,14 +231,14 @@ return, the client writes them to disk):
 - **`kind`** — YOU judge which kind:
   - **`2d-static`** — flat 2D visual (UI/HUD/tile/bg/menu). Most assets are this.
   - **`sprite`** — animated sprite-sheet (walk/attack loop). `spriteParams` + grid prompt (below).
-  - **`3d-static`** — image→GLB 3D model (prop/object, Trellis, ~1-3 min). Meaningful **ONLY in 3D games**
+  - **`3d-static`** — image→GLB 3D model (prop/object, ~1-3 min). Meaningful **ONLY in 3D games**
     (Three.js world3d); do not use in a pure 2D game. `threeDParams` + single-object prompt (or
     `editOf`=ready clean visual). Sync `forge_request` usually completes within the MCP client's own request
     timeout, but is NOT guaranteed on a slow run — the **async path (§3.5) is the recommended default**,
     especially for a production build where a silent timeout is expensive; sync stays available for a quick
     prototype-mode prop where the residual risk is acceptable. Never blind-retry a sync timeout — fall back
     to a `2d-static` placeholder for that row and flag it.
-  - **`3d-char`** — a STATIC humanoid 3D character mesh (Meshy). **Rigging/animation are NOT part of this
+  - **`3d-char`** — a STATIC humanoid 3D character mesh. **Rigging/animation are NOT part of this
     kind** — generate the static mesh here, then rig it as a SEPARATE step (§3.5). This kind is
     **async-only**: `forge_request`/`forge_batch` reject it with a 422 (character generation takes far too long
     for a sync call — a silent timeout would waste real spend).
@@ -266,7 +266,7 @@ return, the client writes them to disk):
   > remove-bg pipeline is an advanced sprite-quality slice.)
 - **`threeDParams?`** (3d-static) — `{ resolution, decimationTarget, textureSize, remesh, seed }`.
   Web/mobile defaults are safe (decimation ~30k); increase for a hero/close-up object. The prompt should
-  describe a **single object + clean/simple background** (Trellis first generates a 2D base, then converts to GLB).
+  describe a **single object + clean/simple background** (a 2D base is generated first, then converted to GLB).
   If you have a ready clean visual on hand, make it directly the 3D source with `editOf=<path>` (skips 2D base generation).
 - **`normalize?`** (every 3D kind — **use it**) — `{ class, targetHeightMeters? }`. Without it a generated GLB
   arrives in whatever space its source model happened to use (a cm-scaled, Z-up armature is common), and the game
@@ -324,7 +324,7 @@ Flow — **parallelism belongs to the `forge_batch` tool, NEVER to parallel agen
    flatten the `ok` assets → `assets_materialize(gameDir, assets, download)` → map paths back to rows as
    **`outputPath`**. For `ok:false` slots, read the `error`, fix that spec (prompt/params) and re-request JUST
    those rows (another small `forge_batch` or single `forge_request`) — never regenerate the whole slice.
-4. **3D rows are NOT batchable** (`forge_batch` rejects both `3d-static`/`3d-char` — even Trellis's ~3 min run
+4. **3D rows are NOT batchable** (`forge_batch` rejects both `3d-static`/`3d-char` — even a ~3 min 3D run
    would blow the batch's own time budget) → request each singly, sequentially. `3d-static` may go via sync
    `forge_request` (accepting the residual risk) or the async path (§3.5, recommended). `3d-char` is
    **async-only** (§3.5) — `forge_request`/`forge_batch` reject it with a 422; submit via `forge_generate_async`
@@ -490,7 +490,7 @@ load real textures. Otherwise the game still renders line-art/placeholder.
 ## 8. Finish
 
 First emit the **phase-output generation** (context→artifact replay; nests as a `kind:generation`
-under the phase span — in Langfuse one reads, per phase, "what context went in → what came out →
+under the phase span — one can read, per phase, "what context went in → what came out →
 what was decided and WHY"). ONE high-signal emit (the phase's headline decision), BEFORE `state_advance`:
 
 ```

@@ -5,7 +5,7 @@
 # `${CLAUDE_PLUGIN_ROOT}/bin/ongame-launcher`, and on Windows an extensionless spawn path resolves to its `.exe`
 # sibling (MEASURED under both Node's spawn and cross-spawn, even with this sh script sitting right beside it).
 #
-# This file is a TRAMPOLINE and nothing else. All real version churn — new tools, bugfixes, the moat proxy, and
+# This file is a TRAMPOLINE and nothing else. All real version churn — new tools, bugfixes, the backend proxy, and
 # as of the Windows work SELF-UPDATE ITSELF — lives in `${ONGAME_INSTALL_DIR:-$HOME/.ongame}/bin/ongame-cli`, the
 # compiled binary this script execs into. That split is what makes "no manual `/plugin marketplace update`, ever"
 # true: Claude Code only re-reads plugin.json on session start, so plugin.json (and this file) must basically
