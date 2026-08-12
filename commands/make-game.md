@@ -185,7 +185,7 @@ intake answers they gave>})` — this persists what the user actually asked for 
 is a distillation; the record needs the source).
 
 > **Hierarchical observability (build trace):** `build.start` + each `phase.<x>.start/done` open/close the
-> build's phase spans **server-side** (the build doc holds the active phase span), forwarded to Langfuse via the
+> build's phase spans **server-side** (the build doc holds the active phase span), forwarded to the
 > backend. There is **no local build-ctx file** — to bind memory/score emissions to the active phase span, simply
 > **pass `buildId`** to the `brain_recall/capture/score` calls (gate + code skill below). Core resolves the live
 > span from the build doc. This way "which memory was used/updated in which phase + quality" appears in a single
@@ -222,7 +222,7 @@ concept; B = the remaining docs/code/[levels/polish/deploy]).
 >   slower/strategic pacing").
 > - `evidence` = an optional quote of the user's words or a diff snippet of their hand-edit.
 > - **Report the user-correction DELTA — NOT a self-summary of what you built.** The agent already knows what it wrote;
->   the moat fills only from "agent assumed X → user actually wanted Y". Do not restate your own output as a "lesson";
+>   the learning comes only from "agent assumed X → user actually wanted Y". Do not restate your own output as a "lesson";
 >   if the user did not correct you, do not call it. One report per distinct correction (don't spam the same delta).
 > - The backend (brain) decides agentically whether the delta generalizes into a stored lesson and at what scope — the
 >   client only reports the raw delta; it does not pre-judge the lesson.
@@ -304,14 +304,14 @@ approval/changes.
 > `state_get(buildId).iterations[phase]` is the revision count — read it at the gate so you SEE how many
 > rounds this phase has taken when judging whether it's time to ask.
 
-> **`brain_score` at every gate (EVAL — flywheel measurement):** when a phase is approved, **measure that phase's**
+> **`brain_score` at every gate (EVAL — quality measurement):** when a phase is approved, **measure that phase's**
 > quality:
 > `brain_score(gameId=<slug>, phase=<phase>, value=<0-1>, buildId=<buildId>)` (`ongame`; the tenant is taken
 > server-side from the OAuth token). Passing `buildId` automatically binds the score to the currently **active phase
 > span** (the hierarchical tree; core resolves the span from the build doc — YOU do not read any local file). YOU
 > judge the `value`: approval on the first try ≈ **1.0**, **lower it** on each revision iteration, and ≈ **0.2** if it
 > struggled a lot / was rejected. This way "which phase's recall context produced good output" is measured on that
-> span; the flywheel learns from it. If there is no active span it falls back to flat automatically. If brain is
+> span; future builds learn from it. If there is no active span it falls back to flat automatically. If brain is
 > missing it is a no-op.
 
 ### Run Segment B
@@ -421,9 +421,9 @@ the defaults below. Never block on it.
    this ledger entry to the build record (`game_summary` uses it; `gameId` groups re-builds of the same game).
    This grows the raw history (`priorGames`) so that the next intake agent can judge
    the user's direction from history (personalization works on day 1).
-1.5. **`brain_capture`** (`ongame`; learn — flywheel): write the **real** lesson that comes out of this build's
+1.5. **`brain_capture`** (`ongame`; learn): write the **real** lesson that comes out of this build's
    trajectory. Most of the time `scope:"user"` ("this user prefers this direction/preference"; the tenant is the
-   verified OAuth identity, not passed) or, if generalizable, `scope:"global"` (collective). Pass `buildId` to nest it
+   verified OAuth identity, not passed) or, if generalizable, `scope:"global"` (shared across builds). Pass `buildId` to nest it
    under the build's span. YOU judge the scope/content; do not produce a fake lesson. If brain is missing it is a no-op.
 2. `trace_emit(buildId=<buildId>, name="build.done", payload={path:<plan.path>})` (`ongame`).
 3. Make a final git commit in the game project (the per-phase checkpoints from §4 should already exist; this
@@ -446,7 +446,7 @@ as an ongame build.
 Understand why, because the reasoning is what makes you apply it in cases this text does not list. When you
 silently fall back, the user gets a game that *looks* like an ongame output and *is not one*. They judge the
 product by it. They report that the quality is poor. Nobody can explain it, because nothing recorded that the
-asset engine, the retention curve, the collective memory and the quality gates were never in the room. A
+asset engine, the retention curve, the shared learning and the quality gates were never in the room. A
 visible failure costs one message. A silent substitution corrupts the only evidence anyone has about whether
 the product works — and it is unrecoverable, because by the time someone doubts the output the run is gone.
 

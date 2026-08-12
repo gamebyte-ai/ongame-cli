@@ -16,7 +16,7 @@ description: Light GDD — an anchor document so the agent doesn't get lost duri
 
 2. Generate a **light GDD** from CONCEPT.md: core loop, entities, controls, win/lose, screens (menu/play/gameover).
 3. Output: `docs/GAME_DESIGN.md` (short, actionable — the anchor for the code phase).
-4. **`trace_emit` the headline `phase.output`** (ONE per phase — the docs phase's main decision; nests as a Langfuse `generation` under the phase span, so the eval can read context→artifact→why). Emit it **after** `GAME_DESIGN.md` is written, **before** `state_advance`:
+4. **`trace_emit` the headline `phase.output`** (ONE per phase — the docs phase's main decision; nests as a `generation` observation under the phase span, so the eval can read context→artifact→why). Emit it **after** `GAME_DESIGN.md` is written, **before** `state_advance`:
    ```
    trace_emit(buildId, name="phase.output", payload={
      input:    <the CONTEXT this phase consumed — the CONCEPT.md fields read (core gameplay loop, hook, target audience, mechanic/genre), plus any brain_recall signal(s)/knowledge_get key(s) the orchestrator threaded into this phase>,

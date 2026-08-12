@@ -95,10 +95,10 @@ zombie report. This lock guards WRITES only — reading/analysis needs no lock.
    → returns curated lesson texts (if empty, no brain / no lessons → static knowledge only, that's fine). Use these
    together with the knowledge as **context** for the code; **YOU decide which to apply** (no keyword-if).
    Passing `buildId` automatically binds the recall **under the active phase span** (at the gate, `brain_score` scores that span —
-   hierarchical Langfuse eval). `buildId` is optional; if omitted the recall is flat (backward-compatible).
+   hierarchical eval). `buildId` is optional; if omitted the recall is flat (backward-compatible).
 
 > **End of phase — `brain_capture` (learn):** when the code phase ends, write down the lesson of what worked / didn't work. **YOU judge the scope:**
-> a generalizable mechanic/pattern lesson → `scope:"global"` (collective moat); a quirk specific to this game →
+> a generalizable mechanic/pattern lesson → `scope:"global"` (shared across builds); a quirk specific to this game →
 > `scope:"game"` (gameId); a preference specific to this user → `scope:"user"`. The tenant is resolved server-side from the
 > verified OAuth identity (do NOT self-assert a tenantId). `category` is free-form
 > (e.g. `"pattern"`, `"bug-fix"`). Pass `buildId` (capture automatically nests under the active phase span).
@@ -259,7 +259,7 @@ ground yourself in the ACTUAL installed surface — do not assume a method name/
     a destination** — with the Unity MCP connected you CAN read the Editor console and know whether it compiled, so
     reach for that before settling for `unverified`; `skills/unity/SKILL.md` has the setup and the headless CLI. Then **do not write the `compiles` score**:
     a `0` claims the code objectively failed to compile and is indistinguishable from a real compile error, which
-    poisons the flywheel. Say plainly that the build is *not compile-verified* here and what compiles it instead. A
+    poisons the quality signal. Say plainly that the build is *not compile-verified* here and what compiles it instead. A
     `0` is only for a check you actually ran that actually failed.
   - Fail-soft: a failed `brain_score` NEVER blocks the build; no-op if `buildId`/brain is absent.
 
@@ -288,20 +288,20 @@ If, during or right after this phase, the **user CORRECTS you** — rejects the 
 redirects the mechanic/direction, or **hand-edits your code** — call
 `friction_report(buildId, gameId=<slug>, phase="code", kind, agentDid, userWanted, evidence?)` (find by
 bare name `friction_report` via ToolSearch). The code phase is the **highest-friction** point — the "the feel/mechanic
-missed → user steered to X" delta is the most valuable signal in the whole moat.
+missed → user steered to X" delta is the most valuable signal we get.
 - **Agentic, not a threshold:** YOU judge whether a *real correction* happened. Your own iteration to reach tsc-clean,
   or a clarifying question, is NOT a correction — only a place where the user steered you off what you produced.
 - `kind` ∈ `rejection | iteration | redirect | user-edit | repeat`. `agentDid` = what you originally built / assumed
   (e.g. "tuned a fast arcade swap with instant cascade"). `userWanted` = the DELTA the user steered to (e.g. "wanted a
   slower, deliberate match with a visible think-pause"). `evidence` = an optional quote or a diff snippet of their edit.
 - **Report the user-correction DELTA — NEVER restate what you built as a "lesson".** The agent already knows its own
-  output; the moat fills only from "agent assumed X → user actually wanted Y". If the user did not correct you, do not
+  output; the learning comes only from "agent assumed X → user actually wanted Y". If the user did not correct you, do not
   call it. One report per distinct correction.
 - The backend (brain) decides agentically whether the delta generalizes into a stored lesson + at what scope — you only
   report the raw delta. Fail-soft: if `friction_report` is unavailable/errors, never block the build.
 
 ## 12. Finish
-- **`trace_emit` the headline `phase.output`** (ONE per phase — the code phase's main decision; nests as a Langfuse `generation` under the phase span, so the eval can read context→artifact→why). Emit it **after** the build is tsc-clean, **before** `state_advance`:
+- **`trace_emit` the headline `phase.output`** (ONE per phase — the code phase's main decision; nests as a `generation` observation under the phase span, so the eval can read context→artifact→why). Emit it **after** the build is tsc-clean, **before** `state_advance`:
   ```
   trace_emit(buildId, name="phase.output", payload={
     input:    <the CONTEXT this phase consumed — the brain_recall lesson text(s)/signals (mechanic, genre, query), the knowledge_get key(s) used (framework + matched genre:* / pattern:*), and the GAME_DESIGN.md mechanic/genre this code targets>,
@@ -356,7 +356,7 @@ missed → user steered to X" delta is the most valuable signal in the whole moa
      `1` = verified running, `0` = verified BROKEN. Both mean you looked.
   - **If you could NOT look — no browser tool (preflight 0.1), OR the browser tool is present but unusable (Chromium not
     installed, the navigate/screenshot call errors or times out, the preview can't be automated):** this is **`unverified`,
-    which is NOT a `0`.** Do **not** write the `playable` sub-score at all (a `0` would tell the flywheel the build is
+    which is NOT a `0`.** Do **not** write the `playable` sub-score at all (a `0` would record that the build is
     objectively broken — indistinguishable from a real defect — and poison the signal). Instead: tell the user the game
     is *built but not yet runtime-verified* + the one-line enable step (`npx playwright install chromium` + Playwright
     MCP), and never call an unlooked-at build "playable"/"working". **Degrade, never hard-block** — a missing/broken
