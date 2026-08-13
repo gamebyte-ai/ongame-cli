@@ -171,6 +171,19 @@ language).
 
 ## 2. CONSISTENT art direction — shared art-direction prefix
 
+**Read `docs/ART_DIRECTION.md` first** if the concept phase wrote one (it should have — concept step 3b). It holds
+the locked palette, the measured atmosphere numbers and what the game must NOT look like; the prefix below is how
+you carry that contract into every prompt, not a fresh invention. If it is missing, write it now rather than
+generating a wave against nobody's agreement — that agreement is free before generation and expensive after.
+
+**Land generation and INTEGRATION as separate steps** — a wave of assets, then wiring them in. This is deliberate:
+an asset can be beautiful on its own and wrong in the scene (scale reads differently, palette fights the lighting,
+silhouette vanishes against the background), and if both land together that failure surfaces late with an
+ambiguous cause — bad asset, bad scene, or bad lighting? Split, and the question is answerable.
+
+Recipe + the reference-measurement procedure: `knowledge_get({ key: 'pattern:art-direction-contract' })`.
+
+
 The main lever for consistency is **prompt engineering**: establish a SINGLE **art-direction
 prefix prompt** and append it **verbatim** to the prompt of EVERY asset in the manifest. Forge
 v1 generates stateless (each call independent) — this shared prefix is the guarantee of a
