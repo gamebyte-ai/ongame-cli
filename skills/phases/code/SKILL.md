@@ -60,7 +60,17 @@ a note/ownership file read once does not protect (a stale agent's context never 
 Bounded by design: a takeover happens at most once per stall (no retry loop); the worst case is one stopped
 zombie report. This lock guards WRITES only — reading/analysis needs no lock.
 
-## 2. Scaffold — STEP 0 (always first; build ON TOP of the baseplate)
+## 2. Scaffold — STEP 0 (first on a NEW build; SKIPPED on a continuation)
+
+> **SKIP THIS ENTIRE SECTION when the plan says `entry: 'continue'`** (the mid-entry door — the user asked for a
+> feature, a fix, more content on a game that already exists). `scaffold_materialize` COPIES the baseplate into
+> `gameDir` and rewrites identifiers across file contents and file names: run against a project someone has been
+> building, it overwrites their `index.html`, their config and their screen files with template versions. There is no
+> "merge" mode and no undo — the damage looks like the build working right up until the game they had is gone.
+> On a continuation the frame already exists and it is theirs: **read it first** (`src/`, the App/DI/screen wiring,
+> `package.json`, `GAME_DESIGN.md` if there is one) and build on what you find, matching its conventions rather than
+> the template's. Everything below about the baseplate describes a new build only; §3 onward applies to both.
+
 - **`scaffold_materialize(gameDir=<gameDir>, gameName=<the game's display name>)`** (find by bare name
   `scaffold_materialize` via ToolSearch). It copies the bundled gamelabs.js baseplate (`templates/gamelabs-base`) into
   `gameDir` and renames every `MyGame*` identifier (`MyGameApp`/`MyGameConfig`/`MyGameUIIds` + the enum value + the
