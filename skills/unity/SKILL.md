@@ -102,6 +102,14 @@ project (Window > Package Manager).
    Unity tools are in your tool list, then actually call one — reading the Editor console is the cheapest
    proof and immediately useful: *"read the Unity console and summarize any warnings or errors."*
 
+**If the bridge looks dead, check for Administrator first.** *(Field-verified on Windows — see §5.)* A
+session running with elevated privileges makes the Unity GUI stop on an **"Administrator Privileges Detected"**
+modal before it finishes loading, so the bridge never starts and no client ever connects. Nothing about that
+looks like a permissions problem from your side; it looks like the MCP is broken. Batchmode is unaffected,
+which is the confusing part — the CLI keeps working while the Editor sits behind a dialog nobody has dismissed.
+Ask the user whether the Editor is showing a modal, and whether the shell that launched it was elevated, before
+you go rebuilding the config.
+
 **Manual relay paths**, if a config has to be written by hand — pass the `--mcp` flag:
 
 | Platform | Relay binary |
@@ -139,10 +147,88 @@ The Editor binary itself is the CLI. This is how a build gets produced without a
   print nothing useful to stdout, so "the command returned" tells you nothing on its own.
 - `-nographics` is right for CI and wrong for anything that must render; do not use it to make a rendering
   problem quiet.
+- **On Windows, make the shell actually wait.** *(Field-verified — see §5.)* `Unity.exe` is a GUI-subsystem
+  binary, so PowerShell's `&` call operator returns the moment it is launched rather than when the build ends.
+  You then read `build.log` while Unity is still writing it, see no errors because the errors have not been
+  printed yet, and report a success that never happened. Use `Start-Process -Wait` (or `-PassThru` plus
+  `WaitForExit()` if you want the exit code) so the log you read is the finished log:
+
+  ```powershell
+  $p = Start-Process -FilePath $editor -ArgumentList $args -Wait -PassThru
+  $p.ExitCode   # now meaningful
+  ```
 
 ---
 
-## 5. What "verified" means on Unity
+## 5. Seven field-verified failures the docs never mention
+
+**Provenance matters here, so read it before you weigh these.** Everything else in this file comes from Unity's
+documentation and was not run by us. The six below are the opposite: they were hit in the field by an agent
+(`fusekick`) building a real Unity 6 / URP game on Windows. They are not warnings someone anticipated — they are
+things that already cost a build. Trust them accordingly, and if one of them no longer reproduces on the user's
+version, say so rather than quietly assuming it still holds.
+
+**What binds them: every one passes a clean compile and leaves a clean console.** That is precisely why this
+file already refuses to treat a clean console as evidence. None of these announce themselves. Each produces a
+build that is silently missing something — or, in the last case, a confident report of a problem that does not
+exist — and an agent that stops at "it compiled, nothing is red" will ship it.
+
+Two of them are wired into the sections they belong to — **Administrator blocking the MCP bridge** in §3, and
+**PowerShell not waiting for `Unity.exe`** in §4 — because that is where you will be standing when they bite.
+The rest:
+
+**Shader stripping kills a code-built world.** If every material is created at runtime through `Shader.Find`,
+then no scene asset references the URP shader, the build pipeline sees nothing referencing it and strips it out.
+`Shader.Find` returns `null` in the player, materials get no shader, and the world is never drawn. It works
+perfectly in the Editor, because the Editor does not strip — so an Editor play-mode test proves nothing about
+this class of bug. Add the shader to the always-included list in **Project Settings > Graphics** so it survives
+the build, and then **assert it at startup** rather than trusting the setting stayed put:
+
+```csharp
+var shader = Shader.Find("Universal Render Pipeline/Lit");
+if (shader == null) throw new System.Exception("URP shader stripped from build");
+```
+
+**glTFast silently refuses WebP-carrying GLBs.** A GLB that lists `EXT_texture_webp` in `extensionsRequired`
+will be rejected outright by glTFast when no WebP decoder is present — and *rejected* means **0 meshes imported
+with no error raised**. You get an empty result and a clean console, so the natural reading is "the model has no
+geometry" and you go debugging the wrong thing. Check `extensionsRequired` in the GLB before you believe an
+empty import.
+
+That the extension is the *whole* cause is measured, not inferred: the same forge models, transcoded out of WebP
+and re-imported, came back `models=7/7 missing=0 noMesh=0` with real triangle counts on every one. Geometry and
+hierarchy were intact the entire time — nothing was wrong with the models. Only the textures are lost by
+stripping, which is free if you assign your own materials and expensive if you wanted forge's. forge now
+discloses the requirement in `warnings`; until it delivers an importable file, transcode before importing.
+
+**Reading the wrong render-pipeline property reports "Built-in" on a URP project.**
+`GraphicsSettings.defaultRenderPipeline` is **null** in Unity's own URP template — the asset lives on the
+quality-level override instead — so an audit that reads it concludes the project is Built-in and sends you
+chasing a pipeline migration that was never needed. Read `GraphicsSettings.currentRenderPipeline`. This one is
+the inverse of the others: not a silent failure but a **false alarm**, and it costs exactly as much time.
+
+**`GameObject.CreatePrimitive` always adds a Collider.** Always — you cannot ask it not to. If the scene has no
+physics, the build strips the Physics module, and every one of those calls then logs *"Can't add component"* and
+you are left with primitives that may or may not be what you wanted. Build the mesh yourself instead, which
+costs one extra line and depends on nothing:
+
+```csharp
+var go = new GameObject("cube");
+go.AddComponent<MeshFilter>().sharedMesh = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
+go.AddComponent<MeshRenderer>();
+```
+
+**The sneakiest one: auditing the intent instead of the artefact.** If your verification reads a *source of
+intent* — a colour constant in `Palette.cs`, a value in a config, the line of code that was supposed to set
+something — while the game actually renders from a **baked artefact** such as a material that was dirtied at
+edit time, the two can disagree completely and your audit will never notice. In the field this produced 1233
+checks passing green while not one pixel on screen changed. The rule is blunt: **assert the baked artefact, not
+the intent.** Read the material's serialized colour, the built asset, the thing the renderer will actually
+consume. A constant proves what someone meant; only the artefact proves what will be drawn.
+
+---
+
+## 6. What "verified" means on Unity
 
 The bar does not drop because the engine changed. Compiling is not running, and a scene loading is not a game
 playing. On Unity, the honest evidence chain is: the **console is clean** (read it through the MCP, do not
@@ -151,3 +237,32 @@ or produce a build and say which target it produced.
 
 If you could not get that evidence, say the build is **unverified** and say why. That is worth more than a
 confident summary, and it is the same rule the web path already holds itself to.
+
+### A doctor check, run before every build
+
+Every failure in §5 is the same shape: **the tool reported success without ever looking at what the player would
+see.** You cannot catch that class by being careful, because being careful is what produces the clean console.
+You catch it by asserting each one explicitly, every time, before the build — a *doctor*.
+
+The field build runs one (`Assets/Editor/BomberCI.cs`, a single static method, ~22s under
+`-batchmode -executeMethod`). What it asserts, and why each line exists:
+
+| Assertion | Why it is there |
+|---|---|
+| Unity version, quality level, colour space | Cheap provenance — a report is worthless without knowing which Editor produced it |
+| **Active build target** | Building against the wrong target is silent lost time, not an error |
+| **`currentRenderPipeline`** | Reads the property that is actually populated (see §5) |
+| **glTF importer type present** (found by reflection) | Its absence is exactly the 0-mesh/no-error import |
+| **Scenes in build settings** | Forgetting to add the scene is the classic, and it fails quietly |
+
+Two details are what make it usable rather than decorative. Every field prints as **a single line with a
+sentinel**, so grepping the log distinguishes *"the method genuinely ran"* from *"Unity exited 0 and did
+nothing"* — an empty log otherwise reads as a pass. And it ends with a **`DOCTOR-OK` sentinel**, so the absence
+of the verdict is itself a failure signal rather than a gap you have to notice.
+
+Worth adding on Unity: is the always-included shader list empty, is the active target's module actually
+installed, is the licence valid.
+
+**The pattern generalises past Unity.** Every engine has a "the tool said fine, the player saw nothing" class,
+and the members differ per engine while the shape does not. When you work on an engine this file does not
+cover, write its doctor from its own failures — one method, one sentinel per assertion, run before every build.
