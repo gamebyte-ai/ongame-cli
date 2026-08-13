@@ -50,6 +50,16 @@ for (const phaseKey of toRun) {
   phase('Build');
   const out = await agent(
     `Run the ongame ${phaseKey} phase. Concept: "${plan.concept}". Path: ${plan.path}. ` +
+      // A phase agent that does not know it is working on an EXISTING game behaves like it is starting one: the code
+      // phase scaffolds the baseplate over the user's project, other phases author from scratch what is already
+      // there. The plan carries the fact; it has to reach the agent that acts on it.
+      (plan.entry === 'continue'
+        ? `THIS IS A CONTINUATION of a game that ALREADY EXISTS in gameDir (intent: ${plan.intent ?? 'unspecified'}` +
+          `${plan.continues ? `, continuing build ${plan.continues}` : ''}). Do NOT scaffold, do NOT recreate what is ` +
+          `there, do NOT overwrite the user's files with template versions — READ the existing project first and ` +
+          `work WITH its structure and conventions. Change the smallest surface that satisfies the intent; anything ` +
+          `you did not need to touch, leave exactly as it is. `
+        : '') +
       `buildId: ${buildId ?? '(orchestrator did not pass it — state ops will be flat)'}. ` +
       `gameDir: ${gameDir ?? '(orchestrator did not pass it — local file/preview tools need it)'}. ` +
       `${skillRef(phaseKey)}. Write the output files under gameDir. ` +

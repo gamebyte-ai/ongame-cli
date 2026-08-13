@@ -27,7 +27,21 @@ calibrate to it). This skill is the runtime recipe.
 0. **Live prompt:** call `prompt_get({ phase: 'intake' })` (bare name via ToolSearch). Non-null `override`
    → follow it (the optimized live version). null/unavailable/error → the default below (fail-soft). Never block on it.
 1. **Pull context:** `intake_context(concept=<concept>)` → `{ concept, returning, decisionsCount, priorGames[],
-   pathOptions[] }` (4 options now). This is CONTEXT for your judgment, not a decision.
+   pathOptions[], intentOptions[] }`. This is CONTEXT for your judgment, not a decision.
+1b. **JUDGE the ENTRY — is there already a game here?** (`/make-game` §0.5 does the looking; this is where the
+   judgment is recorded.) Two doors, and they are not symmetric:
+   - **`new`** — a game is being started from nothing. The mode's full pipeline runs.
+   - **`continue`** — the user is inside a game that already exists and wants something DONE to it. Then you must
+     also judge the **`intent`** — what kind of work it is — from `intentOptions` (each carries a `summary` and a
+     `suggestedPhases` starting point): `feature | content | bugfix | polish | art | performance | ship | derive |
+     other`. `derive` is the one that also changes the MODE (a playable ad cut from an existing game is
+     `path='playable-ad'`, `entry='continue'`, `intent='derive'`).
+   - **A continuation carries the game's identity, not a new one:** same `gameId`, same directory, and `continues` =
+     the prior `buildId` when the game has one (`games_list`/`game_summary`). A game built by hand or before the
+     plugin has none — send no `continues` rather than inventing one.
+   - **Choose the PHASES for a continuation.** `suggestedPhases` is a starting point, not an answer: a "bugfix" that
+     turns out to need a design change genuinely needs `docs`; a "feature" in a game with no docs does not. Send the
+     subset YOU judge. Order does not matter — it is normalised to the pipeline's dependency chain.
 2. **JUDGE the MODE (agentic — from the materials/prompt, NOT keyword-if):**
    - The user **UPLOADED materials** (gameplay video, screenshots, game assets, a GDD) and wants an ad / a playable →
      **playable-ad** (see the recipe in step 5).
@@ -71,9 +85,14 @@ calibrate to it). This skill is the runtime recipe.
 6. **Collect answers → `notes`:** fold the genre/mechanic + any material/format/persona notes into one string (e.g.
    `"genre: puzzle; mechanic: swap-match; materials: gameplay video + hero sprite"`). Empty string if nothing extra.
 7. **Generate BuildPlan:** `intake_build_plan(concept, path=<mode>, persona=<studio|indie|unknown>, engine,
-   deliveryTarget, decidedBy, userKnown, notes)`.
+   deliveryTarget, entry, intent?, continues?, phases?, decidedBy, userKnown, notes)`.
    - `path` = the MODE judged in step 2 (concept-only / prototype / production / playable-ad).
    - `persona` = step 3.
+   - `entry` = step 1b (`new` | `continue`). On `continue`, `intent` is **REQUIRED** — the tool rejects a
+     continuation without one, because an unlabelled continuation cannot be routed, judged or learned from. Send
+     `continues` when the game has a prior build, and `phases` when you judged a subset. On `new`, sending any of
+     those three is an error (they describe something that did not happen) — the tool says so rather than ignoring
+     them.
    - `engine` + `deliveryTarget` = step 3b. **Always send both, `unknown` included.** They are what lets a lesson
      learned on one project reach the right future project — and only the right one.
    - `decidedBy` = "auto" (proceeded automatically) | "asked".

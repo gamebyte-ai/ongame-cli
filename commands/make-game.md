@@ -3,9 +3,12 @@ name: make-game
 description: Give a game concept; ongame produces a playable game via personalized intake → adaptive phase pipeline.
 ---
 
-# /make-game <concept>
+# /make-game [concept]
 
-The user provided a game concept via `$ARGUMENTS`. Follow the flow below **in order**.
+`$ARGUMENTS` **may hold a game concept, may hold something else entirely, or may be empty.** This is the plugin's
+single front door: it is how a user starts a new game AND how they come back to one they are already building. Do not
+assume the argument is a concept, and never invent a concept to fill an empty one — **step 0.5 decides which door you
+are in** before anything else runs. Then follow the flow below **in order**.
 
 > **🎮 ongame presence (do this throughout).** This is an ongame build — keep it gently visible so the user
 > always knows ongame is doing the work. Prefix your phase/progress headlines with a small `🎮 ongame`
@@ -138,6 +141,49 @@ If the Unity tools ARE present, say nothing about setup and get on with it.
 
 Open on every tier, same as the browser gate.
 
+## 0.5 Entry triage — WHICH DOOR (before intake, always)
+
+`/make-game` is the only entrance, so most of the time it is NOT being used to start a game from nothing. The user is
+standing inside a game they are already building and wants a feature, another batch of levels, a bug gone, an ad cut
+from it. Walking that user through "what's your concept?" is the wrong question asked confidently — and worse, the
+new-build path would create `games/<slug>/` next to their project and scaffold a baseplate over the game they already
+have.
+
+**So the first thing you do is LOOK, not ask.** Judge whether a game already exists here — agentically, from evidence,
+never from a keyword in `$ARGUMENTS`:
+
+- **The workspace.** Is the directory you are in a game? A `package.json` (especially one depending on
+  `@gamebyte/gamelabsjs`, three.js, pixi, phaser), a `src/` with game code, `index.html`, an `.ongame/` directory
+  (an ongame build has been run here), `ProjectSettings/`+`Assets/` (Unity), `project.godot`. Read the README and the
+  recent `git log` — they usually say what the thing is in one line.
+- **The conversation.** You may already be deep in a session about this game. That context counts as evidence.
+- **The account.** `games_list()` (`ongame`) returns this user's prior games (concept, `gameId`, `buildId`,
+  newest first); `game_summary({ nameMatch | path })` resolves one. Use it to recognise the game you are standing in
+  and to recover the `buildId` to continue from. A game built by hand or before the plugin simply will not be there —
+  that is fine and expected, not a blocker.
+- **`$ARGUMENTS` when non-empty.** It may itself be the answer ("add a boss fight", "fix the jump", "make a playable
+  ad from this") — a request about an existing game, not a concept for a new one.
+
+Then land on one of three, and say which in one sentence:
+
+1. **CONTINUE (a game exists here).** Do NOT guess what they want done to it — the possibilities are genuinely
+   different kinds of work and picking wrong wastes a whole pipeline. **Ask, with `AskUserQuestion`**, unless
+   `$ARGUMENTS` or the conversation already states the intent plainly (then confirm in one line and move). Build the
+   options from `intake_context(...).intentOptions` — each carries a plain-language `summary` and a
+   `suggestedPhases` starting point: *feature · content (levels/waves/items) · bugfix · polish · art · performance ·
+   ship · derive (e.g. a playable ad from this game) · other*. Show the four or five that actually fit what you found
+   (a game with no deploy setup does not need `ship` offered first), and **always leave a way out to "start a
+   different, new game"** — the user may genuinely be here for that. If they pick something the list does not cover,
+   that is `other` + `notes`, not a forced fit.
+2. **NEW with a concept.** `$ARGUMENTS` holds a real game concept and no existing game claims this session. Proceed as
+   a new build.
+3. **NEW with nothing.** Empty arguments, no game here. NOW ask for the concept — this is the one case where that is
+   the right question. (Offer the shortcut of pointing at an existing project, in case they meant to run this
+   elsewhere.)
+
+Carry the outcome into intake as `entry` (`new` | `continue`) + `intent` + the game you identified. Everything below
+that says "the game" means the SAME game on a continuation — same `gameId`, same directory, nothing scaffolded over.
+
 ## 1. Intake (Phase 0 — always, BEFORE the pipeline)
 
 Apply `skills/intake/SKILL.md`. Output: an approved **BuildPlan**
@@ -151,6 +197,20 @@ into the `notes` parameter (so they don't get discarded).
 > capture and note their objection.
 
 ## 1.5 Set up game-dir + worktree (AFTER intake, BEFORE state)
+
+> **ON A CONTINUATION (`entry='continue'`), THIS WHOLE SECTION IS REPLACED BY THREE LINES** — the game already has a
+> directory, a slug and a git history, and creating a second one would fork the user's project in half:
+> 1. `gameDir` = **the existing project's absolute root** (the directory you identified in §0.5 — normally the one the
+>    user is in, not `games/<slug>`). Never `mkdir` a new game directory, never `git init` over their repo.
+> 2. `gameId` = the game's EXISTING slug — from `.ongame/`, from `games_list()`, or the project's own directory/package
+>    name. Reusing it is what keeps every build of this game joined; a fresh slug silently splits its history and its
+>    asset catalog in two (that split has happened before and cannot be repaired after the fact).
+> 3. **Nothing is scaffolded.** `scaffold_materialize` copies the baseplate over `gameDir` and renames identifiers —
+>    run against a real project it overwrites files the user wrote. The code phase's STEP 0 is skipped on a
+>    continuation (see `skills/phases/code/SKILL.md`); if you find yourself about to scaffold, you are in the wrong
+>    door.
+>
+> Then continue at §2.
 
 1. **Derive slug:** convert the concept to a slug (`match-3` → `match3`, lowercase, alphanumeric).
 2. **Determine gameDir + set up a clean directory:** `gameDir = <repo>/games/<slug>/`.
@@ -176,7 +236,17 @@ The game's own `.gitignore` (from the template) covers `node_modules/`, `dist/`.
 
 ## 2. Initialize state (capture the buildId)
 
-Call `state_init(gameId=<slug>, plan=<BuildPlan>)` (`ongame`). It **returns `{ buildId, state }`** —
+> **CONTINUATION — CHECK THE PLAN CAME BACK AS ONE, before anything writes.** On `entry='continue'`, read the plan
+> `intake_build_plan` returned: it must carry `entry: 'continue'` (plus your `intent`). If it does NOT, you are
+> talking to a version of ongame that predates the mid-entry door and silently dropped those fields — and a plan that
+> reads as a new build is exactly what makes the code phase scaffold the baseplate over the user's project. **Set
+> `entry`/`intent`/`continues` on the plan object yourself before passing it to `state_init` and to build.js**, and
+> say plainly that the build record may not capture the continuation until the backend catches up. Never proceed on a
+> continuation with a plan that says `new`.
+
+Call `state_init(gameId=<slug>, plan=<BuildPlan>)` (`ongame`) — on a continuation `gameId` is the game's
+**existing** slug, so the new build lands in the same game's history rather than starting a second one. It
+**returns `{ buildId, state }`** —
 **capture the `buildId`** and thread it through the whole build (every later cloud orchestration call
 addresses by it; the tenant is taken server-side from the OAuth token, never passed). Then
 `trace_emit(buildId=<buildId>, name="build.start", payload={path:<plan.path>})`, followed by
