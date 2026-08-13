@@ -305,6 +305,9 @@ the asset (a job you never poll again costs nothing, per the tool's own contract
    take that asset's `meta.assetId` and call `forge_rig({ modelRef: <that assetId>, heightMeters? })` →
    another `{jobRef, status:'queued'}` — poll it the SAME way via `asset_job_status`. Rigging is a separate job
    from generation, not a flag on step 1.
+   - **`modelRef` takes either id, same as `editOf` (§4):** the sealed `meta.assetId` from the generating result,
+     or the **stable `a_<hex>`** from `asset_library_list`/`asset_library_get`. Use the stable one to rig a model
+     you generated in an EARLIER session — the sealed handle is ~24h and will be dead by then.
    - **Rig-only** — no animation is produced; there is no `animation`/`animationActionId` param.
      `heightMeters` is optional metadata only.
    - The rig pipeline assumes a **T-pose HUMANOID input** (matching `charParams.poseMode:'t-pose'` above) — a
@@ -347,10 +350,18 @@ never generated as an independent prompt (independent prompts yield unrelated-lo
 3. Apply this within a variant group (`btn-*`, `tile-gem-*`) AND across the whole manifest when the game has one
    dominant look (anchor = the most representative gameplay visual).
 
-> **What `editOf` accepts:** an **`assetId`** from a previous `forge_request` result or a `reference_upload`
-> (**works with REMOTE forge — this is the product path, always prefer it**), a public http(s) URL, or a
-> forge-server-local file path (dev-only convenience — a customer's forge cannot read their disk).
-> assetIds are tenant-bound and expire (~24h): mint what you need in-session, don't hoard them across days.
+> **What `editOf` accepts — and the two ids that are BOTH called "assetId":**
+> - **`meta.assetId`** from a previous `forge_request` result, or a `reference_upload` (**works with REMOTE
+>   forge — this is the product path, always prefer it**) — the **sealed** handle (looks like `asset:…`).
+>   Tenant-bound and **short-lived (~24h)**: mint what you need in-session.
+> - **`assetId`** from `asset_library_list` / `asset_library_get` (looks like `a_<hex>`) — the **stable library
+>   id** of an asset you already generated. It does **not** expire, so this is the one to use when the anchor
+>   came from an earlier session. (Reaching past ~24h with a sealed handle is the classic dead-anchor.)
+> - a public http(s) URL, or a forge-server-local file path (dev-only convenience — a customer's forge cannot
+>   read their disk).
+>
+> Both forms are accepted; pick by where you got the anchor. If an id resolves to nothing you get a **named,
+> terminal** refusal naming the id — do not retry it, mint a fresh anchor.
 > The shared **`ART_PREFIX`** (§2) still goes into every prompt — chain + prefix together give the single language.
 > **Check outputs by eye**; for a member that deviates, tighten the difference-prompt and reprint.
 
