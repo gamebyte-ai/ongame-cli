@@ -430,6 +430,17 @@ hybrid:** `forge_request` returns a base64 asset **manifest** `{assets:[…]}` (
 same shape: `sound_request({prompt, …})` → `assets_materialize`.) Each phase leaves a trace via
 `trace_emit(buildId=<buildId>, …)` (`ongame`) and advances with `state_advance(buildId)`.
 
+> **NEVER generate a visual cold — anchor it to what already exists.** This holds for EVERY asset request, not
+> only inside the `assets` phase: a one-off ask mid-build, and above all a request on a game that already exists
+> ("add a boss", "one more icon"). That later case is where it gets dropped and where it costs most — an
+> unanchored generation comes back in a different language and the game visibly stops being one game.
+> Before any `forge_request`/`forge_batch`: look at what this game already has
+> (`asset_library_list({ gameId })` — the user already paid for those and they define the look), the concept
+> visuals, `docs/ART_DIRECTION.md`, and anything the user supplied. Pass the best match as `editOf` and write the
+> prompt for the DIFFERENCE only. Prompt-alone is acceptable only when nothing relevant exists — and then say so
+> in one line, because that is exactly when the result is most likely to look foreign.
+> Full rule + the reference-hunting order: `skills/phases/assets/SKILL.md` RULE 0.
+
 **MODE-AWARE DEPTH + the LOCKED priority.** The phase SET is already mode-filtered
 (`PHASES_BY_PATH`), but the DEPTH *within* each phase bends to `plan.path` (the mode), and every phase obeys the locked
 priority order: **`first-working-output > graybox-first > honor-explicit-instructions > polish-later`**.
