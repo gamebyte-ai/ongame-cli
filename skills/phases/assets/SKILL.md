@@ -182,6 +182,29 @@ those anyway; they chose.
 
 ### 1b. Build the manifest (GAME_DESIGN.md anchor)
 
+> **A LIST OF NAMES IS NOT AN ASSET LIST.** This is where agents reliably go wrong, and the mechanism is exactly
+> that: the things you can name on a screen read like rows, so ten nameable things become ten assets. They are
+> not. Every extra cut buys alignment work, an extra draw call, and a fresh way for two halves to drift apart —
+> field-measured, and caught by the user rather than by any check, because each piece is individually correct.
+>
+> Three rules decide a row, and they are worth more than the rest of this section:
+> - **Cut at the ANIMATION seam, not the nameable seam.** A button and its icon are ONE asset unless they move
+>   independently. A pressed button whose icon stays put is two; a settings button that only fades is one.
+> - **Ask it PER SCREEN, not per object.** A mascot standing still on a splash is baked into the plate; the same
+>   mascot in-game is a rigged model. Not an inconsistency — the question is *"does it move HERE"*, never *"is it
+>   the kind of thing that moves"*.
+> - **The unit can be a REGION.** If almost nothing in a card changes, the card is one asset. A victory panel
+>   whose frame, ribbon, title and stars never change is one plate; only the button and the reward number are
+>   separate, because only they change.
+>
+> And two things NOT to cut at all: anything code can do convincingly (meter fills, glows, light shafts, confetti,
+> vignettes — a cut meter fill is frozen at the fraction the concept happened to draw), and **added light**.
+> Generating the lit/glowing form is a MISTAKE, not a default: produce the plain form and add glow in code, because
+> background-removal does not preserve transparency and a baked halo cannot be taken back out.
+>
+> Full doctrine, including the state-vs-decoration check and the "regular geometry must be decided before the
+> screen is generated" rule: `knowledge_get({ key: 'pattern:concept-cut' })`.
+
 Read `docs/GAME_DESIGN.md`. Write down EVERY visual the game needs. Manifest = a single table;
 each row is an asset. **Do not skip any visual** — screens, HUD, entities, menu.
 
