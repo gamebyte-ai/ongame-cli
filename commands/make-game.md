@@ -28,6 +28,16 @@ ALL tools in one list — runtime namespace `mcp__plugin_ongame_ongame__<tool>` 
   `preview_start`, `preview_stop`, `assets_materialize`, `telemetry_inject`, `reference_upload`,
   `jury_materialize`, `gate_render`, `publish_upload` — plus **`login`** (below).
 
+  `reference_upload(gameDir, path, uploadUrl, token)` is the one that turns a picture ON DISK into an
+  anchor you can generate against: `forge_reference` hands you `{uploadUrl, token}`, this sends the bytes,
+  and you get back the `assetId` to pass as `editOf` (assets RULE 0). Reach for it only when the reference
+  is a LOCAL FILE — an `assetId` or a public URL goes straight into `editOf` with no upload at all.
+
+  **If a tool named here is absent from your session, that is a STALE INSTALL, not a missing feature** —
+  say so and ask the user to reinstall the plugin (and restart, since local servers load at session start).
+  Do not hand-roll a replacement: it works once, teaches nobody, and hides that everything else in this
+  document is also older than it looks.
+
 **🔑 Sign-in (`login` tool) — the ONE auth path.** If the cloud tools are missing from the tool list (fresh
 install, or a call reports a missing/expired token): tell the user *"I'm opening your browser to sign you in
 to ongame — complete the sign-in there and I'll continue"*, then call the **`login`** tool. It opens the
@@ -420,6 +430,17 @@ hybrid:** `forge_request` returns a base64 asset **manifest** `{assets:[…]}` (
 same shape: `sound_request({prompt, …})` → `assets_materialize`.) Each phase leaves a trace via
 `trace_emit(buildId=<buildId>, …)` (`ongame`) and advances with `state_advance(buildId)`.
 
+> **NEVER generate a visual cold — anchor it to what already exists.** This holds for EVERY asset request, not
+> only inside the `assets` phase: a one-off ask mid-build, and above all a request on a game that already exists
+> ("add a boss", "one more icon"). That later case is where it gets dropped and where it costs most — an
+> unanchored generation comes back in a different language and the game visibly stops being one game.
+> Before any `forge_request`/`forge_batch`: look at what this game already has
+> (`asset_library_list({ gameId })` — the user already paid for those and they define the look), the concept
+> visuals, `docs/ART_DIRECTION.md`, and anything the user supplied. Pass the best match as `editOf` and write the
+> prompt for the DIFFERENCE only. Prompt-alone is acceptable only when nothing relevant exists — and then say so
+> in one line, because that is exactly when the result is most likely to look foreign.
+> Full rule + the reference-hunting order: `skills/phases/assets/SKILL.md` RULE 0.
+
 **MODE-AWARE DEPTH + the LOCKED priority.** The phase SET is already mode-filtered
 (`PHASES_BY_PATH`), but the DEPTH *within* each phase bends to `plan.path` (the mode), and every phase obeys the locked
 priority order: **`first-working-output > graybox-first > honor-explicit-instructions > polish-later`**.
@@ -493,8 +514,12 @@ the defaults below. Never block on it.
    the user's direction from history (personalization works on day 1).
 1.5. **`brain_capture`** (`ongame`; learn): write the **real** lesson that comes out of this build's
    trajectory. Most of the time `scope:"user"` ("this user prefers this direction/preference"; the tenant is the
-   verified OAuth identity, not passed) or, if generalizable, `scope:"global"` (shared across builds). Pass `buildId` to nest it
-   under the build's span. YOU judge the scope/content; do not produce a fake lesson. If brain is missing it is a no-op.
+   verified OAuth identity, not passed), or `scope:"game"` when it is true only of this game.
+   Pass `buildId` to nest it under the build's span. YOU judge the scope/content; do not produce a fake lesson.
+   - **A lesson bigger than one user — craft knowledge the whole platform should have — still gets captured
+     as `user`, AND you say so to the person in one line.** Writing to the shared pool is not something a
+     client does; telling them is the actual route into the product, and it is the step you cannot take
+     alone. Do not hunt for a way around it and do not report it as a failure.
 2. `trace_emit(buildId=<buildId>, name="build.done", payload={path:<plan.path>})` (`ongame`).
 3. Make a final git commit in the game project (the per-phase checkpoints from §4 should already exist; this
    captures anything since the last phase). If git isn't set up, skip silently.
