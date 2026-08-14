@@ -43,6 +43,22 @@ description: Game concept — vision, core loop, target audience + visual placeh
    - **(b) 2-3 in-game KEY MOMENTS** — gameplay-camera frames **with the HUD visible**, in the game's real
      camera/scene language (they should read as screenshots of the finished game, not poster art).
 
+   **Order the set so consistency is CHECKABLE, not remembered** (field-verified: a dressing pass rejected as
+   "doesn't look like the concept" was accepted in ONE round after being regenerated in this order):
+   - **UI KIT FIRST, before any screen** — button states, icons, pips, panel/card, typography, palette with HEX.
+     Without it, every screen is judged against a memory instead of an artefact.
+   - **Then chain**: kit → the ANCHOR screen (the in-game HUD) → everything else. Each new screen is generated
+     against the anchor, so the set speaks one language by construction rather than by luck.
+   - **Say the SCALE difference out loud and author for it.** Concept art reads at roughly 100px per cell; the game
+     renders at ~34px. Assets need **bold silhouettes** — detail that looks beautiful in the concept disappears at
+     play size, and the result then looks nothing like what the user approved.
+   - **Small batches of 2-3**, not one big fan-out: a wrong direction costs three images instead of twelve.
+   - **NOTHING ships from this phase.** Functional verification (does it load, is the draw call there) and visual
+     quality are independent axes; unless the mockup and the screenshot are put side by side, only one is being
+     measured — and it is never the one the user is judging.
+
+   Full procedure: `knowledge_get({ key: 'pattern:concept-art-procedure' })`.
+
    **Consistency chain (mandatory — set members must speak one language):**
    1. Generate the ANCHOR first — the most representative in-game moment:
       `forge_request(kind="2d-static", prompt="<ART-direction + that moment>", aspectRatio=<game orientation>)`.
