@@ -267,7 +267,28 @@ That material is not in this file — it is retrievable, and it is specific enou
   bottom menu, shop, ads or save. Also names what must stay per-game, so you do not standardise a design decision.
 - `knowledge_get({ key: 'pattern:unity-generated-scene' })` — when a build has more than a couple of screens, or
   more than one person will touch the UI.
+- `knowledge_get({ key: 'pattern:unity-3d-assets' })` — before bringing a generated model, character or rig into
+  the scene. Covers what to ask for so no per-model scale hack is ever needed, and the import that reports success
+  with zero meshes.
+- `knowledge_get({ key: 'pattern:unity-text' })` — before the *second* label. Type, colour and treatment drift
+  silently because nothing ever fails, and the fix is cheap up front: one producer, a written default treatment,
+  and the four properties that no screenshot can check.
+- `knowledge_get({ key: 'pattern:unity-look' })` — when the game has to look like something specific rather than
+  merely look nice: the URP lighting and post-processing that decide it, the performance budget to write down
+  before the art, and the three gates that let you call a visual task done.
+- `knowledge_get({ key: 'pattern:unity-action-combat' })` — when enemies telegraph, the hero auto-targets, or
+  upgrades stack. Mostly about legibility: a game that is mechanically fair but reads as unfair draws the same
+  complaints as one that is actually unfair.
+- `knowledge_get({ key: 'pattern:unity-porting-content' })` — when content authored elsewhere has to run in Unity
+  (another engine's project, an exported scene, someone's prototype). The import succeeds, nothing errors, and it
+  is subtly a different game; this is the list of ways that happens.
 - `knowledge_get({ key: 'pattern:unity-verification' })` — before reporting anything as working.
+
+**And do not hand-write the parts nobody should be re-deriving.** `template_list('unity')` returns small C# pieces
+you can pull and adapt — safe-area band placement, a layer-order guard that refuses two canvases on the same order,
+a save slot that versions its key and merges rather than overwrites, the two-flag first-run gate, and the staged
+HUD reveal authority. They are frames, not prescriptions: the rationale comments explain what must survive your
+edits, and everything else is yours to change. Pull one with `template_get({ key: 'template:<name>' })`.
 
 Call `knowledge_list()` if you want the current set; these keys are the Unity ones. A `gated` answer means the
 account is not entitled to that read — that is the product working as designed, not a fault, and you continue
