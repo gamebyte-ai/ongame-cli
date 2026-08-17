@@ -222,6 +222,23 @@ into the `notes` parameter (so they don't get discarded).
 >
 > Then continue at §2.
 
+> **WHEN THE ENGINE IS NOT THE WEB ONE, STEPS 2-3 BELOW DO NOT APPLY EITHER** — and this is a separate question
+> from `new` vs `continue`. A brand-new Unity game is still a NEW build; what changes is only where the code lives
+> and what it is built on:
+> 1. `gameDir` = **the engine project's root** (the folder holding `ProjectSettings/` + `Assets/` for Unity,
+>    `project.godot` for Godot). Do not create `games/<slug>` beside it and do not `git init` over their repo.
+> 2. **Nothing is scaffolded.** The baseplate in step 3 is the WEB path's frame; copying it into an engine project
+>    writes an `index.html` and a `src/` that belong to a different runtime. There is no baseplate for the other
+>    engines — the engine's own project IS the frame.
+> 3. Everything else runs unchanged: the phases, the approvals, the assets, the level curve, the recorded learning.
+>
+> **Never tell the user this product is for one engine.** It is engine-agnostic by design — the tools that make it
+> worth paying for do not care what renders the result, and a build in their engine gets the same pipeline. If you
+> cannot do a specific step in their engine, name THAT step; do not turn it into a statement about the product.
+> Saying "this plugin is for web games" to someone standing in a Unity project is both false and the end of the
+> conversation. `skills/unity/SKILL.md` carries the Unity specifics (Editor connection, headless CLI, the failures
+> that pass a clean console).
+
 1. **Derive slug:** convert the concept to a slug (`match-3` → `match3`, lowercase, alphanumeric).
 2. **Determine gameDir + set up a clean directory:** `gameDir = <repo>/games/<slug>/`.
    - `mkdir -p games/<slug>` (a plain directory).

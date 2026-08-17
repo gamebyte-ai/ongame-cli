@@ -71,6 +71,13 @@ zombie report. This lock guards WRITES only — reading/analysis needs no lock.
 > `package.json`, `GAME_DESIGN.md` if there is one) and build on what you find, matching its conventions rather than
 > the template's. Everything below about the baseplate describes a new build only; §3 onward applies to both.
 
+> **SKIP IT ALSO WHEN THE GAME IS NOT BUILT FOR THE WEB RUNTIME** — a Unity, Godot or native project, new or not.
+> This baseplate is the web frame; there is no baseplate for the other engines, because the engine's own project
+> already is one. Copying it in writes an `index.html`, a `src/` and a `package.json` into a tree that does not run
+> them, and on Unity it lands inside a watched `Assets/` folder where the Editor will import every stray file. The
+> two skips are independent: `continue` is about whose files these are, this one is about what runs them. §3 onward
+> applies to every engine — the routing, the architecture discipline and the verification bar do not change; only
+> the frame you build on does (`skills/unity/SKILL.md` for the Unity specifics).
 - **`scaffold_materialize(gameDir=<gameDir>, gameName=<the game's display name>)`** (find by bare name
   `scaffold_materialize` via ToolSearch). It copies the bundled gamelabs.js baseplate (`templates/gamelabs-base`) into
   `gameDir` and renames every `MyGame*` identifier (`MyGameApp`/`MyGameConfig`/`MyGameUIIds` + the enum value + the
