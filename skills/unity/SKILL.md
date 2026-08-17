@@ -252,6 +252,28 @@ above it regardless of sort order or Z.
 
 ---
 
+## 5.5 Before you build the layer around the game — read what shipped builds already learned
+
+The failures above are the ones you hit in an afternoon. The expensive ones live one level up: how the opening
+sequence is wired, when each HUD element first appears, where the tutorial runs, what a save may contain, what
+draws in front of what, and how to prove any of it is true on a real phone.
+
+That material is not in this file — it is retrievable, and it is specific enough to change what you write:
+
+- `knowledge_get({ key: 'pattern:unity-ui-layout' })` — before placing a single element. Design width is a
+  function of the device ratio, safe area is measured rather than derived, and a title box is solved from its art.
+- `knowledge_get({ key: 'pattern:unity-ui-layers' })` — before adding a canvas, a popup or an effect over UI.
+- `knowledge_get({ key: 'pattern:unity-meta-systems' })` — before building splash, staged HUD reveal, tutorial,
+  bottom menu, shop, ads or save. Also names what must stay per-game, so you do not standardise a design decision.
+- `knowledge_get({ key: 'pattern:unity-generated-scene' })` — when a build has more than a couple of screens, or
+  more than one person will touch the UI.
+- `knowledge_get({ key: 'pattern:unity-verification' })` — before reporting anything as working.
+
+Call `knowledge_list()` if you want the current set; these keys are the Unity ones. A `gated` answer means the
+account is not entitled to that read — that is the product working as designed, not a fault, and you continue
+without it. An ABSENT or erroring tool is a different thing entirely: say so rather than quietly writing the
+guidance yourself from general knowledge.
+
 ## 6. What "verified" means on Unity
 
 The bar does not drop because the engine changed. Compiling is not running, and a scene loading is not a game
