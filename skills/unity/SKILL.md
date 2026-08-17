@@ -228,6 +228,30 @@ consume. A constant proves what someone meant; only the artefact proves what wil
 
 ---
 
+### UI: four more that pass a clean console
+
+Reported after placing 34 cut assets into a real Unity UI. Every one of them renders without an error.
+
+**`Image.preserveAspect` does not change the RectTransform — only the drawn quad.** The rect keeps its original
+size, so anything anchored *inside* that rect is positioned against a box the player cannot see and drifts off the
+art. Use an **`AspectRatioFitter`** when the layout has to follow the image, and reach for `preserveAspect` only
+when nothing is anchored to it.
+
+**`RawImage` has no `preserveAspect` at all.** A render texture assigned to one is silently stretched to whatever
+the rect happens to be. There is no warning and no visual cue in the inspector — you find it by looking at the
+game.
+
+**`ScreenCapture` grabs at the END of the frame.** Change a UI element in the same frame you capture and the
+capture contains the change, not the state you meant to record. Any "before" shot has to be taken a frame earlier,
+which matters directly for the visual-verification chain in §6: a screenshot that quietly captured the wrong frame
+is evidence of nothing.
+
+**Anything drawn over an Overlay canvas must itself be overlay UI.** A `ParticleSystem` placed "on top of" an
+overlay card renders *under* it — Screen Space Overlay is composited last, so world-space effects cannot reach
+above it regardless of sort order or Z.
+
+---
+
 ## 6. What "verified" means on Unity
 
 The bar does not drop because the engine changed. Compiling is not running, and a scene loading is not a game
