@@ -1,6 +1,6 @@
 ---
 name: unity
-description: Unity setup and control — install the Editor per platform, connect the Unity MCP so the agent can drive the Editor, and use the Unity CLI for headless builds. Load this whenever the target engine is Unity, or when a Unity project is open and the Unity tools are missing.
+description: Unity setup and control — drive the Editor from the terminal with the Unity CLI (`unity status` / `unity cmd`), install the Editor per platform, and run headless builds and tests. Load this whenever the target engine is Unity, or when a Unity project is open and you have no way to see the Editor.
 ---
 
 # Unity — getting the agent actually connected to the Editor
@@ -16,20 +16,39 @@ is actually in front of you. Do not insist on a menu path that is not there.
 
 ## 0. The one thing that goes wrong most
 
-Without a Unity MCP connection you cannot see the Editor at all. You can still write C# files to disk — and
-that is exactly the trap: **writing scripts is not building a game.** You will not know whether the project
+**Writing scripts is not building a game.** If you cannot see the Editor you do not know whether the project
 compiles, whether a scene contains what you think, whether a prefab bound, or whether anything renders. A
 Unity build reported as working on the strength of files existing is a claim, not a fact.
 
-So: if the Unity tools are absent, that is a **fault**, not a detail to route around. Follow the refusal rule
-in `/make-game` — stop, say plainly that you cannot see the Editor, offer to set it up, and let the user
-decide. Do not quietly produce a folder of C# and call it a Unity game.
+**But the fix is a shell command, not a setup request.** You can drive the Editor from your terminal with the
+Unity CLI — no package to approve, no dialog for the user to click. Start every Unity session with:
+
+```bash
+unity status     # connected Editors: port, project, version, PID, state
+```
+
+A row reading `ready` means you already have the Editor. Go to §3 and use it.
+
+**Do not open by asking the user to install an MCP server.** That was the old route and Unity has deprecated
+it (§3.5). Ask for hands only when you have tried the CLI and something it cannot do is genuinely in the way —
+and then ask for the specific missing thing, at the moment you need it, not as an opening gate.
+
+If you truly cannot see the Editor and cannot get the CLI working, keep going on what you *can* do and mark
+the rest **unverified**, plainly, per §6. What you must never do is quietly produce a folder of C# and call it
+a Unity game.
 
 ---
 
 ## 1. Is Unity even installed?
 
 Check before offering anything, so you are not walking a user through a setup they already have.
+
+```bash
+unity editors            # cross-platform, structured; add --json to parse it
+```
+
+If `unity` is not on PATH it also lives at `~/.unity/bin/unity`. Only fall back to looking on disk when there
+is no CLI at all:
 
 ```bash
 # Editors installed via the Hub (macOS / Linux)
@@ -46,11 +65,20 @@ for them when the file names one.
 
 ## 2. Installing Unity — per platform
 
-The Hub is the installer for Editors; it is a normal GUI app download from unity.com/download. Once the Hub
-exists, Editors can be installed **headlessly from the CLI**, which is what you should prefer.
+**Prefer the `unity` CLI — one command, same on every platform, modules included:**
 
-Note the argument quirk, because it is the most common reason these commands appear broken: **macOS and
-Windows need `-- --headless`, Linux needs a single `--headless`.**
+```bash
+unity install 6000.0.28f1 -m ios -m android --cm -y --accept-eula
+unity install-modules --help     # add modules to an Editor you already have
+```
+
+`-c/--changeset` is only needed for **archive** installs. `--cm` pulls child modules, `-y` takes the first
+match without prompting, `--accept-eula` clears the module licence prompts — together that is a genuinely
+non-interactive install.
+
+**Only if there is no `unity` CLI**, drive the Hub directly. The Hub is a normal GUI app download from
+unity.com/download, and the argument quirk below is the most common reason these commands appear broken:
+**macOS and Windows need `-- --headless`, Linux needs a single `--headless`.**
 
 ```bash
 # macOS
@@ -69,67 +97,130 @@ Windows need `-- --headless`, Linux needs a single `--headless`.**
 ```
 
 - The **changeset** is version-specific and comes from Unity's release page for that exact version; it is not
-  optional for archived versions and you cannot invent it. If you do not have it, ask, or install from the Hub
-  GUI instead of guessing one.
-- Platform modules (Android, iOS, WebGL, IL2CPP) are a **separate** step — `install-modules` (alias `im`) —
-  and a build target the project needs but the Editor lacks fails at build time, not install time. If the
-  delivery target is a mobile or desktop build, get the module in place before promising a build.
+  optional for archived versions and **you cannot invent it**. If you do not have it, ask, or install from the
+  Hub GUI instead of guessing one.
+- **Platform modules (Android, iOS, WebGL, IL2CPP) fail at BUILD time, not install time.** `unity install -m`
+  takes them up front; on the Hub path they are a separate `install-modules` (alias `im`) step. Either way, a
+  target the project needs but the Editor lacks looks fine right up until the build. If the delivery target is
+  a mobile or desktop build, get the module in place **before** promising a build.
 - `-- --headless help` lists the full command set.
 
 ---
 
-## 3. Unity MCP — how you actually get to control the Editor
+## 3. The Unity CLI — how you actually control the Editor
 
-This is Unity's **official** integration, shipped in the AI Assistant package. It is what turns "I wrote some
-C#" into "I opened the scene, checked the console, and pressed play".
+`unity` is Unity's own terminal tool. It ships with Unity Hub and also installs standalone. It is what turns
+"I wrote some C#" into "I opened the scene, checked the console, and pressed play" — **and you already have a
+shell, so this is your route.** Unity's own guidance: `unity command` and `unity eval` drive the Editor
+directly, without MCP in between; they are faster and use fewer tokens; use them if your agent can run shell
+commands.
 
-**Requirements:** Unity **6 (6000.0) or later**, with the **`com.unity.ai.assistant`** package installed in the
-project (Window > Package Manager).
+*(Measured 2026-08-22 on `unity` 1.0.0-beta.5 — the commands and output shapes below are from real runs, not
+only from the docs.)*
 
-**Setup, in order:**
+**Look before you set anything up:**
 
-1. **Start the bridge.** In Unity: **Edit > Project Settings > AI > Unity MCP Server**. The **Unity Bridge**
-   should read *Running* (green). If it is stopped, press **Start**. It starts automatically when the Editor
-   loads; the relay binary installs itself to `~/.unity/relay/` on startup.
-2. **Configure the client.** In that same settings page, open **Integrations**, pick **Claude Code**, and
-   press **Configure**. This writes the client config for the user — prefer it over hand-editing anything.
-   The same section has an **Example Configuration** block to paste manually if auto-configure is unavailable.
-3. **Approve the connection.** The first time an external client connects, Unity shows a **Pending Connection**
-   and the user must press **Allow** in the same settings page. Until they do, your tools will not work and
-   nothing will explain why — so if the connection looks dead, this is the first thing to check, and it needs
-   the user's hands, not yours.
-4. **Verify by using it, not by assuming it.** Confirm the client appears under **Connected Clients** and that
-   Unity tools are in your tool list, then actually call one — reading the Editor console is the cheapest
-   proof and immediately useful: *"read the Unity console and summarize any warnings or errors."*
+```bash
+unity status                 # every connected Editor: port, project, version, PID, state
+```
 
-**If the bridge looks dead, check for Administrator first.** *(Field-verified on Windows — see §5.)* A
-session running with elevated privileges makes the Unity GUI stop on an **"Administrator Privileges Detected"**
-modal before it finishes loading, so the bridge never starts and no client ever connects. Nothing about that
-looks like a permissions problem from your side; it looks like the MCP is broken. Batchmode is unaffected,
-which is the confusing part — the CLI keeps working while the Editor sits behind a dialog nobody has dismissed.
-Ask the user whether the Editor is showing a modal, and whether the shell that launched it was elevated, before
-you go rebuilding the config.
+```
+Port  State  Project                          Version     PID
+7800  ready  /Users/you/Development/MyGame    6000.7.0a4  53235
+```
 
-**Manual relay paths**, if a config has to be written by hand — pass the `--mcp` flag:
+A `ready` row means the Editor is already yours to drive. Nothing to install, nobody to ask.
 
-| Platform | Relay binary |
-|---|---|
-| macOS (Apple Silicon) | `~/.unity/relay/relay_mac_arm64.app/Contents/MacOS/relay_mac_arm64` |
-| macOS (Intel) | `~/.unity/relay/relay_mac_x64.app/Contents/MacOS/relay_mac_x64` |
-| Windows | `%USERPROFILE%\.unity\relay\relay_win.exe` |
-| Linux | `~/.unity/relay/relay_linux` |
+**If nothing is connected**, the project needs the Pipeline package — this is the piece that registers Editor
+commands for `unity cmd`. It goes into the project:
 
-**A note on which Unity MCP you are talking to.** There are third-party Unity MCP servers in wide use
-(CoplayDev's `unity-mcp` is the common one) and their tool names differ from the official package's
-(`Unity_ManageScene`, `Unity_ManageGameObject`, …). **Read your own tool list rather than assuming a naming
-scheme** — calling a tool that does not exist reads to the user as ongame being broken. If the user already
-has a working third-party bridge, use it; do not talk them into replacing something that works.
+```bash
+unity auth login             # once per machine
+unity pipeline install       # installs com.unity.pipeline into the current project
+unity status                 # confirm a `ready` row appears
+```
+
+Requires Unity **6.0 or later**. The Editor recompiles after install; wait for it before the row goes `ready`.
+
+**Then drive it:**
+
+```bash
+unity cmd                    # list every command the connected Editor exposes, with parameters
+unity cmd <command> [--arg]  # run one
+```
+
+The exposed set is large and is the same ground MCP covered — reading the scene (`find_gameobjects`,
+`get_selection`, `search`), changing it (`add_component`, `set_transform`, `set_component_properties`,
+`save_prefab_contents`), project state (`package_add`, `recompile_status`, `get_tags_layers`), and actually
+running things (`editor_play`, `list_tests`). **List them and read the real set** rather than guessing a name —
+it varies with the project's packages and the Pipeline version.
+
+**Headless, without a running Editor** — these spawn their own:
+
+```bash
+unity build [project]        # batch-mode build with CI-friendly flags
+unity test  [project]        # EditMode/PlayMode tests, writes a results report
+unity run   [project]        # batch mode, or run registered Editor commands headlessly
+unity doctor                 # environment health snapshot
+```
+
+Useful flags everywhere: `--json` (structured output — parse this, do not scrape human text),
+`--non-interactive` (CI), `--timeout <seconds>` and `--detach` on `cmd` for long jobs.
+
+**Unity ships its own agent skill for this CLI.** If you are going to be living in a Unity project, install it
+and read it — it is maintained by Unity and will be current after this file goes stale:
+
+```bash
+unity skill install --list          # supported clients + install status
+unity skill install claude-code     # or: --local to write it into the project
+```
+
+**Two failure shapes worth knowing before you debug the wrong thing.**
+
+*A listing flag that errors with "the connected Editor's com.unity.pipeline version does not support the
+listing flags"* means the **package in that project is older than the CLI** — `unity pipeline install` updates
+it. But that writes to the project, so on a project someone else is working in, say so on the bus before you
+run it rather than upgrading a package under them.
+
+*The Editor is running but never becomes `ready`* — on Windows, check for **Administrator** first.
+*(Field-verified — see §5.)* An elevated session makes the Unity GUI stop on an **"Administrator Privileges
+Detected"** modal before it finishes loading, so nothing ever registers. Batchmode is unaffected, which is the
+confusing part: `unity build` keeps working while the Editor sits behind a dialog nobody has dismissed. Ask
+whether the Editor is showing a modal, and whether the shell that launched it was elevated, before you go
+rebuilding config.
 
 ---
 
-## 4. The Unity CLI — headless builds and verification
+## 3.5 MCP — deprecated for us, and not something to ask for
 
-The Editor binary itself is the CLI. This is how a build gets produced without a human clicking anything.
+**Do not walk a user through installing a Unity MCP server.** Unity has **deprecated** the MCP server
+component of the in-editor AI assistant package (`com.unity.ai.assistant`); the `unity mcp` command replaces
+the in-Editor server. The old recipe — install the package, open *Edit > Project Settings > AI*, press
+*Configure*, then get the user to press **Allow** on a pending connection — is the route this file used to
+teach, and it now costs the user hands for something a shell command already does.
+
+MCP mode itself is **not** deprecated: it exists for harnesses that cannot run arbitrary shell commands. We
+can, so `unity cmd` is our route (§3). If you ever do need it:
+
+```bash
+unity mcp configure claude       # also: cursor, vscode, windsurf
+```
+
+**If the user already has a working Unity MCP — use it, do not replace it.** Third-party servers are in wide
+use (CoplayDev's `unity-mcp` is the common one) and are unaffected by Unity's deprecation. Their tool names
+differ from the official package's (`Unity_ManageScene`, `Unity_ManageGameObject`, …), so **read your own tool
+list rather than assuming a naming scheme** — calling a tool that does not exist reads to the user as ongame
+being broken. A working setup is worth more than a tidy one.
+
+---
+
+## 4. Raw batchmode — driving the Editor binary directly
+
+Separate from the `unity` CLI in §3: this is invoking the **Editor binary itself**, the long-standing way to
+produce a build with nobody clicking anything. `unity build` / `unity test` wrap this and are usually the
+better call. Reach for the raw form when you need an entry point of your own — a custom `-executeMethod` — or
+when you are on a machine with no `unity` CLI. Our own iOS station runs this form
+(`MacIosBuilder.BuildIOS` under `-batchmode -executeMethod`), so it is a proven path, not a legacy one.
 
 ```bash
 <editor> -batchmode -nographics -quit \
@@ -173,7 +264,8 @@ file already refuses to treat a clean console as evidence. None of these announc
 build that is silently missing something — or, in the last case, a confident report of a problem that does not
 exist — and an agent that stops at "it compiled, nothing is red" will ship it.
 
-Two of them are wired into the sections they belong to — **Administrator blocking the MCP bridge** in §3, and
+Two of them are wired into the sections they belong to — **Administrator stopping the Editor from ever
+connecting** in §3, and
 **PowerShell not waiting for `Unity.exe`** in §4 — because that is where you will be standing when they bite.
 The rest:
 
@@ -264,7 +356,9 @@ That material is not in this file — it is retrievable, and it is specific enou
   function of the device ratio, safe area is measured rather than derived, and a title box is solved from its art.
 - `knowledge_get({ key: 'pattern:unity-ui-layers' })` — before adding a canvas, a popup or an effect over UI.
 - `knowledge_get({ key: 'pattern:unity-meta-systems' })` — before building splash, staged HUD reveal, tutorial,
-  bottom menu, shop, ads or save. Also names what must stay per-game, so you do not standardise a design decision.
+  bottom menu, shop, ads or save, on a build that is production-bound or ad-shaped; on a prototype this layer is
+  deliberately off and building it is wasted work, and the read tells you which parts each path wants. Also names
+  what must stay per-game, so you do not standardise a design decision.
 - `knowledge_get({ key: 'pattern:unity-generated-scene' })` — when a build has more than a couple of screens, or
   more than one person will touch the UI.
 - `knowledge_get({ key: 'pattern:unity-3d-assets' })` — before bringing a generated model, character or rig into
@@ -298,9 +392,10 @@ guidance yourself from general knowledge.
 ## 6. What "verified" means on Unity
 
 The bar does not drop because the engine changed. Compiling is not running, and a scene loading is not a game
-playing. On Unity, the honest evidence chain is: the **console is clean** (read it through the MCP, do not
-infer it), the **scene contains what you claim** (query it), and something **actually ran** — enter play mode,
-or produce a build and say which target it produced.
+playing. On Unity, the honest evidence chain is: the **console is clean** (read it, do not infer it), the
+**scene contains what you claim** (query it — `unity cmd find_gameobjects`, `unity cmd get_selection`), and
+something **actually ran** — enter play mode (`unity cmd editor_play`), run the tests (`unity test`), or
+produce a build and say which target it produced.
 
 If you could not get that evidence, say the build is **unverified** and say why. That is worth more than a
 confident summary, and it is the same rule the web path already holds itself to.
