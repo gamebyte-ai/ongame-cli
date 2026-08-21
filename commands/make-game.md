@@ -126,28 +126,32 @@ This is a *capability* prerequisite, **open on every tier** — not a paid gate.
 ### 0.2 Unity, when Unity is what they work in
 
 The browser gate above is the web path's version of "can you actually see what you made". **Unity has the same
-problem and a different answer**, and without the Unity MCP connection you cannot see the Editor at all: you can
-write C# to disk and know nothing about whether it compiles, whether a scene holds what you think, or whether
-anything renders. A folder of scripts reported as a working Unity game is the same silent substitution the
-refusal rule exists to stop.
+problem and a different answer**: if you cannot see the Editor you can write C# to disk and know nothing about
+whether it compiles, whether a scene holds what you think, or whether anything renders. A folder of scripts
+reported as a working Unity game is the same silent substitution the refusal rule exists to stop.
+
+**The difference is that this one you can usually fix yourself, silently.** Unity ships a terminal CLI: run
+`unity status` and a connected Editor answers with its port, project and version. No package for the user to
+install, no dialog for them to approve.
 
 **Judge whether Unity is even in play** — do not ask everyone, and do not decide by keyword:
 
 - The directory holds `ProjectSettings/ProjectVersion.txt` or an `Assets/` tree → this IS a Unity project.
 - The user says Unity, or asks for a mobile/desktop/editor build that implies it.
 - **A genuine first run** (`intake_context.returning === false`) with no signal either way → you may ask ONCE,
-  in one line, as part of getting to know them: *"Do you build in Unity? If so I can set up the Editor
-  connection now so I can actually see and test what I make — otherwise I'll assume the web path."* One
-  question, then drop it. Never re-ask a user who has already told you.
+  in one line, as part of getting to know them: *"Do you build in Unity, or should I assume the web path?"*
+  One question, then drop it. Never re-ask a user who has already told you.
 
-**If Unity is in play and the Unity tools are NOT in your tool list**, offer to set it up before starting the
-pipeline — with `AskUserQuestion`, and say what it buys them rather than naming packages: *"I can't see your
-Unity Editor from here, so I'd be writing code blind. Want me to walk you through connecting it (a few minutes,
-one-time)?"* On yes, follow **`skills/unity/SKILL.md`**, which carries the per-platform install, the official
-Unity MCP setup, and the CLI. On no, continue — but you are now on the honesty rule: say plainly that Unity
-output will be **unverified**, and do not describe it as working.
+**If Unity is in play, connect it yourself before you ask for anything.** Run `unity status`; if a row reads
+`ready` you are done — say nothing about setup and get on with it. If nothing is connected, `skills/unity/SKILL.md`
+§3 carries the rest (`unity pipeline install` into the project, then `unity cmd`). **Do not open the session by
+asking the user to install an MCP server** — Unity has deprecated that route, and it costs them hands for
+something a shell command already does.
 
-If the Unity tools ARE present, say nothing about setup and get on with it.
+Ask for the user only when you have tried and something needs them specifically — a GUI install, a licence, a
+modal on their screen — and then ask for that one thing, at the moment you need it. If it cannot be resolved,
+continue on the honesty rule: say plainly that the Unity output is **unverified**, and do not describe it as
+working.
 
 Open on every tier, same as the browser gate.
 
