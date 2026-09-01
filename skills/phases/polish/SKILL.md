@@ -43,6 +43,21 @@ from scratch; **compose** what's already in the engine.
      time — the same balance as intake, YOU judge the decision.)
 3. Order the selected sub-phase set according to the type of **GAME_DESIGN.md** (the sub-phases below).
    Finish each one, keep `tsc --noEmit` clean, then move to the next (step-by-step within the phase).
+
+   > **The sub-phases below describe the web runtime. On a production-bound or ad-shaped Unity build the frame
+   > ALREADY EXISTS from the code phase** — boot flow, the HUD visibility authority, persistence, settings/audio, the
+   > tutorial runner and the motion durations were put up there so the game could be written on top of them. On an
+   > ad-shaped build only the CORE of that frame exists (the boot flow and the HUD visibility authority): the rest is
+   > deliberately absent, not missing, so do not install it here — but the two that DO exist are owned, and
+   > re-implementing boot from the web sub-phase list below is exactly the second writer this note exists to stop. This phase is
+   > the SECOND moment: it does **config and art only** — the tab data, the products and the copy, the HUD reveal
+   > thresholds derived from THIS game's economy, the palette and the ornament, the step configuration. Do not
+   > rebuild boot, persistence or the visibility authority here, and do not add a second writer for something the
+   > frame already owns: a polish-time reimplementation works within the session and writes nowhere, and two
+   > writers on one quantity is the defect this split exists to prevent. Read
+   > `knowledge_get({ key: 'pattern:unity-meta-systems' })` first — its per-game section says which decisions are
+   > yours to fill in and which shared behaviour must never be forked. If the frame is genuinely MISSING a piece,
+   > ADD it additively (never overwrite an existing file) rather than restructuring what is there.
 4. **Sub-phase 9.5 is NOT part of the scope choice above — it always runs, whichever set you picked.** It is
    not more polish work; it is a single question offered to the user once the selected sub-phases are done
    (and it costs nothing if they decline). Schedule it after the last selected visual sub-phase and before
@@ -249,16 +264,20 @@ did not clearly improve, keep its old assets.
 ## Sub-phase 11 — Build + publish to public static hosting (deploy)
 - Ship the game to a **public URL** so real player browsers load it and the telemetry SDK (Sub-phase 10) reports real play. Telemetry is injected into the SOURCE `index.html` FIRST (Sub-phase 10) so `vite build` bundles it; THEN:
   1. **Build:** `Bash`: `cd {gameDir} && npm run build` → produces `dist/`. Fix until the build is clean.
-  2. **Enumerate the built files:** `Bash`: list every file under `dist/` as `dist`-relative paths, e.g.
-     `cd {gameDir}/dist && find . -type f` → strip the leading `./`. Pair each with its content-type
-     (`.html`→`text/html`, `.js`→`application/javascript`, `.css`→`text/css`, `.png`→`image/png`,
-     `.json`→`application/json`, `.mp3`→`audio/mpeg`, `.glb`→`model/gltf-binary`, `.webp`→`image/webp`, else
-     `application/octet-stream`).
-  3. `publish_game({gameId: <game slug>, files: [{path, contentType}, ...]})` → returns
-     `{uploads, publicUrl, signing}`. This tenant-scopes every object key under `games/{tenantId}/{gameId}/` (tenant from
-     your OAuth identity, never self-asserted) and mints a V4 signed PUT URL per file (NO upload happens here).
-  4. `publish_upload({gameDir, subdir: "dist", uploads})` → reads each built file from `dist/` and PUTs it
-     to its signed URL. Returns `{uploaded:[{path,status}], skipped?, failed?}`.
+  2. **Enumerate the built files:** `Bash`: list every file under `dist/` as `dist`-relative paths with their byte
+     size, e.g. `cd {gameDir}/dist && find . -type f` → strip the leading `./`, and pair each with `stat`'s size.
+     **Do NOT send a content type** — it is derived from the file itself, and anything you assert is ignored.
+  3. `publish_game({gameId: <game slug>, files: [{path, size}, ...]})` → returns `{uploads, publicUrl, signing}`.
+     Upload slots only; no bytes move here.
+     **It can REFUSE, as a typed result** — `{refused: true, reason, detail, path?}`. Every reason means *fix the
+     build*, never *retry the call*: `no_such_build` (this account has no build of that game — it was not built
+     here, so offer `/make-game` instead), `disallowed_file_type` (a file type a game cannot publish, named in
+     `path` — drop it and rebuild), `no_entry_point` (no `index.html` at the root of `dist/`), `too_many_files` /
+     `payload_too_large` (trim the build). Surface the refusal to the user in those words; do not route around it.
+  4. `publish_upload({gameDir, uploads})` → reads each built file from `dist/` and PUTs it to its upload slot.
+     Returns `{uploaded:[{path,status}], skipped?, failed?}`. **Pass each slot through UNCHANGED** — a slot carries
+     headers that were signed for that exact file, so editing or dropping a field makes the PUT fail. (The build
+     directory is fixed; there is no `subdir` argument.)
   5. **Only if `failed` AND `skipped` are both empty:** **report the `publicUrl`** to the user — that is the live,
      shareable game. **If `failed` is non-empty** (one or more PUTs returned a non-2xx status — expired signed-URL TTL,
      missing bucket, blocked public access), the game is **NOT** fully live: do NOT hand over the `publicUrl` as a working
@@ -283,9 +302,8 @@ did not clearly improve, keep its old assets.
      reconstructed from your verified identity + the build's own gameId, and the emitted `gameId` must MATCH the
      build's (a mismatch is refused — it means the uploaded location and this record diverged). Skip on any
      partial/failed/stale publish — an unshipped build must never be recorded as published.
-- **Graceful + signing fallback:** if `publish_game` returns `signing:"direct"` (the host SA cannot mint signed URLs),
-  `publish_upload` skips those files (`skipped`) — surface that the operator must finish the upload out of band (a host
-  IAM step); the build still produced `dist/`. If hosting is entirely unavailable, the game is still locally playable
+- **Graceful + signing fallback:** if `publish_game` returns `signing:"direct"`, `publish_upload` skips those files
+  (`skipped`) — say the publish could not be completed and that the build still produced `dist/`. If hosting is entirely unavailable, the game is still locally playable
   (`npm run dev`) — hosting NEVER blocks the build.
 - **Deterministic sub-score (`deploy_success`) — only when the deploy step actually RAN:** right after the build +
   publish objective check, emit the result —
@@ -367,6 +385,15 @@ did not clearly improve, keep its old assets.
   vacuously. If the browser tool can emulate dpr (device-scale emulation), run the check at dpr 2; if it
   cannot and the session reports `devicePixelRatio <= 1`, report this check as **unverified at dpr>1** rather
   than passed.
+  **Full-bleed check (every full-cover card):** a card that covers the display — victory, defeat,
+  continue-for-an-ad, out of energy, reward, pause — must reach the device's real edges, not stop at the safe area.
+  Measure rather than eyeball, because a thin band reads as intentional in a screenshot: with the card open,
+  `browser_evaluate` the backdrop's `getBoundingClientRect()` and compare it against `innerWidth`/`innerHeight` —
+  the backdrop covers the viewport, and `getComputedStyle(document.documentElement).getPropertyValue('--safe-top')`
+  is non-zero on a notched profile (all-zero there means `viewport-fit=cover` is missing and nothing else in this
+  check can be trusted — see `pattern:app-setup`). Then check the OTHER half, which is the one that hurts: sample
+  `document.elementFromPoint` just inside the bottom inset and confirm no button or text sits under the home
+  indicator. Bleeding the card as one piece trades a cosmetic band for an unpressable button.
   **Modal-occlusion check:** when a modal/overlay/panel is OPEN (shop, settings, pause, confirm, game-over), nothing
   should render OVER it. Screenshot each open modal and look: is its content fully on top, or is a HUD bar / score / a
   leftover element bleeding through above it — **especially along the modal's top edge**, where a stray top-bar tends to
