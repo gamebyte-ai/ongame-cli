@@ -78,6 +78,7 @@ zombie report. This lock guards WRITES only — reading/analysis needs no lock.
 > two skips are independent: `continue` is about whose files these are, this one is about what runs them. §3 onward
 > applies to every engine — the routing, the architecture discipline and the verification bar do not change; only
 > the frame you build on does (`skills/unity/SKILL.md` for the Unity specifics).
+>
 > **On Unity, the frame you build on is the META LAYER, and it goes up HERE — before the game's own code.** There is
 > no web baseplate, but a production-bound Unity build still has a frame: boot flow, the ordered step registry, the
 > UI kit (9-slice, safe area, font), persistence, settings/audio, the store/ads contract, and the authority that
