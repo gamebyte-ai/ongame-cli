@@ -339,7 +339,7 @@ Workflow({
 })
 ```
 
-build.js iterates over the filtered list; each phase does `state_advance(buildId)` (core) and writes via the
+build.js iterates over the filtered list; each phase does `state_advance(buildId)` (`ongame`) and writes via the
 local tools with `gameDir`. (This slash-command instruction counts as a Workflow opt-in — the Workflow tool is usable.)
 
 > **MODELS & ORCHESTRATION SHAPE — YOUR judgment, per build.** Don't run every phase on the session's top-tier
@@ -347,10 +347,32 @@ local tools with `gameDir`. (This slash-command instruction counts as a Workflow
 > the phase's weight (creative/engineering-heavy phases — typically concept/code/polish — deserve the stronger
 > model; orchestration/transform phases usually don't need it), the build mode (a prototype tolerates lighter
 > models than production), and **the user's stated preference, which outranks both**. A phase absent from the
-> map inherits the session model. The same judgment applies to the run's SHAPE: build.js (sequential, one agent
-> per phase) is the default runner, not a cage — when the job genuinely calls for a different structure (e.g.
-> independent parallelizable work), you may author a purpose-built workflow script instead; keep ONE writer per
-> gameDir (writer.lock, code SKILL §1.5) whatever the shape.
+> map inherits the session model. Two reserved keys set the runner's other roles: `models.split` (the decomposer)
+> and `models.critic` (the critic) — a cheaper model is usually right for the split, and the critic should not be
+> weaker than the builders it grades.
+
+> **EVERY PHASE IS DECOMPOSED, FANNED OUT AND CRITICISED — that is the runner, not an upgrade.** build.js runs each
+> phase in three roles: a **split** agent reads the phase skill and what is already on disk and decides the
+> sub-tasks (with DISJOINT write ownership) plus the acceptance bar and the evidence that proves it; the independent
+> sub-tasks then run as **parallel builders** in dependency waves; then a **critic** that built none of it goes and
+> looks at the real artifact and reports findings back to the builders, and the phase repeats until it converges or
+> the rounds run out. One task is a legitimate split answer for genuinely indivisible work — but that is the split
+> agent's call, made per build, never yours in advance and never the default.
+>
+> Pass through what the user has set for this session, because these are their settings and they outrank our
+> defaults: `criticRounds` (default 2; `0` turns the critic off), `maxParallel` (fan-out ceiling — cost, rate
+> limits, a laptop), `split: 'off'` (they want one agent per phase), and `target` — **the bar in the user's own
+> terms**: the path to a reference screenshot or video they gave you, the GDD or design doc, or their verbatim ask.
+> The critic measures against `target`; without it, it falls back to the plan's fields, which is a weaker bar.
+>
+> **If the Workflow tool is unavailable in this session, you run the same three roles yourself with the Agent tool** —
+> one agent for the split, the independent sub-tasks dispatched in ONE message so they run concurrently, then a
+> separate critic agent, then the repair round. Losing Workflow costs you the progress tree, not the shape: a phase
+> where one agent did every part in sequence is a phase that ran without the mechanism that makes it good. Context
+> management is the harness's job, not a reason to collapse the work into one agent.
+>
+> Whatever the shape, keep ONE writer per surface (code SKILL §1.5): parallel builders each own a disjoint set of
+> paths and a per-task lock; two builders on one file is the most expensive failure available here.
 
 > **PHASE CLOSURE = EVIDENCE, not the workflow result.** A `completed` (or handed-off/partial) return from
 > build.js is NOT proof a phase finished — a phase agent may have died mid-write or handed off with the
@@ -358,6 +380,18 @@ local tools with `gameDir`. (This slash-command instruction counts as a Workflow
 > `state_get(buildId)`: the phase is in `completed` and its output evidence exists (the phase's artifacts on
 > disk; for `code` additionally `tsc --noEmit` clean). If the evidence is missing, the phase is OPEN — finish
 > the closure yourself (run the checks, then `state_advance`) or re-run that phase; never gate on a phantom.
+> The runner's own honesty channels are part of this: a `blocked` entry means the phase did not run on ongame, and an
+> `unconverged` entry means **the critic did not pass it** — open findings, lines it could not verify (`unmeasured`),
+> or no verdict at all. **Neither may be presented as a finished phase** — show the user the findings and the
+> unverified lines (the critic wrote them to be read) and let them decide between another round, a correction, or
+> accepting it as is.
+>
+> **A SPLIT PHASE IS CLOSED BY YOU, NOT BY ITS BUILDERS.** The phase skills are written for one agent per phase, so
+> their last steps close the phase; run by N builders they would close it N times, and `state_advance` is not
+> idempotent — three builders would mark the phase AND the two phases after it completed without those ever running.
+> So when a phase ran with more than one builder (`results[].tasks.length > 1`), its builders are told to stop before
+> the closure: after the phase converges, YOU emit its single headline `phase.output` from the phase result and call
+> `state_advance(buildId)` **once**. A single-builder phase closes itself as its skill defines.
 
 > **GATE PRESENTATION (all gates):** at every approval gate compose ONE approval artifact — YOU judge what
 > belongs: build plan/status (phases done/pending), corrections applied this iteration, this gate's phase
