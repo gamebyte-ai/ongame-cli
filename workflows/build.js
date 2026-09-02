@@ -34,11 +34,11 @@ if (!plan || !Array.isArray(phases)) {
 }
 
 // The skill path must be ABSOLUTE — a workflow subagent cannot reliably resolve a relative path.
-// If pluginRoot is not provided, fall back to the skill slash-command form (/ongame-cli:phases:<phase>).
+// If pluginRoot is not provided, fall back to the skill slash-command form (/ongame:phases:<phase>).
 const skillRef = (phaseKey) =>
   pluginRoot
     ? `Follow the instructions in the file ${pluginRoot}/skills/phases/${phaseKey}/SKILL.md`
-    : `Follow the instructions in the /ongame-cli:phases:${phaseKey} skill`;
+    : `Follow the instructions in the /ongame:phases:${phaseKey} skill`;
 
 // Per-phase model overrides — DECIDED BY THE ORCHESTRATOR at invoke time (agentic principle: build.js is the
 // mechanism, never the decision). Optional `a.models = { <phaseKey>: '<model>' }`; a phase absent from the map
@@ -95,7 +95,7 @@ const phaseContext = (phaseKey) =>
     : '');
 
 const TOOLING_RULES =
-  `Use the ongame MCP tools (find them via ToolSearch by bare name). The split is by server: ` +
+  `Use the ongame MCP tools (find them via ToolSearch by bare name). The split is by role: ` +
   `orchestration/cloud tools (knowledge_get/knowledge_list/forge_request/sound_request/` +
   `trace_emit/state_advance/brain_*) key on buildId=${buildId ?? '(absent)'}; ` +
   `local file/preview tools (assets_materialize/preview_*/telemetry_inject) take gameDir=${gameDir ?? '(absent)'}. ` +

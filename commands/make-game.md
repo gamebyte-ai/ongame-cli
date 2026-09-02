@@ -339,7 +339,7 @@ Workflow({
 })
 ```
 
-build.js iterates over the filtered list; each phase does `state_advance(buildId)` (core) and writes via the
+build.js iterates over the filtered list; each phase does `state_advance(buildId)` (`ongame`) and writes via the
 local tools with `gameDir`. (This slash-command instruction counts as a Workflow opt-in — the Workflow tool is usable.)
 
 > **MODELS & ORCHESTRATION SHAPE — YOUR judgment, per build.** Don't run every phase on the session's top-tier
