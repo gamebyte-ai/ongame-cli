@@ -162,6 +162,15 @@ Rule: state does not leak into the View, render does not leak into the Board. If
 - `transition` is idempotent + listened to from a single point (`onChange`). Side effects on transition (startGame /
   showGameOver) live in the listener.
 - **Gameover → restart wait period (~500ms):** so an accidental tap does not start a new game.
+- **If the game has levels, mark the two moments WHILE you write them** — `trackLevelStart(n)` where the level
+  actually begins for the player (after any intro/countdown, not at load) and `trackLevelComplete(n, {...})` on a
+  genuine WIN only. They come from `src/telemetry.ts` in the scaffold, they are no-ops until the finished game is
+  deployed, and they cannot throw into gameplay. `n` must be a NUMBER — a named level passes its index and carries
+  the name in the extras, because a non-numeric level is dropped downstream with nothing reported. Counting a fail
+  or a quit as a completion is worse than not measuring: the funnel is starts-vs-completes, so it would hide the
+  exact difficulty spike it exists to find. Two lines, written next to the transitions they belong to — retrofitted
+  later they are a separate pass over code that already works, and that pass is the one that does not happen.
+
 
 ## 6. 60fps mobile-first performance (NO alloc on the hot path)
 - Target **60 fps mobile**. In every-frame `mainLoop`/`update`, do NOT `new` up new objects, create
