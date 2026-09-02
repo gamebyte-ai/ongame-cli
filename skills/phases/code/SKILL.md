@@ -78,6 +78,20 @@ zombie report. This lock guards WRITES only — reading/analysis needs no lock.
 > two skips are independent: `continue` is about whose files these are, this one is about what runs them. §3 onward
 > applies to every engine — the routing, the architecture discipline and the verification bar do not change; only
 > the frame you build on does (`skills/unity/SKILL.md` for the Unity specifics).
+>
+> **On Unity, the frame you build on is the META LAYER, and it goes up HERE — before the game's own code.** There is
+> no web baseplate, but a production-bound Unity build still has a frame: boot flow, the ordered step registry, the
+> UI kit (9-slice, safe area, font), persistence, settings/audio, the store/ads contract, and the authority that
+> decides WHEN a HUD element is visible. Raise it first and write the gameplay on top of it, because that is the
+> cheap order: the HUD asks the authority whether it is visible, the run asks the store whether it may start, the
+> settings write through the save component. Do it the other way round — gameplay first, frame later — and every one
+> of those call sites has to be re-wired, which is a whole extra pass over code that already worked; that is why the
+> timing is a rule and not a preference. Install it ADDITIVELY: it adds only what is missing, never overwrites the
+> game's own files or steps, and it reports what it wrote versus skipped, so it is safe on a `continue` entry too.
+> Depth is mode-scoped — `production` takes the whole layer, `playable-ad` takes boot + the HUD authority only,
+> `prototype` skips it (mechanics first). The rules, the boundary of what belongs to the game rather than the layer,
+> and the silent failures this prevents come from `knowledge_get({key:'pattern:unity-meta-systems'})` — read it
+> before you place the frame. The dressing (tabs, products, art, thresholds) is NOT this phase; polish does that.
 - **`scaffold_materialize(gameDir=<gameDir>, gameName=<the game's display name>)`** (find by bare name
   `scaffold_materialize` via ToolSearch). It copies the bundled gamelabs.js baseplate (`templates/gamelabs-base`) into
   `gameDir` and renames every `MyGame*` identifier (`MyGameApp`/`MyGameConfig`/`MyGameUIIds` + the enum value + the
