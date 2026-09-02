@@ -242,18 +242,18 @@ did not clearly improve, keep its old assets.
      a per-game **public ingest key** (gate, via your OAuth identity — a tenant mints only its own) and builds the
      `ongame-telemetry` SDK snippet (NO disk write — it returns the snippet). The SDK auto-emits exactly two
      events — `session_start` and `session_end` — with an anonymous install id (D1/D7 retention); no PII.
-  1b. **Instrument the level funnel YOURSELF — the SDK does not.** This is a real step, not a nicety: the
-     auto-emitted pair answers *"did anyone come back"* and nothing else. Retention curves, difficulty tuning
-     and the whole level-progression half of that measurement are computed from `level_start` / `level_complete`,
-     and those exist only if the game's own code sends them. Add two calls in the game's level lifecycle:
-     ```js
-     globalThis.ongameTelemetry?.track('level_start',    { level: n });
-     globalThis.ongameTelemetry?.track('level_complete', { level: n, durationMs, score });
-     ```
-     The `?.` matters — the handle is absent when provisioning was skipped, and telemetry must never break
-     gameplay. Emit `level_start` where the level actually begins for the player (after any intro/countdown,
-     not at load) and `level_complete` only on a genuine win — a fail or a quit is not a completion, and
-     counting it as one silently inflates every retention number computed from it.
+  1b. **CHECK the level funnel is actually wired — do not assume it is.** The SDK auto-emits exactly two events,
+     which answer *"did anyone come back"* and nothing else; which level players stop at comes from
+     `level_start` / `level_complete`, and those exist only if the game's own code sends them. That is the code
+     phase's job (`src/telemetry.ts` → `trackLevelStart` / `trackLevelComplete`), so here you VERIFY rather than
+     author — a game can provision, inject, build and publish perfectly with zero instrumentation, and every
+     signal in this phase still reads green. Measured consequence: months of shipped games reporting healthy
+     sessions and retention beside a completely empty funnel.
+     `Bash`: `grep -rl "trackLevelStart\|level_start" {gameDir}/src` → if the game HAS levels and this finds
+     nothing, add the two calls at the level transitions now (same rules as the code phase: numeric level, and
+     `level_complete` on a genuine WIN only — counting a fail or quit as a completion hides the difficulty spike
+     the funnel exists to find). If the game genuinely has no levels — an endless runner, a single-board toy —
+     that is not a gap: say so plainly rather than inventing a level number.
   2. `telemetry_inject(gameDir, indexFile, snippet)` → writes the returned `snippet` into the SOURCE
      `index.html` on disk.
 - **Idempotent + graceful:** re-running `telemetry_inject` does not double-inject; if telemetry provisioning is unavailable
