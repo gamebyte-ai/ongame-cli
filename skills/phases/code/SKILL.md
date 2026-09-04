@@ -71,18 +71,26 @@ zombie report. This lock guards WRITES only — reading/analysis needs no lock.
 > `package.json`, `GAME_DESIGN.md` if there is one) and build on what you find, matching its conventions rather than
 > the template's. Everything below about the baseplate describes a new build only; §3 onward applies to both.
 
-> **SKIP IT ALSO WHEN THE GAME IS NOT BUILT FOR THE WEB RUNTIME** — a Unity, Godot or native project, new or not.
-> This baseplate is the web frame; there is no baseplate for the other engines, because the engine's own project
-> already is one. Copying it in writes an `index.html`, a `src/` and a `package.json` into a tree that does not run
-> them, and on Unity it lands inside a watched `Assets/` folder where the Editor will import every stray file. The
-> two skips are independent: `continue` is about whose files these are, this one is about what runs them. §3 onward
-> applies to every engine — the routing, the architecture discipline and the verification bar do not change; only
-> the frame you build on does (`skills/unity/SKILL.md` for the Unity specifics).
+> **PICK THE ENGINE — and skip this section only when the target engine has no baseplate.** There is a bundled
+> baseplate for **two** engines and `scaffold_materialize` takes an `engine` argument to choose between them:
+> `engine="gamelabs"` (the DEFAULT) copies the web/gamelabs.js frame, and `engine="unity"` copies a Unity project
+> (an `Assets/_Game` bootstrap, the UI shell, build tooling, EditMode+PlayMode test assemblies) with the C#
+> namespaces and every `.asmdef` `name`/`rootNamespace`/`references` entry renamed together — open that one in the
+> Editor next; there is no `npm install` step. Pass the engine the build actually targets rather than letting the
+> default decide: scaffolding the wrong one means starting over.
 >
-> **On Unity, the frame you build on is the META LAYER, and it goes up HERE — before the game's own code.** There is
-> no web baseplate, but a production-bound Unity build still has a frame: boot flow, the ordered step registry, the
-> UI kit (9-slice, safe area, font), persistence, settings/audio, the store/ads contract, and the authority that
-> decides WHEN a HUD element is visible. Raise it first and write the gameplay on top of it, because that is the
+> **Skip the section entirely for an engine that has NEITHER baseplate** — Godot, or a native project. There the
+> engine's own project already is the frame, and copying the web one in writes an `index.html`, a `src/` and a
+> `package.json` into a tree that does not run them. The two skips are independent: `continue` is about whose files
+> these are, this one is about whether a baseplate for that engine exists. §3 onward applies to every engine —
+> the routing, the architecture discipline and the verification bar do not change; only the frame you build on does
+> (`skills/unity/SKILL.md` for the Unity specifics).
+>
+> **On Unity, the frame you build on is the META LAYER, and it goes up HERE — before the game's own code.** The
+> Unity baseplate gives you the project shell; a production-bound build still needs the layer above it: boot flow,
+> the ordered step registry, the UI kit (9-slice, safe area, font), persistence, settings/audio, the store/ads
+> contract, and the authority that decides WHEN a HUD element is visible. Raise it first and write the gameplay on
+> top of it, because that is the
 > cheap order: the HUD asks the authority whether it is visible, the run asks the store whether it may start, the
 > settings write through the save component. Do it the other way round — gameplay first, frame later — and every one
 > of those call sites has to be re-wired, which is a whole extra pass over code that already worked; that is why the
@@ -92,13 +100,15 @@ zombie report. This lock guards WRITES only — reading/analysis needs no lock.
 > `prototype` skips it (mechanics first). The rules, the boundary of what belongs to the game rather than the layer,
 > and the silent failures this prevents come from `knowledge_get({key:'pattern:unity-meta-systems'})` — read it
 > before you place the frame. The dressing (tabs, products, art, thresholds) is NOT this phase; polish does that.
-- **`scaffold_materialize(gameDir=<gameDir>, gameName=<the game's display name>)`** (find by bare name
-  `scaffold_materialize` via ToolSearch). It copies the bundled gamelabs.js baseplate (`templates/gamelabs-base`) into
-  `gameDir` and renames every `MyGame*` identifier (`MyGameApp`/`MyGameConfig`/`MyGameUIIds` + the enum value + the
-  package `"name"`) → PascalCase(`gameName`) across file contents **and** file names. It returns
-  `{ written:[...], renamedTo }` — `renamedTo` is the PascalCase identifier the App/Config/UIIds were renamed to (use
-  it when you reference the App class below).
-- Then `npm install` in `gameDir` (Bash).
+- **`scaffold_materialize(gameDir=<gameDir>, gameName=<the game's display name>, engine=<"gamelabs"|"unity">)`**
+  (find by bare name `scaffold_materialize` via ToolSearch). `engine` defaults to `"gamelabs"`, so a Unity build must
+  pass `engine="unity"` explicitly. It copies the bundled baseplate for that engine into `gameDir` and renames every
+  `MyGame*` identifier → PascalCase(`gameName`) across file contents **and** file names — on gamelabs that is
+  `MyGameApp`/`MyGameConfig`/`MyGameUIIds` + the enum value + the package `"name"`; on Unity it is the C# namespaces
+  and class names plus every `.asmdef` `name`, `rootNamespace` and cross-assembly `references` entry. It returns
+  `{ written:[...], renamedTo, engine }` — `renamedTo` is the PascalCase identifier the App/Config/UIIds were renamed
+  to (use it when you reference the App class below).
+- Then `npm install` in `gameDir` (Bash) — gamelabs only; the Unity scaffold has no npm step.
 - **Why STEP 0 is mandatory:** the template already wires the gamelabs.js App → DI → ScreenView/Controller path and
   pre-solves the **three known pitfalls** — the `.layer` overlay CSS in `index.html` (an empty world3d over hud2d =
   black-screen), the `.layout` declaration on screen views, and the `postInitialize`/`onResize` timing. You start from a
@@ -127,6 +137,19 @@ zombie report. This lock guards WRITES only — reading/analysis needs no lock.
    together with the knowledge as **context** for the code; **YOU decide which to apply** (no keyword-if).
    Passing `buildId` automatically binds the recall **under the active phase span** (at the gate, `brain_score` scores that span —
    hierarchical eval). `buildId` is optional; if omitted the recall is flat (backward-compatible).
+8. **Do not hand-write the shell.** `template_list()` returns the drop-in CODE pieces available (metadata only —
+   name/description/language, no code); `template_list('gamelabs')` narrows to the web/PixiJS ones, and the genre
+   tags (`'puzzle'`, `'arcade'`) narrow further. **Never invent a key — take it from that list, or from a knowledge
+   document that names one** (same discipline as `knowledge_get`: an unknown key comes back as `{ template: null }`,
+   indistinguishable from "no such module", and you would write from scratch what already exists).
+   Pull one with `template_get({ key: 'template:<name>' })`. They are frames, not prescriptions — the comments say
+   which parts are load-bearing and must survive your edits; the rest is yours. A `gated` answer means the account
+   is not entitled to that read: proceed without it, that is not a fault.
+9. **Before building ANY shell/meta layer, read `knowledge_get({ key: 'pattern:shell-contract' })`.** The mechanic is
+   yours to write; the shell is not. Splash, home, nav, currency chip, popups, settings, lives, shop, result screen,
+   save, audio — that is the layer every build reaches last, rebuilds from nothing and half-finishes, and it is where
+   most of a game's perceived polish actually lives. The contract names the drop-in module behind each rule, so read
+   it first and pull those modules instead of re-deriving them.
 
 > **End of phase — `brain_capture` (learn):** when the code phase ends, write down the lesson of what worked / didn't work. **YOU judge the scope:**
 > a generalizable mechanic/pattern lesson → `scope:"global"` (shared across builds); a quirk specific to this game →
@@ -278,6 +301,8 @@ ground yourself in the ACTUAL installed surface — do not assume a method name/
 ## 10. Write
 - **Compose** the `framework` + selected `pattern:*`/`genre:*` knowledge to fill in `src/`:
   Board/state, View, Controller, App, InputController, state machine, (if needed) object pool.
+- **Adapt, don't re-derive, the parts that are the same every build** — the §3.8 templates for the shell/meta layer
+  and any recurring frame (board, input, save, UI kit); write by hand only what this game genuinely makes different.
 - Each file single-responsibility; `.js`-extension relative imports.
 
 ## 11. Verify — tsc clean GATE (mandatory)

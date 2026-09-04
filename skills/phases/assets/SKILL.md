@@ -1,6 +1,6 @@
 ---
 name: assets
-description: Asset generation phase — full asset manifest from GAME_DESIGN.md, consistent art direction, real forge generation (not gray-box), and integration into game code.
+description: Asset generation phase — full asset manifest from GAME_DESIGN.md, consistent art direction, real asset generation (not gray-box), and integration into game code.
 ---
 # Assets Phase (production)
 
@@ -299,7 +299,7 @@ return, the client writes them to disk):
 > (PNG palette quantization + compression — 70-85% reduction in game art, visual quality preserved).
 > You do NOT need to do anything for this. **`maxDim?`** (px) is optional and is an agent judgment: it
 > crops the asset's maximum edge (NEVER enlarges). Small icon/gem → ~256, button/UI/logo → ~512-1024,
-> **full-screen background → DO NOT pass** (keep full resolution). Defends against 4K fal output + crops
+> **full-screen background → DO NOT pass** (keep full resolution). Defends against oversized upstream output + crops
 > the unnecessarily large asset. If not passed, size is preserved and only the palette is optimized.
 > Ignored for 3D/char.
 

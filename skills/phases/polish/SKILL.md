@@ -84,18 +84,57 @@ from scratch; **compose** what's already in the engine.
 
 ---
 
+## 0.5 — The shell is not yours to re-derive (read this BEFORE Sub-phase 1)
+
+**Before building ANY shell/meta layer — splash, home, nav, currency chip, popups, settings, lives, shop,
+result card — read `knowledge_get({ key: 'pattern:shell-contract' })`.** The mechanic is this
+build's own; the shell is not. It is the layer every build reaches last, rebuilds from nothing and
+half-finishes, and it is where most of a game's perceived polish actually lives. The contract carries the
+rules — one writer per displayed quantity, backdrops bleed while anything read or pressed stays in the safe
+rect, a settings toggle must reach the subsystem, losing must not look like winning — and names the drop-in
+module behind each one. (Unity target: `pattern:unity-shell-contract` and `template_list('unity')` instead.)
+
+**Then pull those modules rather than writing them.** `template_list()` returns the drop-in CODE pieces as
+metadata only (name/description/language — no code, so listing costs nothing);
+`template_get({ key: 'template:<name>' })` fetches one. **List UNFILTERED:** `template_list('gamelabs')`
+matches a frontmatter tag that not every web module carries, so it does not return the whole set — and the
+unfiltered list mixes engines, so read each entry's `language` (`typescript` here). **Never invent a key**:
+take it from that list or from the contract's table. An unknown key comes back as `{ template: null }`,
+indistinguishable from "no such module", and you would then hand-write what already exists.
+
+What this phase reaches for: `template:ui-tokens` (colour/type/duration/easing — every other module imports
+it, take it first), `template:ui-kit` (painters + the stateful Button), `template:ui-popup` (the card every
+modal is built in), `template:shell-spine` (panel map + routing + intent bus), `template:shell-splash`,
+`template:shell-settings`, `template:shell-bottom-nav`, `template:ui-currency-chip`,
+`template:platform-viewport` (safe area + clamped DPR), `template:platform-ui-registry` (the hit-area surface
+the gate reads), `template:core-audio`, `template:core-save`, `template:core-diagnostics`, and
+`template:shell-lives` / `template:shell-shop` only when the design has actually decided to have that economy.
+
+**Adapt, keep the rationale.** They are frames, not prescriptions: the comments say which lines are
+load-bearing and why — each is an incident someone already paid for, so carry them into your version instead
+of stripping them. A `gated` answer means the account is not entitled to that read: proceed with the
+hand-built path below, that is not a fault (same handling as Sub-phase 9.5).
+
+---
+
 ## Sub-phase 1 — Splash screen
 - New `SplashScreenView extends ScreenView`. Center the logo (`ImageComponent`/`PIXI.Sprite`),
   reposition it in `onResize`. In `onEnter`, with gsap, the logo **scale 0.8→1 + alpha 0→1**
   (`ease: 'back.out'`), a short hold, then `UIEvents.createScreen(MainMenu, {type: FADE_IN})`.
 - If `forge` is available, generate the logo asset; otherwise the game name with `LabelComponent` (gray-box).
-- Start asset preload here (loading bar optional: `SliderComponent` as progress).
+- Start asset preload here. **`template:shell-splash` already solves the hard half** — a bar driven by the
+  REAL asset count and eased toward it (a fixed-duration fake bar lies in both directions), cover-fit that never
+  letterboxes, a code-drawn scene that adopts each texture the frame it lands, and the tap-to-start beat that
+  doubles as the audio unlock. Adapt it instead of re-deriving the timing.
 
 ## Sub-phase 2 — Main menu (play / settings)
 - Add the ready-made `MainScreenBinding` with `addModule(new MainScreenBinding())` → the built-in
   `MainScreenView` (background + play/settings button column) comes in. Subscribe to `MainScreenEvents`:
   `onPlayClick(() => UIEvents.createScreen(GameScreen, transition))`,
   `onSettingsClick(() => UIEvents.openPopup(Settings))`.
+- **Routing belongs in ONE place** — a screen reports a press, the flow owns what a press means, or within a
+  week every screen knows the whole map. `template:shell-spine` is that skeleton (persistent panel map with
+  `onEnter`/`onExit`, the post-transition restart guard, a typed intent bus).
 - If a custom view is wanted, your own `MainMenuView extends ScreenView` + `ButtonComponent({label:'PLAY'})` /
   `ButtonComponent({label:'SETTINGS'})` inside a `VerticalLayoutComponent`; route with each
   `.onPress(...)`. Title with `LabelComponent`.
@@ -105,6 +144,12 @@ from scratch; **compose** what's already in the engine.
   `sfxVolume`/`musicVolume` (0–100) fields to `AudioService`
   (`setSfxMute(!v)` / `setSfxVolume(v/100)`), values persist via `StorageService`.
   `addModule(new SettingsBinding())` + open from `MainScreenEvents.onSettingsClick`.
+- **`template:shell-settings` is the converged design** (two shells built independently landed on it): a column
+  of squircle buttons under the gear, a dim that swallows taps, OFF as a slash plus dim rather than a colour
+  change, switches seeded once and persisted on every press, and the bridge that actually reaches the audio bus.
+  It reads state back off the subsystem instead of mirroring a flag — the failure it exists for is a toggle that
+  looks wired and nothing reads. It goes through `template:core-audio` + `template:core-save` (settings get their
+  OWN save slot; the main slot is cached at boot by whoever owns progress and a second writer there is reverted).
 - If an extra field is needed, add `SettingsBooleanField`/`SettingsNumberField` to `SettingsModel`
   (e.g. a theme toggle). Theme: with `StyleManager.modify(...)`, swap the global UIComponents styles
   (color/texture) between two presets.
@@ -117,6 +162,12 @@ from scratch; **compose** what's already in the engine.
 - **Responsive:** every view overrides `onResize(width, height, dpr)`; layouts reflow.
   Phone/desktop test: no overflow on narrow (390px) and wide (1280px) viewports. `LabelComponent`
   for score; when the value changes, the pop tween in Sub-phase 5 fires.
+- **Take the chrome from the library:** counters from `template:ui-currency-chip` (ONE writer, high-water mark —
+  increments count up, decrements snap; a pooled callback assigning an absolute balance is how a HUD sticks
+  permanently wrong with a clean console), a tab bar from `template:shell-bottom-nav`, insets and DPR from
+  `template:platform-viewport`. **Register every canvas-drawn control through `template:platform-ui-registry`** —
+  a HUD painted into the canvas has no DOM to query, so the gate's touch-target check finds an empty set and
+  reports **unmeasured** unless this surface exists.
 
 ## Sub-phase 5 — JUICE (explosion on match, score pop, screenshake, glow, cascade multiplier)
 Add the modules: `addModule(new ParticlesBinding(budget?))` + `addModule(new TimelineBinding())`.
@@ -172,6 +223,10 @@ improvise a half-version), and continue.
   background is a single sprite/single draw, do not draw a new `Graphics` every frame.
 
 ## Sub-phase 8 — Game-over screen + frame + confetti
+- **Win and lose are ONE screen with two moods, not two screens** — built separately they drift and the player
+  sees them back to back; carry the mood in tone (the plate cools and desaturates) with the composition
+  unchanged. Build the card on `template:ui-popup` (scrim, 9-slice frame + separate inner panel, title band,
+  overhanging close, the layout-defer guard and the input lock) rather than a bespoke panel.
 - `GameOverView extends PopupView` (`HudLayer.Popup`): a semi-transparent scrim + a centered **framed
   panel** (`BackgroundComponent`/`ImageComponent` frame), final score `LabelComponent` (gsap
   count-up tween 0→score), high-score comparison (`StorageService`).
@@ -186,6 +241,9 @@ improvise a half-version), and continue.
   (pointer over/down/up). Add **feel** on top: inside `onPress`, gsap **scale punch**
   (`1→0.92→1`, 0.12s) + `playSfx('click')`. On hover, a slight `scale 1.04` (pointer over event in a
   custom view; in the ready-made component the texture swap is enough).
+- `template:ui-kit`'s Button carries this already — press feel, skin tint, disabled, and an invisible hit pad
+  that pads a small icon out to a thumb-sized target. Press feedback moves `pivot`, never `y`: layout writes
+  `y`, and sharing that channel means the first tap teleports the control.
 - Disabled button (e.g. insufficient moves): `setEnabled(false)` → disabled texture + the press is swallowed.
   On all interactive elements, the touch target is ≥44px on mobile (layout `width/height`).
 

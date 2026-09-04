@@ -254,8 +254,8 @@ when you are on a machine with no `unity` CLI. Our own iOS station runs this for
 ## 5. Seven field-verified failures the docs never mention
 
 **Provenance matters here, so read it before you weigh these.** Everything else in this file comes from Unity's
-documentation and was not run by us. The six below are the opposite: they were hit in the field by an agent
-(`fusekick`) building a real Unity 6 / URP game on Windows. They are not warnings someone anticipated — they are
+documentation and was not run by us. The seven below are the opposite: they were hit in the field while building
+a real Unity 6 / URP game on Windows. They are not warnings someone anticipated — they are
 things that already cost a build. Trust them accordingly, and if one of them no longer reproduces on the user's
 version, say so rather than quietly assuming it still holds.
 
@@ -287,11 +287,12 @@ with no error raised**. You get an empty result and a clean console, so the natu
 geometry" and you go debugging the wrong thing. Check `extensionsRequired` in the GLB before you believe an
 empty import.
 
-That the extension is the *whole* cause is measured, not inferred: the same forge models, transcoded out of WebP
-and re-imported, came back `models=7/7 missing=0 noMesh=0` with real triangle counts on every one. Geometry and
-hierarchy were intact the entire time — nothing was wrong with the models. Only the textures are lost by
-stripping, which is free if you assign your own materials and expensive if you wanted forge's. forge now
-discloses the requirement in `warnings`; until it delivers an importable file, transcode before importing.
+That the extension is the *whole* cause is measured, not inferred: the same generated models, transcoded out of
+WebP and re-imported, came back `models=7/7 missing=0 noMesh=0` with real triangle counts on every one. Geometry
+and hierarchy were intact the entire time — nothing was wrong with the models. Only the textures are lost by
+stripping, which is free if you assign your own materials and expensive if you wanted the generated ones. The
+generation tools disclose the requirement in their `warnings` field; until you have an importable file in hand,
+transcode before importing.
 
 **Reading the wrong render-pipeline property reports "Built-in" on a URP project.**
 `GraphicsSettings.defaultRenderPipeline` is **null** in Unity's own URP template — the asset lives on the
@@ -359,6 +360,9 @@ That material is not in this file — it is retrievable, and it is specific enou
   bottom menu, shop, ads or save, on a build that is production-bound or ad-shaped; on a prototype this layer is
   deliberately off and building it is wasted work, and the read tells you which parts each path wants. Also names
   what must stay per-game, so you do not standardise a design decision.
+- `knowledge_get({ key: 'pattern:unity-shell-contract' })` — the Unity side of the rules for the layer around the
+  mechanic, and the index from a concern to the module that already implements it. Read it before you write a
+  screen that is not the game itself; the rules are engine-independent, only the mechanism here is uGUI.
 - `knowledge_get({ key: 'pattern:unity-generated-scene' })` — when a build has more than a couple of screens, or
   more than one person will touch the UI.
 - `knowledge_get({ key: 'pattern:unity-3d-assets' })` — before bringing a generated model, character or rig into
@@ -378,11 +382,19 @@ That material is not in this file — it is retrievable, and it is specific enou
   is subtly a different game; this is the list of ways that happens.
 - `knowledge_get({ key: 'pattern:unity-verification' })` — before reporting anything as working.
 
-**And do not hand-write the parts nobody should be re-deriving.** `template_list('unity')` returns small C# pieces
-you can pull and adapt — safe-area band placement, a layer-order guard that refuses two canvases on the same order,
-a save slot that versions its key and merges rather than overwrites, the two-flag first-run gate, and the staged
-HUD reveal authority. They are frames, not prescriptions: the rationale comments explain what must survive your
-edits, and everything else is yours to change. Pull one with `template_get({ key: 'template:<name>' })`.
+**And do not hand-write the parts nobody should be re-deriving.** `template_list('unity')` returns drop-in C#
+modules — more of them than this file could keep an honest list of, so read the list rather than this paragraph.
+They fall in three groups. The **UI framework** is the vocabulary every screen is built from: a widget kit, a modal
+window framework over a pure layer read model, the motion language as constants, safe-area placement, top-row fit
+across aspect ratios, and a guard that refuses two canvases on the same sorting order. The **shell** is the layer
+around the mechanic — nav, currency chips, settings, lives, shop, result screen, celebration, the two-flag first-run
+gate, staged HUD reveal, and a save slot that versions its key and merges rather than overwrites. The **headless
+verification** pair is how you look at the game with nobody holding the phone: a render probe that refuses to pass
+on a flat frame, and a harness that plays the game itself and photographs it on a schedule.
+
+They are frames, not prescriptions: the rationale comments explain what must survive your edits, and everything else
+is yours to change. `pattern:unity-shell-contract` maps a concern to the module that answers it; pull one with
+`template_get({ key: 'template:<name>' })`.
 
 Call `knowledge_list()` if you want the current set; these keys are the Unity ones. A `gated` answer means the
 account is not entitled to that read — that is the product working as designed, not a fault, and you continue
