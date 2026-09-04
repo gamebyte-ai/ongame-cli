@@ -11,7 +11,7 @@ export const meta = {
 
 // args = { plan: BuildPlan, phases: PhaseKey[], buildId, gameDir, pluginRoot, completed?, notes?,
 //          models?: { <phaseKey|'split'|'critic'>: model }, criticRounds?: number, maxParallel?: number,
-//          split?: 'auto'|'off', target?: string }
+//          split?: 'auto'|'off', target?: string, reference?: <digest> }
 // R9: Segment logic moved out of build.js (lives in the mcp segments service).
 // The orchestrator filters the segment phases and passes the ALREADY-FILTERED phase list.
 // build.js does NOT do any segment filtering here — it only iterates over args.phases.
@@ -28,6 +28,71 @@ const completed = a.completed ?? [];
 // Gate re-run channel: the orchestrator passes the user's corrections verbatim (free text — the agent composed it).
 // Absent → today's behavior (first run / no feedback).
 const notes = typeof a.notes === 'string' && a.notes.trim() ? a.notes : null;
+
+// REFERENCE PACKAGE (Reference Compiler V1.1) — present only when the build's ask depends on preserving the
+// observable properties of an identifiable EXTERNAL reference. Absent on create-from-idea, and then the block below
+// renders to an empty string and every prompt is byte-identical to today's.
+//
+// The orchestrator passes the DIGEST, not a path: a workflow script has no filesystem, and a package that only lives
+// on disk is the weakest channel there is — a phase agent was observed naming an "AUTHORITY — READ FIRST" file
+// authoritative without ever opening it. `packagePath` rides along for drill-down.
+//
+// `truth` and `overrides` stay SEPARATE lists on purpose: they answer different questions, and collapsing them is how
+// a "like X but hex and cyberpunk" brief turns into an agent reinterpreting X as cyberpunk instead of reproducing X
+// and then applying two named deviations.
+const reference = (a.reference && typeof a.reference === 'object' && a.reference.relation) ? a.reference : null;
+const refList = (xs, max) =>
+  (Array.isArray(xs) ? xs : []).filter((x) => typeof x === 'string' && x.trim()).slice(0, max);
+
+function referenceBlock() {
+  if (!reference) return '';
+  const truth = refList(reference.truth, 12);
+  const blocking = refList(reference.blocking, 6);
+  const levels = refList(reference.levels, 6);
+  const overrides = refList(reference.overrides, 8);
+  const notObserved = refList(reference.notObserved, 8);
+  const matching = reference.relation === 'match_reference';
+  return (
+    `\n\n=== REFERENCE PACKAGE (${reference.relation}) ===\n` +
+    `This build is measured against an EXTERNAL reference: ${reference.title ?? '(untitled)'}` +
+    `${reference.version ? ` (observed version ${reference.version})` : ''}. ` +
+    (matching
+      ? `Fidelity to it is the bar: reproducing observed behaviour correctly is success, and inventing a mechanic it ` +
+        `does not have is a FAILURE, not a bonus. `
+      : `The user wants their OWN game informed by it. Understand the reference correctly FIRST, then apply the ` +
+        `named deviations below — do not blend the two while reading it. `) +
+    `Full package: ${reference.packagePath ?? '(digest only)'} — read it when you need a field this digest omits.\n` +
+    (truth.length
+      ? `\nREFERENCE TRUTH — reconstruction-critical, evidence-backed. Treat as given; do not re-derive or "improve":\n` +
+        truth.map((t) => `  - ${t}`).join('\n') + `\n`
+      : '') +
+    (blocking.length
+      ? `\nOPEN AND BLOCKING — the reference does NOT settle these. Each is a named constant you may implement a ` +
+        `defensible default for, but say which default you chose; do NOT present the choice as observed fact. Some ` +
+        `of these block the RULE and some block only how it READS or FEELS (response latency, animation duration ` +
+        `and shape, palette where colour carries meaning) — both are listed here, and both want a NAMED, ` +
+        `single-sourced default rather than an unsourced constant no test asserts:\n` +
+        blocking.map((b) => `  - ${b}`).join('\n') + `\n`
+      : '') +
+    (levels.length
+      ? `\nMEASURED INSTANCES — concrete reference states that were measured, not inferred. Build these as authored ` +
+        `content; the first is the anchor and is exact. Do NOT average them into one generic level, and do NOT stop ` +
+        `at the anchor: a build that ships only the anchor usually ships a board on which the core mechanic cannot ` +
+        `occur:\n` +
+        levels.map((l) => `  - ${l}`).join('\n') + `\n`
+      : '') +
+    (notObserved.length
+      ? `\nNEVER OBSERVED in the evidence — so nothing here is known. Do not fabricate it and do not quietly assume ` +
+        `a genre convention in its place: ${notObserved.join(', ')}.\n`
+      : '') +
+    (overrides.length
+      ? `\nUSER OVERRIDES — these are NOT reference truth. On these axes ONLY, the user outranks the reference; ` +
+        `everywhere else the reference still governs, and an override on one axis is not licence to reinterpret ` +
+        `the rest:\n` + overrides.map((o) => `  - ${o}`).join('\n') + `\n`
+      : '') +
+    `=== END REFERENCE PACKAGE ===\n`
+  );
+}
 
 if (!plan || !Array.isArray(phases)) {
   throw new Error('build.js: args.plan + args.phases required (received type: ' + typeof args + ')');
@@ -92,7 +157,12 @@ const phaseContext = (phaseKey) =>
     ? `This is a RE-RUN after user feedback (iteration). The user's corrections, verbatim: "${notes}". Existing ` +
       `artifacts for this phase are the REJECTED version — regenerate them honoring the corrections; do not ` +
       `verify-and-skip. `
-    : '');
+    : '') +
+  // The reference package belongs HERE, in the shared context, for the reason this function exists: the splitter
+  // decides what the sub-tasks are, the builders write the code, and the critic decides whether it is close enough.
+  // A package that reached only the builders would leave the splitter decomposing a game it cannot see and the critic
+  // measuring against the plan instead of the reference — two of the three roles working from a different truth.
+  referenceBlock();
 
 const TOOLING_RULES =
   `Use the ongame MCP tools (find them via ToolSearch by bare name). The split is by role: ` +

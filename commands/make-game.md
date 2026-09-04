@@ -210,6 +210,80 @@ into the `notes` parameter (so they don't get discarded).
 > `user.prompt`/`user.feedback` (step 2) if the user objects — continue the build without prompt
 > capture and note their objection.
 
+### 1.2 Judge the REFERENCE AXIS (agentic — no keyword matching)
+
+One more judgement alongside the intake axes, and it is **not** a keyword test. Do not look for
+"clone", "copy" or "reproduce". The question is:
+
+> Does what the user is asking for depend on preserving observable properties of an identifiable
+> EXTERNAL reference?
+
+- **`create_from_idea`** — no external reference. *"Make a simple endless runner."* / *"Design a new
+  merge game."* **Nothing else in this file changes: skip 1.7 entirely and run exactly as today.**
+- **`match_reference`** — fidelity to a named/shown thing is the point. *"Make Pixel Flow."* /
+  *"Build the game in this video."* / *"Set up the gameplay in this screenshot."*
+- **`inspired_by_reference`** — their own game, informed by one. *"A runner close to Subway Surfers'
+  core loop."* / *"Like Color Block Jam but hex grid and cyberpunk."*
+
+Then collect two lists, and keep them **apart** — this separation is the point, not bookkeeping:
+
+- **`reference_seeds`** — whatever identifies the reference, in whatever form it arrived:
+  `{ kind: name|url|store_url|video_url|image|video|text, value }`. A bare game name IS a valid
+  seed; the user is not required to supply screenshots or video. **A seed is not evidence** — 1.7
+  goes and gets the evidence.
+- **`overrides`** — everything the user asked to CHANGE about the reference, as
+  `{ axis, from, to }`. In *"like Color Block Jam but hex grid and cyberpunk"*, the reference is
+  Color Block Jam and the overrides are `grid_topology: square → hex` and
+  `visual_identity: → cyberpunk`. Your job is **not** to interpret Color Block Jam as cyberpunk.
+
+Confirm in one sentence and continue; ask only if a wrong guess would cost more than the question.
+
+
+## 1.7 Reference Compiler (ONLY when 1.2 judged a reference; needs gameDir, so it runs here)
+
+Skip this section entirely on `create_from_idea`.
+
+Apply `skills/reference/SKILL.md` with the `reference_seeds` and `overrides` from 1.2. It resolves
+identity, discovers and acquires evidence, and writes
+**`{gameDir}/docs/reference_package.yaml`** (raw evidence under `{gameDir}/.ref/`).
+
+Tools it needs are ordinary session tools, not ongame MCP: `curl` (e.g. the iTunes Search API),
+`yt-dlp` (video discovery AND download — always with `--socket-timeout`), `ffprobe`/`ffmpeg` (real
+metadata and frame extraction), `python3` with PIL/numpy (pixel measurement), plus WebSearch /
+WebFetch. If a capability is missing, say which and carry on with a thinner package — **never
+fabricate the reference**, and never present a thin package as a full one.
+
+**Then build the DIGEST** and hold it for step 4 — the package must not reach the builder by disk
+alone. A document on disk sits at the BOTTOM of the measured authority order — a phase agent was
+observed naming an *"AUTHORITY — READ FIRST"* file authoritative without ever opening it. The digest:
+
+```
+reference: {
+  relation:     "match_reference" | "inspired_by_reference",
+  title:        "<reference title>",
+  version:      "<observed version, if any>",
+  packagePath:  "<gameDir>/docs/reference_package.yaml",
+  truth:        [ "<id> <reconstruction-critical requirement, one line each>" ],
+  blocking:     [ "<id> <open question> -> <NAMED_CONSTANT> (<why it blocks>)" ],
+  levels:       [ "<id> <a buildable measured instance: dimensions + what makes it distinct>" ],
+  notObserved:  [ "<state never seen in the evidence>" ],
+  overrides:    [ "<axis>: <from> -> <to>" ]
+}
+```
+
+Keep `truth` to the lines a builder would get wrong without them — this rides in every phase
+prompt, so it is a cost as well as a signal.
+
+`blocking` carries BOTH kinds from the skill's §4: `blocks_build` (the rule cannot be written) and
+`blocks_fidelity` (the result will not read or feel like the reference). They reach the builder the
+same way and it answers them the same way — a defensible default, NAMED — so do not filter one out.
+
+`levels` is every `buildable: true` entry from the skill's §6 `instances`, the anchor first. It is
+the difference between a package that documents a game and a package a builder can populate: in the
+run that produced these rules, three boards were measured and one was promoted, and the build
+shipped one board on which the core mechanic could not occur. Anything not measured stays out —
+this list is promotion, never generation.
+
 ## 1.5 Set up game-dir + worktree (AFTER intake, BEFORE state)
 
 > **ON A CONTINUATION (`entry='continue'`), THIS WHOLE SECTION IS REPLACED BY THREE LINES** — the game already has a
@@ -335,7 +409,8 @@ is NOT an auto-registered workflow — it cannot be called by `name`, `scriptPat
 ```
 Workflow({
   scriptPath: "${CLAUDE_PLUGIN_ROOT}/workflows/build.js",
-  args: { plan: <BuildPlan>, phases: <A>, buildId: <buildId>, gameDir: <gameDir>, pluginRoot: "${CLAUDE_PLUGIN_ROOT}" }
+  args: { plan: <BuildPlan>, phases: <A>, buildId: <buildId>, gameDir: <gameDir>, pluginRoot: "${CLAUDE_PLUGIN_ROOT}",
+          reference: <the 1.7 digest, or omit entirely on create_from_idea> }
 })
 ```
 
@@ -451,7 +526,9 @@ approval/changes.
 
 ### Run Segment B
 The same way: `Workflow({ scriptPath: "${CLAUDE_PLUGIN_ROOT}/workflows/build.js",
-args: { plan, phases: B, buildId, gameDir, pluginRoot: "${CLAUDE_PLUGIN_ROOT}" } })`.
+args: { plan, phases: B, buildId, gameDir, pluginRoot: "${CLAUDE_PLUGIN_ROOT}", reference: <same digest> } })`.
+Pass the **same** `reference` digest on every build.js invocation, including re-runs — a phase that
+runs without it is a phase building from a different truth than the ones around it.
 
 ### GATE 2 — after code (playable check)
 When the `code` phase finishes, call `preview_start(gameDir=<gameDir>)` (`ongame`) → show the
