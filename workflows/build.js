@@ -65,6 +65,23 @@ const maxParallel = Number.isInteger(a.maxParallel) && a.maxParallel > 0 ? a.max
 // which is weaker but never blocks the build.
 const target = typeof a.target === 'string' && a.target.trim() ? a.target.trim() : null;
 
+// REFERENCE PACKAGE (Reference Compiler V1) — present only when the user's ask depends on preserving the observable
+// properties of an identifiable EXTERNAL reference. Absent on a create-from-idea build, and then nothing below
+// changes: the reference block renders to an empty string and every role sees exactly today's context.
+//
+// The orchestrator passes the DIGEST, not a path to read: a workflow script has no filesystem, and a package that
+// only exists on disk is the weakest channel there is — the empirically-measured authority order puts a file below
+// the prompt, and an agent has already been observed naming an "AUTHORITY — READ FIRST" file authoritative without
+// opening it. `packagePath` is carried anyway so a role that needs a field the digest omits can go and read it.
+//
+// `truth` and `overrides` are kept as SEPARATE lists on purpose. They answer different questions — "what is true of
+// the reference" versus "what the user asked us to change about it" — and collapsing them into one paragraph is how
+// a cyberpunk hex-grid brief turns into an agent re-interpreting the reference as cyberpunk and hex, instead of
+// reproducing it and then applying two named deviations.
+const reference = (a.reference && typeof a.reference === 'object' && a.reference.relation) ? a.reference : null;
+const refList = (xs, max) =>
+  (Array.isArray(xs) ? xs : []).filter((x) => typeof x === 'string' && x.trim()).slice(0, max);
+
 // Skip phases already completed (re-iterate only repeats what changed).
 const toRun = phases.filter((p) => !completed.includes(p));
 log(`Phases to run: ${toRun.join(' → ') || '(empty — all completed)'}`);
@@ -92,7 +109,51 @@ const phaseContext = (phaseKey) =>
     ? `This is a RE-RUN after user feedback (iteration). The user's corrections, verbatim: "${notes}". Existing ` +
       `artifacts for this phase are the REJECTED version — regenerate them honoring the corrections; do not ` +
       `verify-and-skip. `
-    : '');
+    : '') +
+  (reference ? referenceBlock() : '');
+
+/**
+ * The reference package, rendered for a phase agent. One function so the splitter, every builder and the critic read
+ * the SAME reference facts — three roles holding three versions of what the reference is would reproduce, inside one
+ * build, the exact drift this package exists to remove.
+ */
+function referenceBlock() {
+  const truth = refList(reference.truth, 12);
+  const blocking = refList(reference.blocking, 6);
+  const overrides = refList(reference.overrides, 8);
+  const notObserved = refList(reference.notObserved, 8);
+  const matching = reference.relation === 'match_reference';
+  return (
+    `\n\n=== REFERENCE PACKAGE (${reference.relation}) ===\n` +
+    `This build is measured against an EXTERNAL reference: ${reference.title ?? '(untitled)'}` +
+    `${reference.version ? ` (observed version ${reference.version})` : ''}. ` +
+    (matching
+      ? `Fidelity to it is the bar: reproducing observed behaviour correctly is success, and inventing a mechanic it ` +
+        `does not have is a FAILURE, not a bonus. `
+      : `The user wants their OWN game informed by it. Understand the reference correctly FIRST, then apply the ` +
+        `named deviations below — do not blend the two while reading it. `) +
+    `Full package: ${reference.packagePath ?? '(digest only)'} — read it when you need a field this digest omits.\n` +
+    (truth.length
+      ? `\nREFERENCE TRUTH — reconstruction-critical, evidence-backed. Treat as given; do not re-derive or "improve":\n` +
+        truth.map((t) => `  - ${t}`).join('\n') + `\n`
+      : '') +
+    (blocking.length
+      ? `\nOPEN AND BLOCKING — the reference does NOT settle these. Each is a named constant you may implement a ` +
+        `defensible default for, but say which default you chose; do NOT present the choice as observed fact:\n` +
+        blocking.map((b) => `  - ${b}`).join('\n') + `\n`
+      : '') +
+    (notObserved.length
+      ? `\nNEVER OBSERVED in the evidence — so nothing here is known. Do not fabricate it and do not quietly assume ` +
+        `a genre convention in its place: ${notObserved.join(', ')}.\n`
+      : '') +
+    (overrides.length
+      ? `\nUSER OVERRIDES — these are NOT reference truth. On these axes ONLY, the user outranks the reference; ` +
+        `everywhere else the reference still governs, and an override on one axis is not licence to reinterpret ` +
+        `the rest:\n` + overrides.map((o) => `  - ${o}`).join('\n') + `\n`
+      : '') +
+    `=== END REFERENCE PACKAGE ===\n`
+  );
+}
 
 const TOOLING_RULES =
   `Use the ongame MCP tools (find them via ToolSearch by bare name). The split is by role: ` +
