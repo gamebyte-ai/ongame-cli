@@ -8,16 +8,36 @@
 #      latest GitHub Release, verify sha256, install to ~/.ongame/bin/, chmod +x.
 #   2. Add ~/.ongame/bin to PATH by patching whichever shell rc file exists (idempotent — checks for
 #      a marker before appending, so re-running this script is always safe).
-#   3. Hand off to `ongame-cli install` — the freshly verified binary does the rest of the wiring
-#      (Claude Code plugin registration, Codex `[mcp_servers.ongame]`, the version file), because
-#      install.ps1 must do exactly the same thing and one implementation cannot drift from itself.
+#   3. Hand off to `ongame-cli install` — the freshly verified binary does the rest: it detects the coding
+#      agents present on this machine (Claude Code, Codex, Gemini CLI, Cursor, Windsurf, Copilot CLI,
+#      opencode, Amp), asks which of them to set up when it can reach your terminal (the usual ones are
+#      pre-selected; Enter accepts), wires each one, verifies the result by reading it back, and prints
+#      per agent what to type to start. That step is ONE implementation shared with install.ps1, so the
+#      two installers cannot drift.
+#
+# Choosing agents without the prompt. `curl … | sh` alone cannot take flags, so there are three forms:
+#
+#   curl -fsSL https://cli.ongame.ai/install.sh | ONGAME_AGENTS=codex,gemini sh   # env var — ON `sh`, see below
+#   curl -fsSL https://cli.ongame.ai/install.sh | sh -s -- --all                   # flags, after `sh -s --`
+#   ongame-cli install --agents codex,gemini                                       # re-run, any time later
+#
+#   --agents a,b    set up exactly these agents          --all         set up every agent detected
+#   -y, --yes       accept the defaults, never ask       --no-agents   install the binary only
+#
+# The flags are forwarded to `ongame-cli install` unchanged; a `--agents` flag beats ONGAME_AGENTS. The env
+# assignment goes on `sh`, the LAST command of the pipeline: `ONGAME_AGENTS=x curl … | sh` binds the variable
+# to curl only and `sh` never sees it (POSIX: a prefix assignment applies to that one command) — a mistake
+# that silently produces the default selection. `sh -s --` is needed for flags: `-s` makes sh read the
+# script from stdin and hand everything after `--` to it as "$@". Re-running `ongame-cli install` on its own
+# re-detects and offers again — that is also how an agent installed later gets added.
 #
 # Windows has its own installer: `irm https://cli.ongame.ai/install.ps1 | iex`.
 #
 # Structural pattern (fail loudly, one-line progress messages, HTTPS-only) follows the
 # rustup/bun install.sh convention — `set -eu` (POSIX sh, not bash: no `pipefail`, so pipelines
 # are checked stage-by-stage instead; see download_to below), OS/arch detection via `uname -s`/
-# `uname -m`, no interactive prompts.
+# `uname -m`. This script itself never prompts: the one interactive step belongs to the binary, and
+# section 4 below only makes sure the binary can reach the terminal (or is told not to try).
 set -eu
 
 REPO="gamebyte-ai/ongame-cli"
@@ -38,6 +58,71 @@ BIN_NAME="ongame-cli"
 
 info()  { printf '%s\n' "$*" >&2; }
 error() { printf 'error: %s\n' "$*" >&2; exit 1; }
+
+# ---------------------------------------------------------------------------
+# 0. Options. Everything after `sh -s --` arrives as "$@". This script recognises ONLY the agent-selection
+#    controls and forwards them to `ongame-cli install` unchanged — it does not interpret them; the binary
+#    is the authority on agent ids and on what each flag means. Anything else is an error, raised BEFORE any
+#    network call: a typo such as `--agent codex` must not "work" by silently falling through to the prompt.
+#
+#    `need_tty` (rustup-init.sh's name for the same variable) records whether the binary still has a question
+#    to ask. Any explicit selection settles it, so no terminal is sought and none is needed — that is what
+#    lets `sh -s -- --all` run unattended from a pipe with no controlling terminal at all.
+#
+#    POSIX sh has no arrays, so the forwarded list is rebuilt IN "$@" itself: each original is consumed off
+#    the front (`shift`) and its normalised form appended to the back (`set -- "$@" …`); `n` counts the
+#    originals still unread, so `$1` is guaranteed to be an original whenever a value is taken. After the
+#    loop, "$@" holds exactly the arguments the binary gets, in the order given.
+# ---------------------------------------------------------------------------
+usage() {
+  cat >&2 <<'USAGE'
+ongame-cli installer
+
+  curl -fsSL https://cli.ongame.ai/install.sh | sh                                # asks which coding agents to set up
+  curl -fsSL https://cli.ongame.ai/install.sh | sh -s -- [options]
+  curl -fsSL https://cli.ongame.ai/install.sh | ONGAME_AGENTS=codex,gemini sh     # the env var goes on `sh`
+
+Options (forwarded to `ongame-cli install`):
+  --agents a,b   set up exactly these coding agents, e.g. --agents claude,codex,gemini
+  --all          set up every coding agent detected on this machine
+  -y, --yes      accept the default selection without asking
+  --no-agents    install the binary only; set up agents later with `ongame-cli install`
+  -h, --help     show this help
+
+Environment:
+  ONGAME_AGENTS=a,b    same as --agents (an explicit --agents flag wins over it)
+  ONGAME_INSTALL_DIR   where to install (default: ~/.ongame)
+  CI                   when set, never asks — same as --yes
+
+Re-run `ongame-cli install` at any time to add a coding agent you installed later.
+USAGE
+}
+
+need_tty=yes
+agents_flag=no
+n=$#
+while [ "$n" -gt 0 ]; do
+  arg=$1; shift; n=$((n - 1))
+  case "$arg" in
+    -y|--yes)     need_tty=no; set -- "$@" --yes ;;
+    --all)        need_tty=no; set -- "$@" --all ;;
+    --no-agents)  need_tty=no; set -- "$@" --no-agents ;;
+    # Both spellings are accepted; the binary is handed the two-token form only, so it has ONE shape to parse.
+    --agents=*)
+      [ -n "${arg#--agents=}" ] || error "--agents needs a value, e.g. --agents claude,codex"
+      need_tty=no; agents_flag=yes; set -- "$@" --agents "${arg#--agents=}" ;;
+    --agents)
+      { [ "$n" -gt 0 ] && [ -n "$1" ]; } || error "--agents needs a value, e.g. --agents claude,codex"
+      need_tty=no; agents_flag=yes; set -- "$@" --agents "$1"; shift; n=$((n - 1)) ;;
+    -h|--help)    usage; exit 0 ;;
+    *)            error "unknown option: $arg (for the list:  curl -fsSL https://cli.ongame.ai/install.sh | sh -s -- --help)" ;;
+  esac
+done
+# The env form of --agents, for the one-liner that cannot carry flags. An explicit --agents flag wins over it
+# (flag > env > prompt > defaults — the Homebrew/deno precedence); any other flags are forwarded alongside it.
+if [ "$agents_flag" = no ] && [ -n "${ONGAME_AGENTS:-}" ]; then
+  need_tty=no; set -- "$@" --agents "$ONGAME_AGENTS"
+fi
 
 command -v curl >/dev/null 2>&1 || error "curl is required to install ongame-cli"
 
@@ -198,24 +283,58 @@ info "Open a new shell (or run: export PATH=\"${BIN_DIR}:\$PATH\") to use ongame
 # ---------------------------------------------------------------------------
 # 4. Post-install wiring — HANDED TO THE BINARY.
 #
-# `ongame-cli install` registers the Claude Code plugin (marketplace + plugin, both list-then-act
-# guarded so re-running never duplicates anything, and always via the full HTTPS marketplace URL —
-# the bare `owner/repo` shorthand resolves to an SSH clone URL and fails without a GitHub SSH key),
-# patches Codex CLI's `[mcp_servers.ongame]` if `$CODEX_HOME`/`~/.codex` exists, and records the
-# installed release tag for the launcher's self-update check.
+# `ongame-cli install` detects the coding agents on this machine, asks which to set up when it can reach a
+# terminal (flags and ONGAME_AGENTS, forwarded in "$@", settle it without asking), wires each one — every
+# write is read-first, so a re-run reports "already wired" and changes nothing — verifies by reading back,
+# and prints per agent what to type. It also records the installed release tag for the self-update check.
 #
-# Why it moved out of this script: there are now TWO installers — this one and install.ps1 for
-# Windows — and that logic is identical on both except for one string (the Codex `command` value).
-# Duplicating it in PowerShell would guarantee the two drift; the binary that both installers just
-# finished verifying is the one place they can share. This script keeps only what genuinely differs
-# per platform: arch detection, download, checksum verification, PATH.
+# Why it lives in the binary and not here: install.ps1 must do exactly the same thing, and two copies of
+# that logic (one sh, one PowerShell) would drift within a release or two. This script keeps only what
+# genuinely differs per platform: arch detection, download, checksum verification, PATH — and, below, the
+# one thing a `curl | sh` host must do for a child that wants to talk to the user.
 #
-# It reports every outcome on stderr and ALWAYS exits 0 by contract — an absent Codex, a missing or
-# broken `claude` CLI must never turn an otherwise-successful install into a failure. `|| true` is
-# belt-and-braces against `set -e` should that contract ever be violated.
+# THE TERMINAL HAND-OFF (rustup-init.sh's idiom, with a real probe in place of its `[ -t 1 ]` proxy). Under
+# `curl … | sh` this shell's stdin IS the pipe the script arrives on; a child that inherits it reads the
+# tail of this very file, not the user. So when stdin is not a terminal, the binary's stdin is connected to
+# /dev/tty explicitly. Existence tests cannot make that decision — MEASURED: with no controlling terminal
+# (CI, cron, a detached agent) `[ -e /dev/tty ]` and `[ -c /dev/tty ]` are both TRUE and the open still
+# fails with ENXIO — so the probe is an OPEN ATTEMPT, and it runs in a subshell because a failed redirection
+# on `exec` exits dash/sh outright (POSIX: a redirection error on a special builtin), while `( : </dev/tty )`
+# merely returns non-zero. If the open fails there is nobody to ask: `--yes` is appended so the binary takes
+# the defaults and can never block. `CI` set → the same, without probing (the deno/Homebrew convention): a
+# CI runner that allocates a pseudo-terminal would otherwise sit on the prompt until the job times out.
+#
+# When the binary has nothing to ask (a flag settled it) and stdin is not a terminal, it gets /dev/null —
+# never the pipe. sh reads this script incrementally, so a child that read the pipe would eat the lines
+# after its own invocation; /dev/null makes that impossible whatever the binary does.
+#
+# It reports every outcome on stderr and ALWAYS exits 0 by contract — an absent agent or a broken agent CLI
+# must never turn an otherwise-successful install into a failure. `|| true` is belt-and-braces against
+# `set -e` should that contract ever be violated.
 # ---------------------------------------------------------------------------
+run_wiring() {
+  "${BIN_DIR}/${BIN_NAME}" install --version "$tag_name" "$@" || true
+}
+
 info ""
-"${BIN_DIR}/${BIN_NAME}" install --version "$tag_name" || true
+if [ "$need_tty" = yes ] && [ -n "${CI:-}" ]; then
+  info "CI is set — using the default agent selection without asking. Change it any time with:  ongame-cli install"
+  need_tty=no; set -- "$@" --yes
+fi
+
+if [ -t 0 ]; then
+  # `sh install.sh`, or `bash -c "$(curl …)"`: stdin already is the terminal — inherit it.
+  run_wiring "$@"
+elif [ "$need_tty" = yes ] && ( : </dev/tty ) 2>/dev/null; then
+  # `curl | sh` from a terminal: stdin is the pipe; hand the binary the terminal itself.
+  run_wiring "$@" </dev/tty
+else
+  if [ "$need_tty" = yes ]; then
+    info "No terminal to ask on — using the default agent selection. Change it any time with:  ongame-cli install"
+    set -- "$@" --yes
+  fi
+  run_wiring "$@" </dev/null
+fi
 
 info ""
 info "Done. ongame-cli ${tag_name} is installed at ${BIN_DIR}/${BIN_NAME}."

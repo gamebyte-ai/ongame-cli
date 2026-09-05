@@ -13,8 +13,23 @@
 #      %USERPROFILE%\.ongame\bin\ongame-cli.exe.
 #   2. Add that bin directory to the PER-USER PATH (registry, idempotent, non-truncating) and broadcast
 #      the change so newly launched processes pick it up.
-#   3. Hand off to `ongame-cli install` — Claude Code plugin registration, Codex `[mcp_servers.ongame]`,
-#      the version file.
+#   3. Hand off to `ongame-cli install` — the binary detects the coding agents present on this machine
+#      (Claude Code, Codex, Gemini CLI, Cursor, Windsurf, Copilot CLI, opencode, Amp), asks which of them
+#      to set up when it has a console to ask on (the usual ones are pre-selected; Enter accepts), wires
+#      each one, verifies by reading back, prints per agent what to type, and records the version file.
+#
+# Choosing agents without the prompt — the same controls install.sh has, as PowerShell parameters:
+#
+#   $env:ONGAME_AGENTS='codex,gemini'; irm https://cli.ongame.ai/install.ps1 | iex     # env var (one-liner)
+#   iex "& {$(irm https://cli.ongame.ai/install.ps1)} -All"                            # parameters (Scoop's form)
+#   ongame-cli install --agents codex,gemini                                           # re-run, any time later
+#
+#   -Agents a,b   set up exactly these agents         -All        set up every agent detected
+#   -Yes          accept the defaults, never ask      -NoAgents   install the binary only (was -NoPluginSetup)
+#
+# They are forwarded to `ongame-cli install` as `--agents a,b` / `--all` / `--yes` / `--no-agents`; an explicit
+# -Agents beats $env:ONGAME_AGENTS. Re-running `ongame-cli install` on its own re-detects and offers again —
+# that is also how an agent installed later gets added.
 #
 # macOS/Linux have their own installer: `curl -fsSL https://cli.ongame.ai/install.sh | sh`.
 #
@@ -23,10 +38,26 @@
 # chosen for that intersection; see the individual comments before "simplifying" any of them.
 
 param(
-  # `irm ... | iex` cannot pass parameters (the pipeline hands `iex` a plain string), so both switches
-  # are also readable from the environment — that is the ONLY way to reach them in the documented
-  # one-liner form. `$env:ONGAME_NO_PATH_UPDATE=1; irm https://cli.ongame.ai/install.ps1 | iex`
+  # `irm ... | iex` cannot pass parameters (the pipeline hands `iex` a plain string), so the controls that
+  # matter in the one-liner form are also readable from the environment — that is the ONLY way to reach them
+  # there: `$env:ONGAME_NO_PATH_UPDATE=1; irm https://cli.ongame.ai/install.ps1 | iex`, likewise
+  # `$env:ONGAME_AGENTS`. Every parameter also works in the invocation form that DOES carry arguments (the one
+  # Scoop documents): `iex "& {$(irm https://cli.ongame.ai/install.ps1)} -Agents codex,gemini -Yes"`.
   [switch]$NoPathUpdate,
+  # Which coding agents `ongame-cli install` sets up. `[string[]]`, NOT `[string]`: PowerShell parses an
+  # unquoted `-Agents claude,codex` as an ARRAY (the comma is the array operator), and a `[string]` parameter
+  # would coerce that array by joining it with SPACES — the binary would receive "claude codex". Declared as
+  # an array and re-joined with commas below, `-Agents claude,codex` and `-Agents 'claude,codex'` both arrive
+  # as `claude,codex`.
+  [string[]]$Agents = @(),
+  # Set up every coding agent detected on this machine.
+  [switch]$All,
+  # Accept the default selection without asking.
+  [switch]$Yes,
+  # Install the binary only; run `ongame-cli install` later to set up coding agents.
+  [switch]$NoAgents,
+  # The previous name of -NoAgents. Kept as an alias, and via $env:ONGAME_NO_PLUGIN_SETUP, because users have
+  # already read it in the README — renaming a documented switch out from under them is a support ticket.
   [switch]$NoPluginSetup
 )
 
@@ -37,7 +68,11 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
 if (-not $NoPathUpdate -and $env:ONGAME_NO_PATH_UPDATE) { $NoPathUpdate = $true }
-if (-not $NoPluginSetup -and $env:ONGAME_NO_PLUGIN_SETUP) { $NoPluginSetup = $true }
+if ($NoPluginSetup -or $env:ONGAME_NO_PLUGIN_SETUP) { $NoAgents = $true }
+# An explicit -Agents beats the env var (flag > env > prompt > defaults — the Homebrew/deno precedence). The
+# env var is one string, so it becomes a one-element array and the join below leaves it untouched.
+if ($Agents.Count -eq 0 -and $env:ONGAME_AGENTS) { $Agents = @($env:ONGAME_AGENTS) }
+$AgentList = ($Agents -join ',')
 
 # .NET Framework's default protocol selection on a stock 5.1 does not include TLS 1.2, and github.com /
 # api.github.com refuse anything older — without this, every web call below fails with a bare
@@ -309,13 +344,14 @@ if (-not $probe.Launched) {
   Stop-Install "$BinPath was installed but could not be executed ($($probe.Error)) — antivirus, SmartScreen or an execution policy is blocking it. Allow that path and re-run this installer."
 }
 if ($probe.Output -notmatch 'ongame-cli') {
-  Write-Step "Warning: $BinPath ran but did not print the expected usage line. Continuing; if ongame does not appear in Claude Code, re-run this installer."
+  Write-Step "Warning: $BinPath ran but did not print the expected usage line. Continuing; if ongame does not appear in your coding agent, re-run this installer."
 }
 
 # The release tag the updater compares against to decide whether to self-update. `ongame-cli install`
-# below writes the same bytes to the same path (install.sh has the same overlap) — kept here as well so
-# -NoPluginSetup still leaves the updater a correct baseline instead of forcing a redundant ~100MB
-# re-download on the first launch. The NAME is a contract with cli/src/updater.ts, which derives it as
+# below writes the same bytes to the same path (install.sh has the same overlap) — kept here as well so a
+# wiring step that could not be launched (antivirus, execution policy) still leaves the updater a correct
+# baseline instead of forcing a redundant ~100MB re-download on the first launch. The NAME is a contract
+# with cli/src/updater.ts, which derives it as
 # `.<binary file name>.version` — on Windows that includes the `.exe`.
 # WriteAllText with an explicit no-BOM UTF8: Windows PowerShell 5.1's Set-Content/Out-File -Encoding utf8
 # prepends a BOM, and the updater compares the file's contents to the release tag as a string — a BOM
@@ -418,26 +454,45 @@ if ($NoPathUpdate) {
 # ---------------------------------------------------------------------------
 # 4. Post-install wiring — HANDED TO THE BINARY.
 #
-# `ongame-cli install` registers the Claude Code plugin (marketplace + plugin, both list-then-act guarded
-# so re-running never duplicates anything, and always via the full HTTPS marketplace URL), patches Codex
-# CLI's `[mcp_servers.ongame]` if %CODEX_HOME%/%USERPROFILE%\.codex exists — on Windows with the ABSOLUTE
-# path to ongame-cli.exe, because Codex resolves `command` with a plain PATH lookup that does not apply
-# PATHEXT — and records the installed release tag.
+# `ongame-cli install` detects the coding agents on this machine, asks which to set up when it has a console
+# to ask on (the forwarded selection flags settle it without asking), wires each one — every write is
+# read-first, so a re-run reports "already wired" and changes nothing — verifies by reading back, prints per
+# agent what to type, and records the installed release tag. Where a platform needs the ABSOLUTE path to
+# ongame-cli.exe rather than a PATH lookup (Codex resolves its `command` without PATHEXT), the binary knows.
 #
 # Why it lives in the binary and not here: install.sh needs exactly the same logic, and two copies of it
 # (one sh, one PowerShell) would drift within a release or two. This script keeps only what is genuinely
 # per-platform. The subcommand reports every outcome on stderr and ALWAYS exits 0 by contract, so an
-# absent Codex or a broken `claude` CLI can never turn a good install into a failed one.
+# absent agent or a broken agent CLI can never turn a good install into a failed one.
+#
+# THE CONSOLE HAND-OFF — the twin of install.sh's /dev/tty step, which Windows makes simpler: under
+# `irm … | iex` the pipeline carries the script TEXT into `iex`, the process's stdin is never redirected, and
+# a native child started with `&` inherits the console — so the binary can prompt on its own stdin with no
+# /dev/tty analogue needed. The one thing this script must decide is when there is NOBODY to ask: stdin
+# redirected (a `pwsh -File … < NUL`, a scheduled task, a remoting session) or `CI` set. Then `--yes` is
+# appended so the binary takes the defaults and can never block. `[Console]::IsInputRedirected` is the
+# documented probe (.NET 4.5+, so Windows PowerShell 5.1 has it); should it throw in an exotic host, the safe
+# reading is "not interactive" — a wrong default is recoverable with `ongame-cli install`, a hung installer
+# is not. The binary owns the prompt itself; this script never calls Read-Host.
 # ---------------------------------------------------------------------------
-if ($NoPluginSetup) {
-  Write-Step ''
-  Write-Step 'Skipping Claude Code / Codex wiring (-NoPluginSetup). Run `ongame-cli install` yourself when you want it.'
-} else {
-  Write-Step ''
-  $wiring = Invoke-Native -FilePath $BinPath -Arguments @('install', '--version', $tagName)
-  if (-not $wiring.Launched) {
-    Write-Step "Could not run ``$BinPath install`` ($($wiring.Error)) — the binary is installed; run it yourself to finish wiring up Claude Code and Codex."
+Write-Step ''
+$wiringArgs = @('install', '--version', $tagName)
+$needTty = $true   # rustup-init.sh's name: does the binary still have a question to ask?
+if ($AgentList) { $wiringArgs += @('--agents', $AgentList); $needTty = $false }
+if ($All)       { $wiringArgs += '--all';                    $needTty = $false }
+if ($Yes)       { $wiringArgs += '--yes';                    $needTty = $false }
+if ($NoAgents)  { $wiringArgs += '--no-agents';              $needTty = $false }
+if ($needTty) {
+  $interactive = $false
+  try { $interactive = (-not [Console]::IsInputRedirected) -and (-not $env:CI) } catch { $interactive = $false }
+  if (-not $interactive) {
+    Write-Step 'No interactive console to ask on — using the default agent selection. Change it any time with:  ongame-cli install'
+    $wiringArgs += '--yes'
   }
+}
+$wiring = Invoke-Native -FilePath $BinPath -Arguments $wiringArgs
+if (-not $wiring.Launched) {
+  Write-Step "Could not run ``$BinPath install`` ($($wiring.Error)) — the binary is installed; run ``ongame-cli install`` yourself to set up your coding agents."
 }
 
 Write-Step ''
