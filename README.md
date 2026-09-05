@@ -69,8 +69,8 @@ installed later.
 # pick agents (ids: claude codex gemini cursor windsurf copilot opencode amp)
 curl -fsSL https://cli.ongame.ai/install.sh | sh -s -- --agents claude,codex
 
-# the same choice as an environment variable — this form works for the Windows one-liner too
-ONGAME_AGENTS=claude,codex curl -fsSL https://cli.ongame.ai/install.sh | sh
+# the same choice as an environment variable — set it on `sh`, the side that runs the installer
+curl -fsSL https://cli.ongame.ai/install.sh | ONGAME_AGENTS=claude,codex sh
 $env:ONGAME_AGENTS = "claude,codex"; irm https://cli.ongame.ai/install.ps1 | iex
 
 # accept the defaults with no questions · every agent it finds · the binary only

@@ -257,8 +257,8 @@
       <div class="install-body">
         <code><span class="c"># choose agents — ids: claude codex gemini cursor windsurf copilot opencode amp</span>
 <span class="p">$</span> curl <span class="f">-fsSL</span> https://cli.ongame.ai/install.sh <span class="f">|</span> sh <span class="f">-s --</span> <span class="f">--agents</span> claude,codex
-<span class="c"># the same choice as an environment variable — this form also works on Windows</span>
-<span class="p">$</span> <span class="f">ONGAME_AGENTS</span>=claude,codex curl <span class="f">-fsSL</span> https://cli.ongame.ai/install.sh <span class="f">|</span> sh
+<span class="c"># the same choice as an environment variable — set it on `sh`, the side that runs the installer</span>
+<span class="p">$</span> curl <span class="f">-fsSL</span> https://cli.ongame.ai/install.sh <span class="f">|</span> <span class="f">ONGAME_AGENTS</span>=claude,codex sh
 <span class="p">&gt;</span> <span class="f">$env:ONGAME_AGENTS</span>="claude,codex"; irm https://cli.ongame.ai/install.ps1 <span class="f">|</span> iex
 <span class="c"># accept the defaults with no questions · every agent it finds · the binary only</span>
 <span class="p">$</span> curl <span class="f">-fsSL</span> https://cli.ongame.ai/install.sh <span class="f">|</span> sh <span class="f">-s -- -y</span>
