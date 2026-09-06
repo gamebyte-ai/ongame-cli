@@ -266,6 +266,7 @@ reference: {
   truth:        [ "<id> <reconstruction-critical requirement, one line each>" ],
   blocking:     [ "<id> <open question> -> <NAMED_CONSTANT> (<why it blocks>)" ],
   levels:       [ "<id> <a buildable measured instance: dimensions + what makes it distinct>" ],
+  obligations:  [ "<id> [<primitive>] <observable> @ <state> ±<tol> ← <evidence path>" ],
   notObserved:  [ "<state never seen in the evidence>" ],
   overrides:    [ "<axis>: <from> -> <to>" ]
 }
@@ -277,6 +278,12 @@ prompt, so it is a cost as well as a signal.
 `blocking` carries BOTH kinds from the skill's §4: `blocks_build` (the rule cannot be written) and
 `blocks_fidelity` (the result will not read or feel like the reference). They reach the builder the
 same way and it answers them the same way — a defensible default, NAMED — so do not filter one out.
+
+`obligations` is the skill's §3 `verification` blocks — the checkable half of the package. Carry ALL
+of them and do not trim this list to save prompt budget: a truth line that does not arrive is a fact
+the builder may still get right on its own, but an obligation that does not arrive is a check nobody
+writes. Measured: citing a requirement in the code predicted runtime correctness barely at all
+(0.67 vs 0.62); having a check for it predicted it clearly (0.85 vs 0.53).
 
 `levels` is every `buildable: true` entry from the skill's §6 `instances`, the anchor first. It is
 the difference between a package that documents a game and a package a builder can populate: in the

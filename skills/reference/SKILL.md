@@ -58,8 +58,16 @@ row of pips) · `asset_family`. Flag anything you are UNSURE of; those are the d
     explanation: "<show the arithmetic>"
     measurement_conditions: "<sampling interval / viewport / dpr the number was taken at>"
     counter_evidence_checked: "<which OTHER evidence you stepped looking for a refutation>"
-  reconstruction_critical: true|false     # true => counter_evidence_checked is REQUIRED
+  reconstruction_critical: true|false     # true => counter_evidence_checked AND verification REQUIRED
   superseded_by: null                     # set when a later measurement retracts this one
+  verification:                           # REQUIRED when reconstruction_critical; omit otherwise
+    primitive: model|state|geometry|hitArea|pose|pixel
+    observable: "<the ONE quantity or relation a harness reads — not the statement restated>"
+    required_state: "<the game state it is read in: 'any', or a named instance + the moment>"
+    tolerance: "<accept band, or 'exact'>"
+    evidence_locator: "<the reference evidence file this obligation rests on>"
+    enforcement: blocking|advisory        # see the epistemic-safety rule below
+    blocked_on: null                      # name the missing primitive if it cannot run today
 ```
 
 ### The rules that carry the most weight
@@ -77,6 +85,62 @@ row of pips) · `asset_family`. Flag anything you are UNSURE of; those are the d
   piece travels diagonally inside a single 33 ms step. **A wrong truth costs more than a missing
   one**: the builder implemented the axis lock faithfully, asserted it in its own test suite, and
   capped its own fidelity — while the facts the package simply omitted were guessed at correctly.
+- **Say how it could be checked, never check it. `[V1.2]`** Every `reconstruction_critical`
+  requirement carries a `verification` block. You are describing an obligation for the harness that
+  runs later — you do NOT run it, you do not write test code, and you do not open the game. The
+  obligation names one of the SIX primitives the pipeline already has, so it is a hand-off, not a new
+  framework:
+  | primitive | what reads it | good for |
+  |---|---|---|
+  | `model` | vitest over the pure rule layer | loop rules, legality, invariants, fixture shape |
+  | `geometry` | vitest over the layout functions | fractions, pitch, row split, aspect |
+  | `state` | `window.__game.state` / `.board` | transitions, counters, screen routing |
+  | `hitArea` | `__game.diagnostics.hitAreas` | anything the player can press, in viewport px |
+  | `pose` | `__game.diagnostics.subjects` | that a subject actually animated |
+  | `pixel` | screenshot sample / frame diff | colour, flatness, composition, an effect drawing at all |
+  `observable` must be the quantity a harness READS, not the statement in other words: *"the source
+  bottle's neck x against the target's mouth-centre x, in viewport px"* — not *"the pour looks right"*.
+  If no primitive can carry it today, still write the block, set `blocked_on` to the missing capability
+  and say so. A requirement that cannot be checked must be VISIBLE as unchecked; the expensive failure
+  is the one that is silently absent.
+- **A `MEASURED` obligation may only rest on reference evidence. `[V1.2]`** `evidence_locator` points
+  at the acquired reference material — never at anything the build itself produced: no
+  `assets/concept/*`, no generated art, no runtime screenshot, no doc the build wrote. A field run lost
+  a reconstruction-critical requirement exactly here: the builder measured its OWN generated concept
+  image, labelled the result `MEASURED`, called the file *"the reference pour frame"*, and wrote a
+  careful argument for overriding the package's own figure. Emit one standing obligation with every
+  package so this is checked deterministically rather than trusted:
+  ```yaml
+  - id: PROV-01
+    verification:
+      primitive: model
+      observable: "every source constant whose comment claims MEASURED / observed, and the path it cites"
+      required_state: any
+      tolerance: exact
+      evidence_locator: "(the package's own evidence root)"
+      enforcement: blocking
+  ```
+  Its rule is one line: **a constant that claims to be measured must cite a file that resolves in the
+  evidence root.** Two tuning details, both paid for in a measured trial — get them wrong and the lint
+  is ignored within a day:
+  - **Resolve the cited BASENAME against the evidence directory, do not prefix-match the path.** Real
+    code writes `shots_03_home_map.png`, not `evidence/shots_03_home_map.png`. A prefix match flagged
+    5 true citations for every 2 real violations; basename resolution flagged **2 of 12 claims, both
+    genuine, zero false positives**, and 0 of 7 on a build that had no package at all.
+  - **Measuring your own shipped sprite to place it is NOT a violation.** *"measured on the shipped
+    file, 224x683 forge canvas"* is legitimate: it is fitting geometry to an asset, not claiming
+    reference truth. What fails is a GENERATED concept image or screenshot standing in for the
+    reference — `assets/concept/*`, `docs/concept/*`, `.ongame/screenshots/*`, `runtime_*.png`.
+  Implementable in about thirty lines over the source tree with no runtime and no browser. It belongs
+  in the suite the game already runs — do not build a separate tool for it.
+- **Epistemic status survives into the obligation. `[V1.2]`** Verification must not turn a guess into a
+  law. An obligation is `advisory` — reported, never failing the build — whenever the requirement is
+  `ASSUMED` or `CONFLICTING`, or its `resolution.valid` is false, or its `reliability` is low. Only a
+  requirement that is genuinely resolved earns `blocking`. This cuts both ways and the second half is
+  the one that bites: a correctly-written obligation on a WRONG requirement locks the error in with a
+  green test. A field run shipped an exemplary test — written to fail against its rival hypotheses —
+  that pinned a measurement the ground truth contradicts. Obligations amplify whatever the compiler
+  got right, and equally whatever it got wrong.
 - **Keep `valid: false`.** It is the only place a number that turned out wrong can be recorded. If
   a quantity cannot be resolved, prefer keeping it out of `requirements` entirely and registering it
   as an assumption — but when you do publish a number you later distrust, say so here or in
@@ -172,7 +236,17 @@ Keep the raw evidence under `{gameDir}/.ref/`.
 Then hand the orchestrator the **digest** it passes to the phase runner (a package that only exists
 on disk is the weakest channel there is): `relation`, `title`, `version`, `packagePath`, the
 reconstruction-critical `truth` lines, the `blocking` assumptions (**build- AND fidelity-blocking**
-— §4), `levels` (the buildable `instances` from §6, one line each), `notObserved`, and `overrides`.
+— §4), `levels` (the buildable `instances` from §6, one line each), `obligations`, `notObserved`, and
+`overrides`.
+
+`obligations` is the §3 `verification` blocks, one line each, in the shape
+`<id> [<primitive>] <observable> @ <required_state> ±<tolerance> ← <evidence_locator>` — plus
+`(advisory)` when it is not blocking, and `(BLOCKED ON <capability>)` when it cannot run today.
+Carry ALL of them: they are short, and unlike a truth line an obligation that does not arrive is a
+check nobody writes. **This is the one list not to trade against prose.** A measured field run found
+that citing a requirement in the code predicts runtime correctness barely at all (0.67 vs 0.62), while
+having a check for it predicts it clearly (0.85 vs 0.53) — so a package buys fidelity by carrying
+checkable contracts, not by explaining itself at greater length.
 
 ---
 

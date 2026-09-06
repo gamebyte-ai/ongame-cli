@@ -49,6 +49,9 @@ function referenceBlock() {
   const truth = refList(reference.truth, 12);
   const blocking = refList(reference.blocking, 6);
   const levels = refList(reference.levels, 6);
+  // NOT capped: an obligation that does not arrive is a check nobody writes. Truth lines are a cost
+  // because the builder may reach the same fact unaided; a missing check has no such fallback.
+  const obligations = refList(reference.obligations, 40);
   const overrides = refList(reference.overrides, 8);
   const notObserved = refList(reference.notObserved, 8);
   const matching = reference.relation === 'match_reference';
@@ -80,6 +83,19 @@ function referenceBlock() {
         `at the anchor: a build that ships only the anchor usually ships a board on which the core mechanic cannot ` +
         `occur:\n` +
         levels.map((l) => `  - ${l}`).join('\n') + `\n`
+      : '') +
+    (obligations.length
+      ? `\nVERIFICATION OBLIGATIONS — the checkable half of the package, and the acceptance bar for the ` +
+        `reconstruction-critical facts above. Each names a primitive this pipeline ALREADY has: model = ` +
+        `vitest over the pure rule layer · geometry = vitest over the layout functions · state = ` +
+        `window.__game.state/.board · hitArea = __game.diagnostics.hitAreas (viewport px) · pose = ` +
+        `__game.diagnostics.subjects · pixel = screenshot sample or frame diff. Implement each as a real ` +
+        `assertion in the suite this game already runs — do NOT build a second harness, and do not settle ` +
+        `for citing the id in a comment: a citation is not a check. An obligation marked (advisory) is ` +
+        `REPORTED and must not fail the build — it rests on an assumption or an unresolved measurement, ` +
+        `and turning a guess into a law is the failure this marking exists to prevent. One marked ` +
+        `(BLOCKED ON x) cannot run yet: say so in your output rather than quietly skipping it.\n` +
+        obligations.map((o) => `  - ${o}`).join('\n') + `\n`
       : '') +
     (notObserved.length
       ? `\nNEVER OBSERVED in the evidence — so nothing here is known. Do not fabricate it and do not quietly assume ` +
