@@ -89,12 +89,22 @@ function referenceBlock() {
         `reconstruction-critical facts above. Each names a primitive this pipeline ALREADY has: model = ` +
         `vitest over the pure rule layer · geometry = vitest over the layout functions · state = ` +
         `window.__game.state/.board · hitArea = __game.diagnostics.hitAreas (viewport px) · pose = ` +
-        `__game.diagnostics.subjects · pixel = screenshot sample or frame diff. Implement each as a real ` +
-        `assertion in the suite this game already runs — do NOT build a second harness, and do not settle ` +
-        `for citing the id in a comment: a citation is not a check. An obligation marked (advisory) is ` +
-        `REPORTED and must not fail the build — it rests on an assumption or an unresolved measurement, ` +
-        `and turning a guess into a law is the failure this marking exists to prevent. One marked ` +
-        `(BLOCKED ON x) cannot run yet: say so in your output rather than quietly skipping it.\n` +
+        `__game.diagnostics.subjects · pixel = screenshot sample or frame diff.\n` +
+        `THESE ARE DISPATCHED, NOT DELEGATED TO YOUR JUDGEMENT. The machine-readable copy is at ` +
+        `docs/obligations.json and the dispatcher is ${pluginRoot ?? '<pluginRoot>'}/skills/reference/obligations.mjs ` +
+        `(no dependencies, drives no browser). Run it and treat its exit code as a gate:\n` +
+        `  1. \`node <that path> probe <gameDir>\` prints the states it needs and ONE page snippet.\n` +
+        `  2. For each state, open the preview with the browser tool you already use, evaluate the snippet, ` +
+        `and save the returned objects keyed by state into a JSON file.\n` +
+        `  3. \`node <that path> score <gameDir> <that file>\` writes docs/obligations.result.json and exits ` +
+        `non-zero if any BLOCKING obligation is not PASS.\n` +
+        `A blocking obligation with NO result is a FAIL, never a skip — silence used to read as success and ` +
+        `that is the failure this exists to remove. \`model\` and \`geometry\` obligations are the only ones ` +
+        `needing you: only the game knows its own symbols, so assert them in the suite this game already runs ` +
+        `and pass {"bound":{"<id>":{"pass":bool,"evidence":"..."}}} into the same JSON. Do NOT build a second ` +
+        `harness and do not settle for citing an id in a comment: a citation is not a check. (advisory) is ` +
+        `reported and must not fail the build — turning a guess into a law is the failure that marking prevents. ` +
+        `(BLOCKED ON x) cannot run yet; the dispatcher reports it as BLOCKED so it stays visible.\n` +
         obligations.map((o) => `  - ${o}`).join('\n') + `\n`
       : '') +
     (notObserved.length

@@ -239,6 +239,14 @@ reconstruction-critical `truth` lines, the `blocking` assumptions (**build- AND 
 — §4), `levels` (the buildable `instances` from §6, one line each), `obligations`, `notObserved`, and
 `overrides`.
 
+Also write **`{gameDir}/docs/obligations.json`** — the same `verification` blocks as a machine-readable
+array, one object per obligation: `id`, `primitive`, `enforcement`, `state`, `observable`,
+`evidence_locator`, plus `blocked_on` when it cannot run. For `hitArea`/`state`/`pixel` add a
+`predicate` (a JS expression over `{hitAreas, W, H, state, board, subjects, pick(glob), px}` returning
+a boolean) and an `evidence` expression returning the measured value as a string. This file is what
+`skills/reference/obligations.mjs` dispatches; the prose list below is what the agent reads. The prose
+alone was measured to be insufficient — that is the whole reason the JSON exists.
+
 `obligations` is the §3 `verification` blocks, one line each, in the shape
 `<id> [<primitive>] <observable> @ <required_state> ±<tolerance> ← <evidence_locator>` — plus
 `(advisory)` when it is not blocking, and `(BLOCKED ON <capability>)` when it cannot run today.
