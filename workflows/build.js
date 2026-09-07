@@ -40,7 +40,13 @@ const notes = typeof a.notes === 'string' && a.notes.trim() ? a.notes : null;
 // `truth` and `overrides` stay SEPARATE lists on purpose: they answer different questions, and collapsing them is how
 // a "like X but hex and cyberpunk" brief turns into an agent reinterpreting X as cyberpunk instead of reproducing X
 // and then applying two named deviations.
-const reference = (a.reference && typeof a.reference === 'object' && a.reference.relation) ? a.reference : null;
+// `relation` is interpolated into the section delimiter itself and decides which wording the block
+// carries, so it is validated as an ENUM rather than escaped: an unrecognised value is not a
+// reference build, and rendering it half-configured would silently pick the inspired_by wording for
+// a match_reference ask.
+const REF_RELATIONS = new Set(['match_reference', 'inspired_by_reference']);
+const reference = (a.reference && typeof a.reference === 'object' && REF_RELATIONS.has(a.reference.relation))
+  ? a.reference : null;
 // Every field below is acquired from EXTERNAL reference material and lands in all eight role prompts,
 // so it is carried as QUOTED DATA, not spliced in as prose. Two collapses do that: whitespace (an
 // injected line cannot start at column 0 and read as a new instruction) and runs of `=` (it cannot
