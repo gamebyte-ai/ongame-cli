@@ -42,6 +42,22 @@ function tolerancesFor(img) {
   return { colour: lossless ? 1 : 10, geom_px: lossless ? 1 : 2, lossless };
 }
 
+/** Region and axis are validated, never coerced. `rect: ['x','y',0,1]` used to skip every loop and
+ *  return VALID with NaN channels, and `axis: 'z'` was silently treated as the y path while the
+ *  provenance said z. Both are selections the caller got wrong, so they are INVALID_SELECTION. */
+function badRegion(region, n = 4) {
+  if (!Array.isArray(region) || region.length !== n) return `region must be an array of ${n} fractions`;
+  if (!region.every((v) => typeof v === 'number' && Number.isFinite(v))) {
+    return `region ${JSON.stringify(region)} is not made of finite numbers`;
+  }
+  if (n === 4 && (region[1] <= region[0] || region[3] <= region[2])) {
+    return `region ${JSON.stringify(region)} has an inverted or empty edge`;
+  }
+  if (n === 2 && region[1] <= region[0]) return `band ${JSON.stringify(region)} is inverted or empty`;
+  return null;
+}
+const badAxis = (axis) => (axis === 'x' || axis === 'y' ? null : `axis must be "x" or "y", got ${JSON.stringify(axis)}`);
+
 function baseSpan(img, base, axis) {
   if (base === 'W') return img.w;
   if (base === 'H') return img.h;
@@ -136,6 +152,8 @@ export function source(file) {
 /* ─────────────────────────────── colour ─────────────────────────────── */
 export function colour(file, { rect, key = null, keyTol = 22, base = 'ratio' } = {}) {
   const opts = { region: rect, key, keyTol, base };
+  const rb = badRegion(rect);
+  if (rb) return bad('colour', INVALID_SELECTION, rb, null, { ...opts, file });
   const o = open(file, 'colour', opts);
   if (o.err) return o.err;
   const img = o.img;
@@ -217,6 +235,8 @@ export function colour(file, { rect, key = null, keyTol = 22, base = 'ratio' } =
 export function runs(file, { band, axis = 'x', key = null, keyTol = 22, minFrac = 0.04,
                              bgTol = 26, sweep = 0.10, base } = {}) {
   const opts = { region: band, key, keyTol, base, axis };
+  const rb = badRegion(band, 2) || badAxis(axis);
+  if (rb) return bad('runs', INVALID_SELECTION, rb, null, { ...opts, file });
   const o = open(file, 'runs', opts);
   if (o.err) return o.err;
   const img = o.img;
@@ -330,6 +350,8 @@ export function runs(file, { band, axis = 'x', key = null, keyTol = 22, minFrac 
  */
 export function pitch(file, { rect, axis = 'x', key = null, keyTol = 30, base, expect = null } = {}) {
   const opts = { region: rect, key, keyTol, base, axis, expect };
+  const rb = badRegion(rect) || badAxis(axis);
+  if (rb) return bad('pitch', INVALID_SELECTION, rb, null, { ...opts, file });
   const o = open(file, 'pitch', opts);
   if (o.err) return o.err;
   const img = o.img;
@@ -438,6 +460,8 @@ export function pitch(file, { rect, axis = 'x', key = null, keyTol = 30, base, e
 /* ─────────────────── count_fills (optional in V1) ─────────────────── */
 export function countFills(file, { rect, minSat = 60, minShare = 0.02, merge = 70, base = 'ratio' } = {}) {
   const opts = { region: rect, base };
+  const rb = badRegion(rect);
+  if (rb) return bad('count_fills', INVALID_SELECTION, rb, null, { ...opts, file });
   const o = open(file, 'count_fills', opts);
   if (o.err) return o.err;
   const img = o.img;

@@ -359,6 +359,79 @@ const put = (name, buf) => { const f = path.join(DIR, name); fs.writeFileSync(f,
   check('...and does not present fully transparent RGB as exact visual truth',
     /alpha/i.test(r.claimable || ''), r.claimable);
 }
+/* ── the front door: untrusted bytes ───────────────────────────────────────────────────────────────
+   A third review pass found four more ways externally acquired material could crash or launder a
+   number past the guards. They share one cause: a hand-written parser on untrusted input needs its
+   inputs validated at the door, not symptom by symptom. */
+{
+  // a chunk whose declared length runs past the end of the file, and an IHDR that is too short
+  const shortIhdr = put('short-ihdr.png', png([['IHDR', Buffer.alloc(9)], ['IEND', Buffer.alloc(0)]]));
+  const r1 = M.colour(shortIhdr, { rect: [0, 1, 0, 1] });
+  check('an IHDR shorter than 13 bytes is a typed refusal, not a RangeError',
+    r1.validity === M.UNSUPPORTED_EVIDENCE, `${r1.validity}: ${(r1.note || '').slice(0, 70)}`);
+  const good = png([['IHDR', ihdr(4, 4, 8, 2)], ['IDAT', zlib.deflateSync(Buffer.alloc(4 * (1 + 12)))], ['IEND', Buffer.alloc(0)]]);
+  const lying = Buffer.from(good); lying.writeUInt32BE(0x7fffff00, 8 + 8 + 13 + 4);   // IDAT length lies
+  const r2 = M.colour(put('lying-chunk.png', lying), { rect: [0, 1, 0, 1] });
+  check('a chunk length that runs past the end of the file is a typed refusal',
+    r2.validity === M.UNSUPPORTED_EVIDENCE, `${r2.validity}: ${(r2.note || '').slice(0, 70)}`);
+
+  // 1/2/4-bit greyscale is legal PNG but this decoder has no path for it: refuse, do not read garbage
+  const grey1 = put('grey1.png', png([['IHDR', ihdr(16, 4, 1, 0)],
+    ['IDAT', zlib.deflateSync(Buffer.concat(Array.from({ length: 4 }, () => Buffer.from([0, 0xff, 0xff]))))],
+    ['IEND', Buffer.alloc(0)]]));
+  const r3 = M.colour(grey1, { rect: [0, 1, 0, 1] });
+  check('sub-byte greyscale is refused rather than decoded as invented black',
+    r3.validity === M.UNSUPPORTED_EVIDENCE && /bit depth|sub-byte|greyscale/i.test(r3.note || ''),
+    `${r3.validity}: ${(r3.note || '').slice(0, 70)}`);
+
+  // a file far larger than any real screenshot must be refused before it is read into memory
+  const huge = path.join(DIR, 'huge-bytes.png');
+  const fh = fs.openSync(huge, 'w');
+  fs.writeSync(fh, Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  fs.ftruncateSync(fh, 200 * 1024 * 1024); fs.closeSync(fh);      // sparse: costs no real disk
+  const t0 = Date.now();
+  const r4 = M.source(huge);
+  check('a 200 MB file is refused on its size, before being read',
+    r4.validity === M.UNSUPPORTED_EVIDENCE && /size|bytes|large/i.test(r4.note || '') && Date.now() - t0 < 2000,
+    `${r4.validity} in ${Date.now() - t0}ms: ${(r4.note || '').slice(0, 60)}`);
+}
+
+/* ── the transcode cache must be keyed by CONTENT ──────────────────────────────────────────────────
+   It was keyed by basename + size + floored mtime. Two different files sharing those three reuse the
+   first one's decoded PNG, so a measurement can come from the wrong image while provenance names the
+   right one — and an opaque cache entry would bypass the alpha abstention entirely. */
+if (jpg) {
+  const a = path.join(DIR, 'sub-a'); const b = path.join(DIR, 'sub-b');
+  fs.mkdirSync(a, { recursive: true }); fs.mkdirSync(b, { recursive: true });
+  const A = path.join(a, 'same.jpg'), B = path.join(b, 'same.jpg');
+  // two DIFFERENT images, same basename, forced to the same size and mtime
+  const mkjpg = (col, out) => { const f2 = mk(`tmp-${col.join('')}.png`, 40, 40, () => col);
+    try { execFileSync('sips', ['-s', 'format', 'jpeg', f2, '--out', out], { stdio: 'ignore' }); }
+    catch { execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-i', f2, out], { stdio: 'ignore' }); } };
+  mkjpg([250, 10, 10], A); mkjpg([10, 10, 250], B);
+  const pad = Math.max(fs.statSync(A).size, fs.statSync(B).size);
+  for (const f of [A, B]) { const cur = fs.readFileSync(f);
+    fs.writeFileSync(f, Buffer.concat([cur, Buffer.alloc(pad - cur.length)])); fs.utimesSync(f, 1e6, 1e6); }
+  const ra = M.colour(A, { rect: [0.3, 0.7, 0.3, 0.7] });
+  const rb = M.colour(B, { rect: [0.3, 0.7, 0.3, 0.7] });
+  check('two different files with the same basename, size and mtime do not share a cache entry',
+    ra.validity !== M.VALID || rb.validity !== M.VALID || Math.abs(ra.value[0] - rb.value[0]) > 60,
+    `A=${ra.hex ?? ra.validity} B=${rb.hex ?? rb.validity}`);
+}
+
+/* ── region and axis inputs are validated, never coerced ────────────────────────────────────────── */
+{
+  const r1 = M.colour(TRAY, { rect: ['x', 'y', 0, 1] });
+  check('a non-numeric rect is refused, not medianed into NaN',
+    r1.validity !== M.VALID, `${r1.validity} value=${JSON.stringify(r1.value)}`);
+  const r2 = M.runs(TRAY, { band: [0.3, 0.5], axis: 'z', key: SLOT, base: 'W' });
+  check('an unknown axis is refused rather than silently treated as y',
+    r2.validity !== M.VALID, `${r2.validity}: ${(r2.note || '').slice(0, 60)}`);
+  const r3 = M.colour(TRAY, { rect: [0.5, 0.2, 0.1, 0.9] });
+  check('a rect whose edges are inverted is refused',
+    r3.validity !== M.VALID, `${r3.validity}`);
+}
+
 /* ── ALPHA: the contract must ABSTAIN, not infer geometry from an RGB canvas ───────────────────────
    Real generated game assets are transparent PNGs whose SHAPE is carried by alpha. This decoder
    discards alpha by design, so "differs from the page background" is undefined on them — and it was

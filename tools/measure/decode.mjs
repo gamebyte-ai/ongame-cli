@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import zlib from 'node:zlib';
+import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 
 export class UnsupportedEvidence extends Error {}
@@ -30,22 +31,37 @@ export const LOSSLESS = new Set(['PNG']);
  *  decoder reads externally acquired reference material, so a hostile or corrupt header must cost
  *  a rejection, not the process. 80 MPx covers any real screenshot family by a wide margin. */
 const MAX_PIXELS = 80e6;
+/** and a cap on the FILE, checked by stat before a byte is read: the pixel limit above cannot help if
+ *  the process has already died reading a multi-gigabyte file into a Buffer. The largest evidence file
+ *  in the corpus this was built for is under 2 MB. */
+const MAX_BYTES = 64 * 1024 * 1024;
 const DEPTHS = { 0: [1, 2, 4, 8, 16], 2: [8, 16], 3: [1, 2, 4, 8], 4: [8, 16], 6: [8, 16] };
 
 export function decodePng(buf) {
   let p = 8, w = 0, h = 0, depth = 0, ctype = 0, interlace = 0;
   const idat = [];
+  let idatBytes = 0;
   let pal = null, trns = null;
   while (p + 8 <= buf.length) {
     const len = buf.readUInt32BE(p);
+    // A declared length that runs past the end of the file used to hand a short subarray to a reader
+    // that assumed it was whole, and the RangeError escaped as a crash instead of a typed refusal.
+    if (len > buf.length || p + 12 + len > buf.length) {
+      throw new UnsupportedEvidence(`PNG chunk at byte ${p} declares ${len} bytes, past the end of a ${buf.length}-byte file`);
+    }
     const type = buf.subarray(p + 4, p + 8).toString('ascii');
     const data = buf.subarray(p + 8, p + 8 + len);
     if (type === 'IHDR') {
+      if (len !== 13) throw new UnsupportedEvidence(`PNG IHDR must be 13 bytes, declares ${len}`);
       w = data.readUInt32BE(0); h = data.readUInt32BE(4);
       depth = data[8]; ctype = data[9]; interlace = data[12];
     } else if (type === 'PLTE') pal = Buffer.from(data);
     else if (type === 'tRNS') trns = Buffer.from(data);
-    else if (type === 'IDAT') idat.push(Buffer.from(data));
+    else if (type === 'IDAT') {
+      idatBytes += len;
+      if (idatBytes > MAX_BYTES) throw new UnsupportedEvidence(`PNG image data exceeds ${MAX_BYTES} bytes before decompression`);
+      idat.push(Buffer.from(data));
+    }
     else if (type === 'IEND') break;
     p += 12 + len;
   }
@@ -55,6 +71,13 @@ export function decodePng(buf) {
   if (!channels) throw new UnsupportedEvidence(`PNG colour type ${ctype} not supported`);
   if (!DEPTHS[ctype].includes(depth)) {
     throw new UnsupportedEvidence(`PNG bit depth ${depth} is not legal for colour type ${ctype}`);
+  }
+  // Sub-byte GREYSCALE is legal PNG, and this decoder has no path for it: the pixel loop below only
+  // handles 8 and 16 bits outside the palette case, so a 1-bit greyscale image would read the packed
+  // byte for the first pixel and `undefined` — which lands as BLACK — for the rest, then report it as
+  // measured. Refusing is the honest answer; unpacking it would be a new capability.
+  if (ctype !== 3 && depth < 8) {
+    throw new UnsupportedEvidence(`${depth}-bit sub-byte greyscale PNG is not decoded here (it would read as invented black)`);
   }
   if (w * h > MAX_PIXELS) {
     throw new UnsupportedEvidence(`PNG declares ${w}x${h} = ${Math.round(w * h / 1e6)} MPx, over the ${MAX_PIXELS / 1e6} MPx limit — refused before allocating`);
@@ -118,10 +141,14 @@ export function decodePng(buf) {
 }
 
 const CACHE = path.join(os.tmpdir(), 'ongame-measure-cache');
-function transcodeToPng(file) {
+/** Keyed by CONTENT. It used to be basename + size + floored mtime, and two different files sharing
+ *  those three reused the first one's decoded PNG: a measurement from the wrong image while the
+ *  provenance named the right one — and an opaque cache entry would have slipped past the alpha
+ *  abstention. Reproduced with two different colours that returned the same hex. */
+function transcodeToPng(file, buf) {
   fs.mkdirSync(CACHE, { recursive: true });
-  const st = fs.statSync(file);
-  const out = path.join(CACHE, `${path.basename(file)}.${st.size}.${Math.floor(st.mtimeMs)}.png`);
+  const digest = crypto.createHash('sha256').update(buf).digest('hex').slice(0, 40);
+  const out = path.join(CACHE, `${digest}.png`);
   const marker = out + '.tool';
   if (fs.existsSync(out)) return { png: out, tool: fs.existsSync(marker) ? fs.readFileSync(marker, 'utf8') : 'cached' };
   const tries = [['sips', ['-s', 'format', 'png', file, '--out', out]],
@@ -129,7 +156,13 @@ function transcodeToPng(file) {
   for (const [bin, args] of tries) {
     try {
       execFileSync(bin, args, { stdio: 'ignore' });
-      if (fs.existsSync(out)) { fs.writeFileSync(marker, bin); return { png: out, tool: bin }; }
+      if (fs.existsSync(out)) {
+        if (fs.statSync(out).size > MAX_BYTES) {
+          fs.rmSync(out, { force: true });
+          throw new UnsupportedEvidence(`the transcode of ${path.basename(file)} came back over ${MAX_BYTES} bytes`);
+        }
+        fs.writeFileSync(marker, bin); return { png: out, tool: bin };
+      }
     } catch { /* try the next one */ }
   }
   throw new UnsupportedEvidence(
@@ -141,6 +174,10 @@ function transcodeToPng(file) {
 export function decode(file) {
   const abs = file.startsWith('~') ? path.join(os.homedir(), file.slice(1)) : path.resolve(file);
   if (!fs.existsSync(abs)) throw new UnsupportedEvidence(`evidence file does not exist: ${abs}`);
+  const size = fs.statSync(abs).size;
+  if (size > MAX_BYTES) {
+    throw new UnsupportedEvidence(`${path.basename(abs)} is ${Math.round(size / 1e6)} MB, over the ${MAX_BYTES / 1e6} MB evidence limit — refused on its size, before being read`);
+  }
   const buf = fs.readFileSync(abs);
   const codec = codecOf(buf);
   if (codec === 'PNG') {
@@ -149,7 +186,7 @@ export function decode(file) {
              decode: { path: 'native-png', transcoded: false, tool: null, alpha_discarded: d.hasAlpha } };
   }
   if (codec === 'UNKNOWN') throw new UnsupportedEvidence(`unrecognised evidence format: ${path.basename(abs)}`);
-  const { png, tool } = transcodeToPng(abs);
+  const { png, tool } = transcodeToPng(abs, buf);
   // The ORIGINAL codec is what the measurement is about. Being handed PNG bytes internally does not
   // make a JPEG lossless, and the tolerance downstream is derived from `codec`, never from what the
   // decoder happened to produce. The transcode is recorded so a reader can tell the two apart.
