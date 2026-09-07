@@ -136,13 +136,16 @@ const cell = (k, v) => `<div class="k">${esc(k)}</div><div class="v">${v === nul
 
 export function buildGallery(cards, outDir) {
   fs.mkdirSync(outDir, { recursive: true });
-  const groups = [['COUNTEREXAMPLES', (c) => c.group === 'COUNTEREXAMPLE'],
+  const groups = [['COUNTEREXAMPLES', (c) => c.group === 'COUNTEREXAMPLE' && !c.pair],
                   ['VALID', (c) => c.group !== 'COUNTEREXAMPLE' && c.validity === 'VALID'],
                   ['INVALID_SELECTION', (c) => c.group !== 'COUNTEREXAMPLE' && c.validity === 'INVALID_SELECTION'],
                   ['UNRESOLVED', (c) => c.group !== 'COUNTEREXAMPLE' && c.validity === 'UNRESOLVED'],
                   ['UNSUPPORTED_EVIDENCE', (c) => c.group !== 'COUNTEREXAMPLE' && c.validity === 'UNSUPPORTED_EVIDENCE']];
   const swatch = (v) => Array.isArray(v) && v.length === 3
     ? `<span class="sw" style="background:rgb(${v.join(',')})"></span>rgb(${v.join(',')})` : esc(JSON.stringify(v));
+  const PAIR_TITLE = { keying: 'correct key vs wrong key', selectivity: 'selective key vs key that is also the ground',
+    codec: 'lossless colour vs the same colour from a lossy frame', plateau: 'band inside the plateau vs band outside it',
+    base: 'the declared base the claim uses vs the wrong one' };
   let html = `<!doctype html><meta charset="utf-8"><title>measurement gallery</title><style>
 body{font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;margin:0;background:#14161a;color:#dfe3e8}
 h1{font-size:16px;padding:14px 18px;margin:0;background:#0f1113;border-bottom:1px solid #262a30}
@@ -159,9 +162,44 @@ img{display:block;width:100%;background:#000}
 .k{color:#7f8996}.v{color:#e6eaef;word-break:break-all}
 .sw{display:inline-block;width:13px;height:13px;border:1px solid #555;vertical-align:-2px;margin-right:5px}
 .note{padding:8px 11px;color:#f0c674;border-top:1px solid #262a30;font-size:12px}
+.pair{padding:0 18px 18px}
+.pair h3{font-size:12px;color:#c8d0da;margin:16px 0 8px;font-weight:600}
+.pair .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.role{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:700}
+.role.GOOD{background:#1f4d2c;color:#b7f2c6}.role.BAD{background:#5a2323;color:#ffc9c9}
 </style><h1>reference measurement V1 — ${cards.length} card(s) · ${esc(new Date().toISOString())}</h1>`;
+  // GOOD/BAD side by side. Reading one overlay tells you what the code measured; reading the pair tells
+  // you whether it measured the right thing, which is the only question this page exists to answer.
+  const pairs = [...new Set(cards.filter((c) => c.pair).map((c) => c.pair))];
+  if (pairs.length) {
+    html += `<h2>GOOD / BAD pairs — ${pairs.length}</h2><div class="pair">`;
+    for (const pk of pairs) {
+      const good = cards.find((c) => c.pair === pk && c.role === 'GOOD');
+      const bad = cards.find((c) => c.pair === pk && c.role === 'BAD');
+      html += `<h3>${esc(PAIR_TITLE[pk] || pk)}</h3><div class="two">`;
+      for (const c of [good, bad]) {
+        if (!c) { html += '<div></div>'; continue; }
+        html += `<div class="card ${c.role === 'BAD' ? 'bad' : 'good'}">
+<div class="hd"><b>${esc(c.claim_id)}</b><span class="role ${esc(c.role)}">${esc(c.role)}</span><span class="tag ${esc(c.validity)}">${esc(c.validity)}</span></div>
+${c.overlay ? `<img src="${esc(c.overlay)}" alt="${esc(c.claim_id)}">` : ''}
+<div class="meta">
+${cell('what', c.what)}
+${cell('package', Array.isArray(c.package_value) ? swatch(c.package_value) : c.package_value)}
+${cell('measured', Array.isArray(c.measured_value) ? swatch(c.measured_value) : c.measured_value)}
+${cell('delta', c.delta)}${cell('tolerance', c.tolerance)}${cell('verdict', c.verdict)}
+${cell('match_fraction', c.match_fraction)}${cell('selectivity', c.selectivity)}
+${cell('plateau', c.plateau)}${cell('regularity', c.regularity)}
+${cell('base', c.base_name)}${cell('colour kind', c.colour_kind)}
+${cell('source', c.source_resolution + ' ' + c.codec + (c.lossless ? ' lossless' : ' LOSSY'))}
+${cell('decode', c.decode)}
+</div>${c.note ? `<div class="note">${esc(c.note)}</div>` : ''}</div>`;
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+  }
   for (const [name, pred] of groups) {
-    const cs = cards.filter(pred);
+    const cs = cards.filter((c) => pred(c) && !c.pair);
     if (!cs.length) continue;
     html += `<h2>${name} — ${cs.length}</h2><div class="grid">`;
     for (const c of cs) {
@@ -180,7 +218,7 @@ ${cell('match_fraction', c.match_fraction)}${cell('selectivity', c.selectivity)}
 ${cell('plateau', c.plateau)}${cell('regularity', c.regularity)}
 ${cell('dispersion', c.dispersion)}${cell('colour kind', c.colour_kind)}
 ${cell('source', c.source_resolution + ' ' + c.codec + (c.lossless ? ' lossless' : ' LOSSY'))}
-${cell('provenance', c.provenance)}
+${cell('decode', c.decode)}${cell('provenance', c.provenance)}
 </div>${c.note ? `<div class="note">${esc(c.note)}</div>` : ''}</div>`;
     }
     html += '</div>';

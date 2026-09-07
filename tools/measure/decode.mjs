@@ -95,12 +95,15 @@ function transcodeToPng(file) {
   fs.mkdirSync(CACHE, { recursive: true });
   const st = fs.statSync(file);
   const out = path.join(CACHE, `${path.basename(file)}.${st.size}.${Math.floor(st.mtimeMs)}.png`);
-  if (fs.existsSync(out)) return out;
+  const marker = out + '.tool';
+  if (fs.existsSync(out)) return { png: out, tool: fs.existsSync(marker) ? fs.readFileSync(marker, 'utf8') : 'cached' };
   const tries = [['sips', ['-s', 'format', 'png', file, '--out', out]],
                  ['ffmpeg', ['-loglevel', 'error', '-y', '-i', file, out]]];
   for (const [bin, args] of tries) {
-    try { execFileSync(bin, args, { stdio: 'ignore' }); if (fs.existsSync(out)) return out; }
-    catch { /* try the next one */ }
+    try {
+      execFileSync(bin, args, { stdio: 'ignore' });
+      if (fs.existsSync(out)) { fs.writeFileSync(marker, bin); return { png: out, tool: bin }; }
+    } catch { /* try the next one */ }
   }
   throw new UnsupportedEvidence(
     `${path.basename(file)} is lossy and no transcoder was found (looked for sips, ffmpeg). ` +
@@ -113,8 +116,15 @@ export function decode(file) {
   if (!fs.existsSync(abs)) throw new UnsupportedEvidence(`evidence file does not exist: ${abs}`);
   const buf = fs.readFileSync(abs);
   const codec = codecOf(buf);
-  if (codec === 'PNG') return { ...decodePng(buf), codec, lossless: true, file: abs };
+  if (codec === 'PNG') {
+    return { ...decodePng(buf), codec, lossless: true, file: abs, bytes: buf.length,
+             decode: { path: 'native-png', transcoded: false, tool: null } };
+  }
   if (codec === 'UNKNOWN') throw new UnsupportedEvidence(`unrecognised evidence format: ${path.basename(abs)}`);
-  const png = transcodeToPng(abs);
-  return { ...decodePng(fs.readFileSync(png)), codec, lossless: false, file: abs, via: png };
+  const { png, tool } = transcodeToPng(abs);
+  // The ORIGINAL codec is what the measurement is about. Being handed PNG bytes internally does not
+  // make a JPEG lossless, and the tolerance downstream is derived from `codec`, never from what the
+  // decoder happened to produce. The transcode is recorded so a reader can tell the two apart.
+  return { ...decodePng(fs.readFileSync(png)), codec, lossless: false, file: abs, bytes: fs.statSync(abs).size,
+           decode: { path: 'transcoded-to-png', transcoded: true, tool, cache: png } };
 }

@@ -104,26 +104,45 @@ const SPEC = [
 const COUNTEREXAMPLES = [
  { id: 'CE-1-GOOD/keying', what: 'holder slots, keyed on the colour the code measured', prim: 'runs',
    pkg: 0.132, tol: 0.005, base: 'W', file: Y_ + 'shot_09-gameplay-full-5of5.png',
-   band: [0.63, 0.70], key: K.slot, pick: 'width_mean',
+   band: [0.63, 0.70], key: K.slot, pick: 'width_mean', pair: 'keying', role: 'GOOD',
    note: 'the control for CE-2: same band, correct key' },
  { id: 'CE-2-BAD/keying', what: 'the SAME band keyed on the wrong colour (the wooden ground)', prim: 'runs',
    pkg: 0.132, tol: 0.005, base: 'W', file: Y_ + 'shot_09-gameplay-full-5of5.png',
-   band: [0.63, 0.70], key: K.wood, pick: 'width_mean',
+   band: [0.63, 0.70], key: K.wood, pick: 'width_mean', pair: 'keying', role: 'BAD',
    note: 'returns five clean runs and a HIGHER match_fraction than the correct key. Only width_cv tells them apart.' },
  { id: 'CE-3-BAD/non-selective', what: 'canvas keyed on wood, which is also the page behind it', prim: 'runs',
    pkg: null, base: 'W', file: Y_ + 'shot_09-gameplay-full-5of5.png',
-   band: [0.20, 0.50], key: K.wood, pick: 'width_mean',
+   band: [0.20, 0.50], key: K.wood, pick: 'width_mean', pair: 'selectivity', role: 'BAD',
    note: 'the key is not unique in the image; the selection swallows the whole band' },
  { id: 'CE-4-BAD/band-placement', what: 'the bottle row measured 0.04 H too high', prim: 'runs',
    pkg: 0.1403, base: 'W', file: M_ + 'frames_l5_clean.jpg', band: [0.42, 0.46], pick: 'width_mean',
+   pair: 'plateau', role: 'BAD',
    note: 'same file and same key as MSORT/R-SP-01c, band moved: 13% error and the wrong object count' },
  { id: 'CE-5-BAD/base', what: 'a y-axis pitch normalized against H when the claim is a fraction of W',
    prim: 'pitch', pkg: 0.0774, base: 'H', file: M_ + 'shots_05_gameplay_L6_alt.png',
    rect: [0.175, 0.30, 0.326, 0.468], axis: 'y', expect: [0.02, 0.06],
+   pair: 'base', role: 'BAD',
    note: 'the pixel count is right and the number is wrong: this is the unit bug, made visible by base_name' },
  { id: 'CE-6-BAD/lossy-exact', what: 'an exact hex asked of a lossy frame', prim: 'colour',
    pkg: [196, 6, 2], file: M_ + 'frames_l5_clean.jpg', rect: [0.03, 0.11, 0.47, 0.49],
+   pair: 'codec', role: 'BAD',
    note: 'std can be LOWER than the lossless original while the median has moved: exactness says FAMILY_ONLY' },
+ { id: 'CE-3-GOOD/selective', what: 'the same canvas keyed on the BELT, a colour unique to the belt', prim: 'runs',
+   pkg: null, base: 'W', file: Y_ + 'shot_09-gameplay-full-5of5.png',
+   band: [0.20, 0.50], key: K.belt, pick: 'width_mean', pair: 'selectivity', role: 'GOOD',
+   note: 'the control for CE-3: a key that IS unique in the image selects the two belt arms' },
+ { id: 'CE-5-GOOD/base', what: 'the same y-axis pitch, normalized against W as the claim declares', prim: 'pitch',
+   pkg: 0.0774, tol: 0.003, base: 'W', file: M_ + 'shots_05_gameplay_L6_alt.png',
+   rect: [0.175, 0.30, 0.326, 0.468], axis: 'y', expect: [0.05, 0.12], pair: 'base', role: 'GOOD',
+   note: 'the control for CE-5: identical pixels, correct declared base' },
+ { id: 'CE-6-GOOD/lossless', what: 'the same liquid red from the LOSSLESS screenshot', prim: 'colour',
+   pkg: [196, 6, 2], file: M_ + 'shots_05_gameplay_L6_alt.png', rect: [0.19, 0.28, 0.42, 0.45],
+   pair: 'codec', role: 'GOOD',
+   note: 'the control for CE-6: exact-claimable, tolerance 1' },
+ { id: 'CE-4-GOOD/plateau', what: 'the bottle row measured inside its plateau', prim: 'runs',
+   pkg: 0.1403, base: 'W', file: M_ + 'frames_l5_clean.jpg', band: [0.46, 0.50], pick: 'width_mean',
+   pair: 'plateau', role: 'GOOD',
+   note: 'the control for CE-4: same file, band inside the stable range' },
 ];
 
 const measureOne = (s) => {
@@ -176,9 +195,9 @@ for (const s of [...SPEC, ...COUNTEREXAMPLES.map((c) => ({ ...c, group: 'COUNTER
   else if (s.pkg == null || d == null) verdict = 'NO_CLAIM';
   else if (d === 0) verdict = 'EXACT';
   else if (d <= tol) verdict = 'WITHIN_TOLERANCE';
-  else verdict = 'MEASUREMENT_DISAGREES';        // never "the package is wrong" — that is not ours to say
+  else verdict = 'DISAGREES_WITH_CLAIM';        // never "the package is wrong" — that is not ours to say
   if (s.expectKind && r.kind && r.kind !== s.expectKind && verdict.startsWith('EXACT'))
-    verdict = 'MEASUREMENT_DISAGREES';
+    verdict = 'DISAGREES_WITH_CLAIM';
   rows.push({
     claim_id: s.id, what: s.what, primitive: s.prim, group: s.group ?? 'REAL',
     package_value: s.pkg, measured_value: r.measured ?? null,
@@ -190,7 +209,9 @@ for (const s of [...SPEC, ...COUNTEREXAMPLES.map((c) => ({ ...c, group: 'COUNTER
     colour_kind: r.kind ?? null, exactness: r.exactness ?? null,
     source_resolution: r.source ? `${r.source.w}x${r.source.h}` : '?',
     codec: r.source?.codec ?? '?', lossless: r.source?.lossless ?? null,
-    provenance: r.provenance ?? null, note: s.note ?? r.note ?? null, rec: r,
+    provenance: r.provenance ?? null, decode: r.decode ?? null,
+    pair: s.pair ?? null, role: s.role ?? null,
+    note: s.note ?? r.note ?? null, rec: r,
   });
 }
 
@@ -203,7 +224,10 @@ for (const r of rows) {
   const mv = Array.isArray(r.measured_value) ? `[${r.measured_value}]` : r.measured_value;
   console.log(`  ${w(r.verdict, 22)} ${w(r.claim_id, 20)} ${w(r.primitive, 12)} pkg=${w(pk, 18)} meas=${w(mv, 18)} Δ=${r.delta ?? '—'}`);
 }
-console.log('\n  ' + Object.entries(counts).map(([k, v]) => `${k}=${v}`).join('  '));
+const vcounts = {};
+for (const r of rows) vcounts[r.validity] = (vcounts[r.validity] || 0) + 1;
+console.log('\n  validity : ' + Object.entries(vcounts).map(([k, v]) => `${k}=${v}`).join('  '));
+console.log('  comparison: ' + Object.entries(counts).map(([k, v]) => `${k}=${v}`).join('  '));
 const real = rows.filter((r) => r.group === 'REAL');
 const good = real.filter((r) => r.verdict === 'EXACT' || r.verdict === 'WITHIN_TOLERANCE');
 const scored = real.filter((r) => r.verdict !== 'NO_CLAIM');

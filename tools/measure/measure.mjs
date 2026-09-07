@@ -58,7 +58,11 @@ function record(primitive, img, extra, opts) {
   const t = tolerancesFor(img);
   return {
     primitive, validity: VALID,
-    source: { w: img.w, h: img.h, codec: img.codec, lossless: t.lossless },
+    // `source` describes the ORIGINAL evidence. `decode` describes how these bytes were obtained, and
+    // the two are kept apart on purpose: a JPEG handed through a PNG transcode is still a JPEG, and
+    // every tolerance below is derived from `source.codec`.
+    source: { w: img.w, h: img.h, codec: img.codec, lossless: t.lossless, bytes: img.bytes ?? null },
+    decode: img.decode ?? null,
     provenance: { primitive, tool_version: TOOL_VERSION, file: path.basename(img.file),
                   file_path: img.file, region: opts.region ?? null, key: opts.key ?? null,
                   key_tol: opts.key ? (opts.keyTol ?? 22) : null, base: opts.base ?? null,
@@ -174,7 +178,7 @@ export function colour(file, { rect, key = null, keyTol = 22, base = 'ratio' } =
   const topRGB = [((topK >> 10) & 31) << 3, ((topK >> 5) & 31) << 3, (topK & 31) << 3];
   const t = tolerancesFor(img);
   return record('colour', img, {
-    value: med, hex: hex(med), normalized: null, base_name: 'ratio',
+    value: med, representative_rgb: med, hex: hex(med), normalized: null, base_name: 'ratio',
     kind, naive_top: topRGB, naive_error: Math.max(...med.map((v, i) => Math.abs(v - topRGB[i]))),
     tolerance: t.colour, match_fraction: mf,
     dispersion: { std: raw.map((v) => round(v, 2)), ramp_residual: res.map((v) => round(v, 2)),

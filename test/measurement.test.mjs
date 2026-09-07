@@ -121,6 +121,21 @@ if (jpg) {
     noTool.validity === M.UNSUPPORTED_EVIDENCE, noTool.note);
 }
 
+/* ── 5b. A transcode must not launder the source's quality ────────────────────────────────────────
+   Decoding a JPEG through PNG bytes internally does not make it lossless. `source` describes the
+   ORIGINAL evidence and every tolerance derives from it; `decode` records how the bytes were got. */
+if (jpg) {
+  const r = M.colour(jpg, { rect: [0.2, 0.8, 0.2, 0.8] });
+  check('the ORIGINAL codec survives an internal transcode',
+    r.source.codec === 'JPEG' && r.source.lossless === false && r.tolerance === 10,
+    `source=${JSON.stringify(r.source)}`);
+  check('and the transcode is recorded separately, not hidden',
+    r.decode?.transcoded === true && /transcoded/.test(r.decode.path || ''), JSON.stringify(r.decode));
+  const png = M.colour(FLAT, { rect: [0.2, 0.8, 0.2, 0.8] });
+  check('a native PNG says so and is not marked transcoded',
+    png.decode?.transcoded === false && png.source.lossless === true, JSON.stringify(png.decode));
+}
+
 /* ── 6. A key that selects nothing is not a measurement ───────────────────────────────────────── */
 const nothing = M.colour(TRAY, { rect: [0.05, 0.15, 0.05, 0.15], key: [1, 254, 1] });
 check('a key that matches nothing is INVALID_SELECTION, not VALID',
