@@ -101,6 +101,20 @@ if (!Array.isArray(obligations)) {
 // An empty array used to score as zero results, zero blocking failures, decision ACCEPT. A reference
 // package owes at least the standing provenance lock, so emptiness is the vacuous pass this file exists
 // to remove — not a build with nothing to check.
+// Bindings are keyed by id alone, so two obligations sharing one id both passed off a single
+// `bound[id]`. An id is how an obligation is cited; duplicates make the whole file ambiguous.
+if (cmd === 'score') {
+  const seen = new Set(), dupes = new Set();
+  for (const o of obligations) {
+    const id = o && typeof o.id === 'string' ? o.id : null;
+    if (!id) continue;
+    if (seen.has(id)) dupes.add(id); else seen.add(id);
+  }
+  if (dupes.size) {
+    bail(`docs/obligations.json carries duplicate obligation id(s) [${[...dupes].join(', ')}] — bindings ` +
+      `and results are keyed by id, so one assertion would silently satisfy every row sharing it`);
+  }
+}
 if (cmd === 'score' && !obligations.length) {
   bail('docs/obligations.json is empty — a reference package must carry at least the standing PROV-01 ' +
     'provenance obligation, so an empty list is a compiler failure, not a build with nothing to check');
@@ -186,7 +200,10 @@ function checkProvenance(dir) {
     })(root);
   }
   const GENERATED = [/assets\/concept\//, /docs\/concept\//, /\.ongame\/screenshots\//, /(^|\/)runtime[-_][\w-]*\.(png|jpg)/];
-  const CLAIM = /\b(MEASURED|measured from|measured, from|observed from)\b/i;
+  // Any mention of measuring or observing counts, in any phrasing: `observed from` alone let
+  // `observed in <path>` slip past. Broadening costs no noise because the CITED FILE below is the
+  // gate — measured on four shipped builds, it catches 2-8 more real claims each and adds no prose.
+  const CLAIM = /(measured|observed)/i;   // no \b: `DIRECTLY_OBSERVED` has no word boundary
   // Backslashes are captured, then normalised: excluding them meant a Windows-style citation was
   // captured as its bare basename and laundered straight through the evidence lookup.
   const PATHRE = /[\w.\\/-]+\.(png|jpg|jpeg|mp4|webm)/g;
@@ -201,11 +218,20 @@ function checkProvenance(dir) {
   })(path.join(dir, 'src'));
   const violations = [];
   let claims = 0, selfMeasured = 0;
-  const resolvesInBuild = (c) => {
-    const bare = c.replace(/^\.?\//, '');
-    return fs.existsSync(path.join(dir, bare)) || fs.existsSync(path.join(dir, 'public', bare)) ||
-      fs.existsSync(path.join(dir, 'src', bare));
-  };
+  // The build side gets the SAME basename resolution as the evidence root, and for the same measured
+  // reason: real code writes `bottle-glass.png`, not `public/assets/bottle-glass.png`. Checking three
+  // fixed prefixes flagged a genuine self-measurement on a shipped build. Widening it is safe because
+  // the generated-artefact denylist is tested BEFORE this.
+  const buildNames = new Set();
+  (function walkAssets(d, depth) {
+    if (depth > 6 || !fs.existsSync(d)) return;
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      if (e.isDirectory()) {
+        if (!/^(node_modules|\.git|dist|\.ref|evidence)$/.test(e.name)) walkAssets(path.join(d, e.name), depth + 1);
+      } else if (/\.(png|jpg|jpeg|mp4|webm)$/i.test(e.name)) buildNames.add(e.name);
+    }
+  })(dir, 0);
+  const resolvesInBuild = (c) => buildNames.has(path.basename(c));
   for (const f of files) {
     const lines = fs.readFileSync(f, 'utf8').split('\n');
     for (let i = 0; i < lines.length; i++) {

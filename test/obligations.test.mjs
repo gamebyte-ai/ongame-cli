@@ -60,7 +60,8 @@ function run(obligations, opts = {}) {
   // A real reference package always carries PROV-01, and the dispatcher now says so. Fixtures get it
   // by default (their empty src/ makes it a clean PASS) so that each case tests the ONE behaviour it
   // names; `prov: false` opts out for the cases that are about its absence.
-  if (opts.prov !== false && Array.isArray(obligations) && !obligations.some((x) => x && x.primitive === 'prov')) {
+  if (opts.prov !== false && Array.isArray(obligations) &&
+      !obligations.some((x) => x && (x.primitive === 'prov' || /^PROV-/.test(x.id || '')))) {
     obligations = [...obligations, { id: 'PROV-01', primitive: 'prov', enforcement: 'blocking' }];
   }
   const dir = makeDir({ obligations, ...opts });
@@ -120,6 +121,16 @@ check('PROV-01 tolerates a constant measured off the build\'s own shipped asset'
   verdictOf(r.results, 'PROV-01') === 'PASS' && /1 measured off the build/.test(of_(r.results, 'PROV-01').evidence || ''),
   of_(r.results, 'PROV-01').evidence);
 
+// The build side resolves by BASENAME, like the evidence root does — a run on a real shipped build
+// flagged a genuine self-measurement (`bottle-glass.png`, actually at public/assets/) because only
+// three fixed prefixes were checked.
+r = run(PROV, {
+  sources: { 'a.ts': '/** `bottle-glass.png` v6, measured on the shipped file (224 x 683). */\nexport const W = 224;' },
+  evidence: ['shot_04.png'], assets: ['deep/nested/forge/bottle-glass.png'],
+});
+check('a bare-basename citation of a shipped asset resolves wherever it actually lives',
+  verdictOf(r.results, 'PROV-01') === 'PASS', of_(r.results, 'PROV-01').evidence);
+
 // ...but the exemption is "it resolves", not "it starts with assets/" — an asset that is not there
 // is an unresolvable citation like any other.
 r = run(PROV, { sources: { 'a.ts': SELF }, evidence: ['shot_04.png'] });
@@ -162,6 +173,29 @@ export const PAD = 8;` },
 check('ordinary "measured" prose with no citation is not a violation',
   verdictOf(r.results, 'PROV-01') === 'PASS',
   of_(r.results, 'PROV-01').evidence);
+
+// [Codex 5th pass P1] the claim regex only matched `observed from`, so `observed in <path>` slipped
+// through and the cited generated artefact was never checked. Broadening is free of noise because the
+// CITED FILE is the gate: measured across the four shipped builds, it catches 2-8 more real claims per
+// build and adds no prose.
+for (const [phrasing, name] of [
+  ['/** observed in assets/concept/shot.png */', 'observed in'],
+  ['/** DIRECTLY_OBSERVED, assets/concept/shot.png frame 4 */', 'DIRECTLY_OBSERVED'],
+  ['/** taken off assets/concept/shot.png as measured */', 'measured, trailing'],
+]) {
+  r = run(PROV, { sources: { 'a.ts': `${phrasing}\nexport const ROWS = 4;` }, evidence: ['other.png'] });
+  check(`PROV-01 catches a generated citation phrased "${name}"`,
+    verdictOf(r.results, 'PROV-01') === 'FAIL', of_(r.results, 'PROV-01').evidence);
+}
+
+// [Codex 5th pass P2] bindings are keyed by id alone, so two blocking model obligations sharing an id
+// both passed off ONE binding.
+r = run([{ id: 'R-01', primitive: 'model', enforcement: 'blocking' },
+         { id: 'R-01', primitive: 'model', enforcement: 'blocking' }],
+  { collected: { bound: { 'R-01': { pass: true, evidence: 'one assertion' } } } });
+check('duplicate obligation ids are refused, so one binding cannot satisfy two checks',
+  r.exitCode === 1 && /duplicate/i.test(JSON.stringify(r.results)),
+  JSON.stringify(r.results).slice(0, 160));
 
 // Drift guard: an obligation named PROV-01 that carries some other primitive is a package bug.
 r = run([{ id: 'PROV-01', primitive: 'model', enforcement: 'blocking' }], { sources: { 'a.ts': CLEAN }, evidence: ['shot_04.png'] });

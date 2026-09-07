@@ -130,7 +130,10 @@ row of pips) · `asset_family`. Flag anything you are UNSURE of; those are the d
   shipped builds, treating an uncited `measured` as a violation produced 6-39 findings each and
   essentially all of them were ordinary English (*"freshly measured"*, *"against a measured layout"*),
   including on two arms that had no reference package at all. A lint at that noise level is ignored
-  within a day. Its `enforcement` is also not the package's to choose: the dispatcher forces PROV-01
+  within a day. A narrower discriminator was measured too — an ALL-CAPS `MEASURED`/`OBSERVED` marker
+  beside a numeric constant with no cited file — and it still returned 14 findings on one build, every
+  one of them citing a requirement id or a doc section rather than nothing. So the file citation stays
+  the gate. Its `enforcement` is also not the package's to choose: the dispatcher forces PROV-01
   blocking, because `advisory` turned a generated-art citation into a passing build.
   Three tuning details, all paid for in a measured trial:
   - **Resolve the cited BASENAME against the evidence directory, do not prefix-match the path.** Real
