@@ -38,11 +38,12 @@
 # chosen for that intersection; see the individual comments before "simplifying" any of them.
 
 param(
-  # `irm ... | iex` cannot pass parameters (the pipeline hands `iex` a plain string), so the controls that
-  # matter in the one-liner form are also readable from the environment — that is the ONLY way to reach them
-  # there: `$env:ONGAME_NO_PATH_UPDATE=1; irm https://cli.ongame.ai/install.ps1 | iex`, likewise
-  # `$env:ONGAME_AGENTS`. Every parameter also works in the invocation form that DOES carry arguments (the one
-  # Scoop documents): `iex "& {$(irm https://cli.ongame.ai/install.ps1)} -Agents codex,gemini -Yes"`.
+  # `irm ... | iex` cannot pass parameters (the pipeline hands `iex` a plain string), so EVERY control below
+  # is also readable from the environment — that is the ONLY way to reach them there:
+  # `$env:ONGAME_AGENTS` (-Agents), `$env:ONGAME_ALL` (-All), `$env:ONGAME_YES` (-Yes),
+  # `$env:ONGAME_NO_AGENTS` (-NoAgents), `$env:ONGAME_NO_PATH_UPDATE` (-NoPathUpdate). Any non-empty value
+  # counts. Every parameter also works in the invocation form that DOES carry arguments (the one Scoop
+  # documents): `iex "& {$(irm https://cli.ongame.ai/install.ps1)} -Agents codex,gemini -Yes"`.
   [switch]$NoPathUpdate,
   # Which coding agents `ongame-cli install` sets up. `[string[]]`, NOT `[string]`: PowerShell parses an
   # unquoted `-Agents claude,codex` as an ARRAY (the comma is the array operator), and a `[string]` parameter
@@ -67,8 +68,15 @@ $ErrorActionPreference = 'Stop'
 # have the problem, but silencing it is harmless there.
 $ProgressPreference = 'SilentlyContinue'
 
+# Every selection control has an environment form, because `irm | iex` cannot pass parameters and the
+# environment is the ONLY way to reach them in the one-liner. Without ONGAME_ALL / ONGAME_YES /
+# ONGAME_NO_AGENTS a Windows user simply could not do what `sh -s -- --all` / `--no-agents` do on POSIX.
+# A parameter given explicitly always wins; the env var only fills in what was not passed.
 if (-not $NoPathUpdate -and $env:ONGAME_NO_PATH_UPDATE) { $NoPathUpdate = $true }
 if ($NoPluginSetup -or $env:ONGAME_NO_PLUGIN_SETUP) { $NoAgents = $true }
+if (-not $All -and $env:ONGAME_ALL) { $All = $true }
+if (-not $Yes -and $env:ONGAME_YES) { $Yes = $true }
+if (-not $NoAgents -and $env:ONGAME_NO_AGENTS) { $NoAgents = $true }
 # An explicit -Agents beats the env var (flag > env > prompt > defaults — the Homebrew/deno precedence). The
 # env var is one string, so it becomes a one-element array and the join below leaves it untouched.
 if ($Agents.Count -eq 0 -and $env:ONGAME_AGENTS) { $Agents = @($env:ONGAME_AGENTS) }
@@ -483,9 +491,15 @@ if ($All)       { $wiringArgs += '--all';                    $needTty = $false }
 if ($Yes)       { $wiringArgs += '--yes';                    $needTty = $false }
 if ($NoAgents)  { $wiringArgs += '--no-agents';              $needTty = $false }
 if ($needTty) {
-  $interactive = $false
-  try { $interactive = (-not [Console]::IsInputRedirected) -and (-not $env:CI) } catch { $interactive = $false }
-  if (-not $interactive) {
+  # Two different reasons not to ask, reported as two different messages — same split, same words as
+  # install.sh. Collapsing them told anyone debugging a CI install that there was "no interactive console",
+  # which is not what happened and sends them looking at the wrong thing.
+  $redirected = $true
+  try { $redirected = [Console]::IsInputRedirected } catch { $redirected = $true }
+  if ($env:CI) {
+    Write-Step 'CI is set — using the default agent selection without asking. Change it any time with:  ongame-cli install'
+    $wiringArgs += '--yes'
+  } elseif ($redirected) {
     Write-Step 'No interactive console to ask on — using the default agent selection. Change it any time with:  ongame-cli install'
     $wiringArgs += '--yes'
   }

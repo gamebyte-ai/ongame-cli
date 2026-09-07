@@ -6,8 +6,9 @@
 # Job, in order:
 #   1. Detect OS/arch, download the matching `ongame-cli` binary + `checksums.txt` from this repo's
 #      latest GitHub Release, verify sha256, install to ~/.ongame/bin/, chmod +x.
-#   2. Add ~/.ongame/bin to PATH by patching whichever shell rc file exists (idempotent — checks for
-#      a marker before appending, so re-running this script is always safe).
+#   2. Add ~/.ongame/bin to PATH by patching every shell startup file that exists — including bash's
+#      ~/.bash_profile and a fish conf.d snippet (idempotent: keyed on the directory itself, so re-running
+#      is always safe and installing somewhere new actually updates the line instead of doing nothing).
 #   3. Hand off to `ongame-cli install` — the freshly verified binary does the rest: it detects the coding
 #      agents present on this machine (Claude Code, Codex, Gemini CLI, Cursor, Windsurf, Copilot CLI,
 #      opencode, Amp), asks which of them to set up when it can reach your terminal (the usual ones are
@@ -52,9 +53,31 @@ REPO="gamebyte-ai/ongame-cli"
 # this shell can already prepend to PATH, which is strictly more powerful than this.
 GITHUB="${ONGAME_LAUNCHER_DOWNLOAD_ROOT:-https://github.com}"
 API="${ONGAME_LAUNCHER_API_ROOT:-https://api.github.com}/repos/${REPO}/releases/latest"
-INSTALL_DIR="${ONGAME_INSTALL_DIR:-$HOME/.ongame}"
+
+# HOME is needed twice: for the default install root, and for the PATH step at the end. `env -i`, a systemd
+# unit with no `User=`, `su` without `-l` and some container images all leave it unset. Decide it HERE, once,
+# rather than tripping over it after the download and aborting on `set -u` with a bare "HOME: parameter not
+# set" and a half-finished install (binary present, no PATH, no agents wired).
+HOME_DIR="${HOME:-}"
+if [ -z "$HOME_DIR" ] && [ -z "${ONGAME_INSTALL_DIR:-}" ]; then
+  printf 'error: %s\n' "neither HOME nor ONGAME_INSTALL_DIR is set, so there is nowhere to install to. Set one and re-run, e.g.  ONGAME_INSTALL_DIR=/opt/ongame sh install.sh" >&2
+  exit 1
+fi
+INSTALL_DIR="${ONGAME_INSTALL_DIR:-${HOME_DIR}/.ongame}"
 BIN_DIR="${INSTALL_DIR}/bin"
 BIN_NAME="ongame-cli"
+
+# HTTPS-only, ENFORCED rather than asserted (rustup's guard). `-L` on its own follows a 30x ACROSS schemes, so
+# a redirect to http:// — a captive portal, a misconfigured mirror, a hostile value of the two root vars above
+# — is otherwise followed in silence. `--proto-redir` is unconditional: no request can ever DOWNGRADE to
+# plaintext, whatever it started as. `--proto` (which constrains the FIRST request) and `--tlsv1.2` are added
+# only when the URL already is https, because the test seams above legitimately point at a local http mock.
+proto_args() {
+  case "$1" in
+    https://*) printf '%s' '--proto =https --proto-redir =https --tlsv1.2' ;;
+    *)         printf '%s' '--proto-redir =https' ;;
+  esac
+}
 
 info()  { printf '%s\n' "$*" >&2; }
 error() { printf 'error: %s\n' "$*" >&2; exit 1; }
@@ -126,6 +149,18 @@ fi
 
 command -v curl >/dev/null 2>&1 || error "curl is required to install ongame-cli"
 
+# Running as root. `sudo` is the reflex the moment a one-liner prints a permission error, and with sudo's
+# default env_reset HOME becomes /root: the binary lands in /root/.ongame/bin, root's shell profile is the one
+# patched, and the coding agents are wired for root — while the user who typed it gets nothing and is told
+# nothing. Not fatal (installing as root into a system-wide ONGAME_INSTALL_DIR is legitimate), so this names
+# what is actually happening and moves on.
+if [ "$(id -u 2>/dev/null || echo 1000)" = "0" ]; then
+  info "Running as root: installing into ${INSTALL_DIR} and setting up coding agents for the root account."
+  if [ -n "${SUDO_USER:-}" ]; then
+    info "You ran this with sudo, so ${SUDO_USER} will NOT get ongame-cli. Nothing here needs root — run it as yourself:  curl -fsSL https://cli.ongame.ai/install.sh | sh"
+  fi
+fi
+
 # ---------------------------------------------------------------------------
 # 1. OS/arch detection → this repo's release-asset naming convention.
 #
@@ -175,9 +210,15 @@ info "Detected platform: ${OS}/${ARCH} (asset: ${ASSET_NAME})"
 # 2. Resolve the latest release, download the binary + checksums.txt, verify.
 # ---------------------------------------------------------------------------
 mkdir -p "$BIN_DIR"
+# Explicit mode, NOT whatever the umask leaves behind: under `umask 000` (not exotic — CI images, some Docker
+# bases, shared build boxes) a bare mkdir yields a world-WRITABLE directory holding an executable that is on
+# the user's PATH, which is a local-privilege-escalation surface. Same reason as the chmod 755 on the binary
+# below.
+chmod 755 "$BIN_DIR" 2>/dev/null || true
 
 info "Looking up the latest release..."
-release_json=$(curl -fsSL -H "user-agent: ongame-cli-install.sh" "$API") \
+# shellcheck disable=SC2046  # proto_args prints several flags that MUST word-split into separate arguments
+release_json=$(curl -fsSL $(proto_args "$API") -H "user-agent: ongame-cli-install.sh" "$API") \
   || error "could not reach GitHub Releases API (${API})"
 
 # POSIX-sh JSON field extraction without jq (jq is not a safe dependency to assume) — good enough
@@ -206,12 +247,20 @@ download_url_for() {
 bin_url=$(download_url_for "$ASSET_NAME")
 checksums_url=$(download_url_for "checksums.txt")
 
-tmp_dir=$(mktemp -d)
+# Stage INSIDE $BIN_DIR, not in $TMPDIR. The final move must be a rename on the same volume — an atomic
+# metadata operation — and not a cross-volume copy: /tmp is a separate filesystem on the systemd default
+# (tmpfs) and in most containers, and there `mv` degrades to copy+unlink. That is how an interrupted or
+# out-of-space run leaves a TRUNCATED ongame-cli that has already passed its checksum, and how a copy over a
+# currently-running binary fails with ETXTBSY halfway. A rename has neither failure mode. `.update-` is the
+# prefix the binary's own self-updater already sweeps, so an interrupted run leaves nothing that outlives it.
+tmp_dir=$(mktemp -d "${BIN_DIR}/.update-XXXXXX") || error "could not create a staging directory in ${BIN_DIR} — is it writable?"
 trap 'rm -rf "$tmp_dir"' EXIT
 
 info "Downloading ${ASSET_NAME}..."
-curl -fsSL -o "${tmp_dir}/${ASSET_NAME}" "$bin_url" || error "download failed: ${bin_url}"
-curl -fsSL -o "${tmp_dir}/checksums.txt" "$checksums_url" || error "download failed: ${checksums_url}"
+# shellcheck disable=SC2046  # see proto_args: the flags must word-split into separate arguments
+curl -fsSL $(proto_args "$bin_url") -o "${tmp_dir}/${ASSET_NAME}" "$bin_url" || error "download failed: ${bin_url} (note: a redirect to a plain http:// URL is refused, not followed)"
+# shellcheck disable=SC2046
+curl -fsSL $(proto_args "$checksums_url") -o "${tmp_dir}/checksums.txt" "$checksums_url" || error "download failed: ${checksums_url} (note: a redirect to a plain http:// URL is refused, not followed)"
 
 info "Verifying checksum..."
 # Match on BASENAME, not exact suffix. VERIFIED by running the real thing: cli/package.json's `checksums`
@@ -237,48 +286,98 @@ fi
 
 [ "$expected" = "$actual" ] || error "checksum mismatch for ${ASSET_NAME} (expected ${expected}, got ${actual}) — refusing to install a binary that doesn't match its published checksum"
 
-mv "${tmp_dir}/${ASSET_NAME}" "${BIN_DIR}/${BIN_NAME}"
-chmod +x "${BIN_DIR}/${BIN_NAME}"
+# chmod BEFORE the move, so the file at its final path is never briefly non-executable, and 755 rather than
+# `+x`, which only ADDS bits: `curl -o` creates the file 0666 & ~umask, so under `umask 000` a bare `chmod +x`
+# leaves a world-writable executable on PATH.
+chmod 755 "${tmp_dir}/${ASSET_NAME}"
+mv -f "${tmp_dir}/${ASSET_NAME}" "${BIN_DIR}/${BIN_NAME}" \
+  || error "could not install to ${BIN_DIR}/${BIN_NAME} — nothing was changed; check the directory's permissions"
 printf '%s' "$tag_name" > "${BIN_DIR}/.${BIN_NAME}.version"
 
 info "Installed ongame-cli ${tag_name} -> ${BIN_DIR}/${BIN_NAME}"
 
 # ---------------------------------------------------------------------------
-# 3. PATH — patch whichever shell rc exists. Idempotent: checks for our marker comment before
-#    appending, so re-running install.sh (e.g. to fix a broken install) never duplicates the line.
+# 3. PATH — patch every shell startup file that already exists.
+#
+# Idempotency is keyed on the DIRECTORY, not on the marker comment: a second install into a different
+# ONGAME_INSTALL_DIR must update the line, and the marker-only check silently left the user's `ongame-cli`
+# resolving to the old install forever while still printing "open a new shell".
+#
+# The file list is every startup file a login shell of the shells we support actually reads. `~/.profile` is
+# NOT a safe blanket default: bash reads `~/.bash_profile` (then `~/.bash_login`) and STOPS — `~/.profile` is
+# read only when neither exists — and fish reads none of them, so writing `export PATH=…` there was both the
+# wrong file and the wrong syntax while the script reported success. Fish gets its own conf.d snippet.
 # ---------------------------------------------------------------------------
 PATH_MARKER="# ongame-cli (added by install.sh)"
 PATH_LINE="export PATH=\"${BIN_DIR}:\$PATH\""
 
+patched_any=0
+
+# patch_rc <file> <line-to-add>
+#   Appends only if this exact BIN_DIR is not already mentioned. If our marker is there with a DIFFERENT
+#   directory (an earlier install, or a moved one), the new line is appended after it — a later PATH entry
+#   wins in every shell here — and the change is announced, because a silent no-op is what made finding S2
+#   invisible.
 patch_rc() {
   rc_file="$1"
   [ -f "$rc_file" ] || return 0
-  if grep -qF "$PATH_MARKER" "$rc_file" 2>/dev/null; then
+  if grep -qF "$BIN_DIR" "$rc_file" 2>/dev/null; then
+    patched_any=1
     return 0
+  fi
+  if grep -qF "$PATH_MARKER" "$rc_file" 2>/dev/null; then
+    rc_note="Updated the ongame-cli PATH line in ${rc_file} — it now points at ${BIN_DIR} (the older line above it is left alone; delete it if you no longer want that install)."
+  else
+    rc_note="Added ${BIN_DIR} to PATH in ${rc_file}"
   fi
   {
     printf '\n%s\n' "$PATH_MARKER"
-    printf '%s\n' "$PATH_LINE"
+    printf '%s\n' "$2"
   } >> "$rc_file"
-  info "Added ${BIN_DIR} to PATH in ${rc_file}"
+  patched_any=1
+  info "$rc_note"
 }
 
-patched_any=0
-for rc in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.profile"; do
-  if [ -f "$rc" ]; then
-    patch_rc "$rc"
-    patched_any=1
+# fish reads neither the rc files above nor their syntax. Anything dropped in conf.d is sourced by every fish
+# session (interactive or not), which is the officially documented place for exactly this.
+patch_fish() {
+  fish_conf_dir="${HOME_DIR}/.config/fish/conf.d"
+  mkdir -p "$fish_conf_dir" 2>/dev/null || return 0
+  fish_file="${fish_conf_dir}/ongame.fish"
+  [ -f "$fish_file" ] || : >> "$fish_file"
+  patch_rc "$fish_file" "if type -q fish_add_path
+    fish_add_path ${BIN_DIR}
+else
+    set -gx PATH ${BIN_DIR} \$PATH
+end"
+}
+
+if [ -z "$HOME_DIR" ]; then
+  info "HOME is not set, so no shell startup file was changed. Add this to yours by hand:  export PATH=\"${BIN_DIR}:\$PATH\""
+else
+  for rc in "$HOME_DIR/.zshrc" "$HOME_DIR/.bashrc" "$HOME_DIR/.bash_profile" "$HOME_DIR/.bash_login" "$HOME_DIR/.profile"; do
+    patch_rc "$rc" "$PATH_LINE"
+  done
+  if [ -d "${HOME_DIR}/.config/fish" ]; then
+    patch_fish
   fi
-done
-if [ "$patched_any" = "0" ]; then
-  # No known rc file exists yet — create ~/.profile, the most POSIX-portable default (sourced by
-  # login shells across sh/bash/zsh when nothing more specific exists).
-  patch_rc_create="$HOME/.profile"
-  : > "$patch_rc_create"
-  patch_rc "$patch_rc_create"
+  if [ "$patched_any" = "0" ]; then
+    # Nothing exists yet. Create the file THIS user's shell will actually read, rather than assuming
+    # ~/.profile: for fish that is conf.d, and for csh/tcsh there is nothing here we can write correctly, so
+    # say so instead of claiming a PATH edit that will never take effect.
+    case "${SHELL:-}" in
+      */fish)      patch_fish ;;
+      */csh|*/tcsh) info "Your shell (${SHELL}) keeps its PATH in a file this installer does not edit. Add this line to it yourself:  setenv PATH ${BIN_DIR}:\$PATH" ;;
+      *)           : >> "${HOME_DIR}/.profile"; patch_rc "${HOME_DIR}/.profile" "$PATH_LINE" ;;
+    esac
+  fi
 fi
 
-info "Open a new shell (or run: export PATH=\"${BIN_DIR}:\$PATH\") to use ongame-cli directly."
+if [ "$patched_any" = "1" ]; then
+  info "Open a new shell (or run: export PATH=\"${BIN_DIR}:\$PATH\") to use ongame-cli directly."
+else
+  info "PATH was not changed. To use ongame-cli directly, run:  export PATH=\"${BIN_DIR}:\$PATH\""
+fi
 
 # ---------------------------------------------------------------------------
 # 4. Post-install wiring — HANDED TO THE BINARY.

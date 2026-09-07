@@ -1,9 +1,10 @@
 # ongame in Codex CLI
 
 ongame gives OpenAI Codex CLI the same game-making flow it gives Claude Code: one `ongame` MCP server,
-three skills you invoke by name (`$make-game`, `$account`, `$publish`), a few session hooks, and a short
-section in your global `AGENTS.md`. This page is everything a Codex user needs — how to install, what you
-get, where to type, how to see your account, and how to remove it.
+three skills you invoke by name (`$ongame-make-game`, `$ongame-account`, `$ongame-publish` — a Codex skill is
+invoked by its folder name), a few session hooks, and a short section in your global `AGENTS.md`. This page
+is everything a Codex user needs — how to install, what you get, where to type, how to see your account, and
+how to remove it.
 
 Verified against Codex CLI **0.153.4** (`codex --version`). Older versions that have `codex mcp add` still
 get the MCP server and the skills; hooks need a version where `codex features list` shows `hooks`.
@@ -34,7 +35,7 @@ defaults are taken silently). For Codex it does four things, each safe to repeat
 3. **Adds its hooks** to `~/.codex/hooks.json`, merged next to whatever is already there; your own hooks are
    never touched.
 4. **Adds a short marked section** to `~/.codex/AGENTS.md` (between `<!-- ongame:start -->` and
-   `<!-- ongame:end -->`) so every session knows the `$make-game` verb exists.
+   `<!-- ongame:end -->`) so every session knows the `$ongame-make-game` verb exists.
 
 Nothing is created for an agent you do not have — no `~/.codex` is fabricated. To choose without the prompt:
 `ongame-cli install --agents codex` (or `--all`, `--yes`, `--no-agents`); `ongame-cli install` alone
@@ -46,19 +47,21 @@ re-detects and offers again, which is also how you add Codex after installing it
    `/hooks`, and trust the entries whose status message starts with `ongame ·`. Until then the build still
    works, but you lose the session-start notes (browser status, resuming an in-progress build) and the
    automatic review of generated art.
-2. **Sign in.** Type `$make-game <your game idea>`. The agent opens your browser through the `login` tool; finish
-   the sign-in there. If the cloud tools have not appeared in that same session afterwards, start a new
-   `codex` session — Codex may not refresh a running session's tool list, and the sign-in is remembered.
+2. **Sign in.** Type `$ongame-make-game <your game idea>`. The agent opens your browser through the `login`
+   tool; finish the sign-in there. If the cloud tools have not appeared in that same session afterwards,
+   start a new `codex` session — Codex may not refresh a running session's tool list, and the sign-in is
+   remembered.
 
 ## What you type
 
-- **`$make-game <concept>`** — the one entrance. It starts a new game from a concept, and it is also how you
-  come back to a game built here: `$make-game add a boss fight`, `$make-game fix the jump`,
-  `$make-game make a playable ad from this`. Run it from inside the game's directory to continue; from an
-  empty directory to start fresh. The skills also appear in Codex's `/skills` picker.
-- **`$account`** — your plan, what is left this week and today, when it resets, and the link to manage or
-  upgrade.
-- **`$publish`** — build a game you made here, put it online, and verify the live page really serves this
+- **`$ongame-make-game <concept>`** — the one entrance. It starts a new game from a concept, and it is also
+  how you come back to a game built here: `$ongame-make-game add a boss fight`,
+  `$ongame-make-game fix the jump`, `$ongame-make-game make a playable ad from this`. Run it from inside the
+  game's directory to continue; from an empty directory to start fresh. The skills also appear in Codex's
+  `/skills` picker.
+- **`$ongame-account`** — your plan, what is left this week and today, when it resets, and the link to
+  manage or upgrade.
+- **`$ongame-publish`** — build a game you made here, put it online, and verify the live page really serves this
   build before handing you the link.
 
 Under the hood the ongame tools appear to Codex as `mcp__ongame__<tool>` (for example
@@ -78,7 +81,7 @@ rather than "playable".
 
 ## Your account
 
-- In Codex: `$account`.
+- In Codex: `$ongame-account`.
 - In any terminal: `ongame-cli account` (prints the same block; if you are not signed in it tells you to run
   `ongame-cli login`).
 - On the web: <https://account.ongame.ai> — plan, pay-as-you-go, spend cap, billing.

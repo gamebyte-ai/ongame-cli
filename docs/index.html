@@ -102,7 +102,6 @@
   }
   .install-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); flex-wrap: wrap; }
   .install-head .lbl { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); }
-  .install-head .step { margin-left: auto; font-family: var(--mono); font-size: 11.5px; color: var(--amber); letter-spacing: 0.04em; }
   .os-tabs { display: flex; gap: 4px; margin-left: 10px; }
   .os-tab {
     font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint); background: transparent;
@@ -165,6 +164,9 @@
   .stepcard .num { font-family: var(--mono); font-size: 15px; color: var(--amber); border: 1px solid var(--line); border-radius: 9px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; }
   .stepcard h3 { font-family: var(--display); font-weight: 600; font-size: 17px; margin: 3px 0 6px; }
   .stepcard p { margin: 0; font-size: 14.5px; color: var(--ink-dim); }
+  /* The one-time approval note: a second paragraph inside a step card, set back a shade so it reads as an
+     aside to the step rather than as another instruction. */
+  .stepcard p + p.approve { margin-top: 9px; font-size: 13.5px; color: var(--ink-faint); }
   .stepcard code { font-family: var(--mono); font-size: 13.5px; color: var(--amber-soft); background: var(--bg-2); padding: 2px 7px; border-radius: 6px; }
 
   /* ── platform table ── */
@@ -228,7 +230,6 @@
           <button class="os-tab" type="button" role="tab" id="tab-unix" aria-selected="true" aria-controls="cmd-unix" data-os="unix">macOS · Linux</button>
           <button class="os-tab" type="button" role="tab" id="tab-win" aria-selected="false" aria-controls="cmd-win" data-os="win">Windows</button>
         </div>
-        <span class="step">step 1 / 2</span>
       </div>
       <!-- Both commands live in the markup and one is hidden, rather than being written in by script: a
            visitor with JS disabled still gets a real, copyable command instead of an empty box. The exact
@@ -245,7 +246,7 @@
       <span class="os-note" data-os="win" hidden>Run it in PowerShell — Windows&nbsp;PowerShell&nbsp;5.1 (already on
       every Windows machine) or PowerShell&nbsp;7. </span>The installer detects the coding agents on your machine
       and asks which to set up. Then open one and say <code>/make-game a cozy match-3 with a weather twist</code>
-      (<code>$make-game</code> in Codex; in Copilot&nbsp;CLI or Amp, just ask for a game).
+      (<code>$ongame-make-game</code> in Codex; <code>make-game:</code> in Amp).
     </p>
 
     <!-- The no-prompt forms. Everything after `sh -s --` reaches the installer as arguments (POSIX `sh -s`), and the
@@ -260,6 +261,9 @@
 <span class="c"># the same choice as an environment variable — set it on `sh`, the side that runs the installer</span>
 <span class="p">$</span> curl <span class="f">-fsSL</span> https://cli.ongame.ai/install.sh <span class="f">|</span> <span class="f">ONGAME_AGENTS</span>=claude,codex sh
 <span class="p">&gt;</span> <span class="f">$env:ONGAME_AGENTS</span>="claude,codex"; irm https://cli.ongame.ai/install.ps1 <span class="f">|</span> iex
+<span class="c"># Windows: irm | iex carries no flags, so every control has an env form — ONGAME_ALL, ONGAME_YES, ONGAME_NO_AGENTS</span>
+<span class="p">&gt;</span> <span class="f">$env:ONGAME_ALL</span>=1; irm https://cli.ongame.ai/install.ps1 <span class="f">|</span> iex
+<span class="p">&gt;</span> iex "&amp; {$(irm https://cli.ongame.ai/install.ps1)} <span class="f">-All</span>"   <span class="c"># or pass real parameters</span>
 <span class="c"># accept the defaults with no questions · every agent it finds · the binary only</span>
 <span class="p">$</span> curl <span class="f">-fsSL</span> https://cli.ongame.ai/install.sh <span class="f">|</span> sh <span class="f">-s -- -y</span>
 <span class="p">$</span> curl <span class="f">-fsSL</span> https://cli.ongame.ai/install.sh <span class="f">|</span> sh <span class="f">-s -- --all</span>
@@ -275,9 +279,9 @@
       <span class="pill">Windows · x64</span>
     </div>
 
-    <!-- what you get where. The tiers are the honest ones: an agent with no slash-command surface is not
-         described as having one. The verb column is the whole point — it is where a new user would otherwise
-         have a question mark. -->
+    <!-- what you get where. The tiers are the honest ones, and the verb column is the whole point: it is
+         where a new user would otherwise have a question mark, so it must be what the shipped adapter really
+         tells them to type (test/doc_parity_test.sh holds this table and README.md to the same words). -->
     <section id="agents">
       <p class="sec-label">Works in your coding agent — what you get where</p>
       <div class="table-wrap">
@@ -285,17 +289,17 @@
           <thead><tr><th>Agent</th><th>You get</th><th>Start a game</th><th>Your account</th></tr></thead>
           <tbody>
             <tr><td>Claude Code</td><td class="ok">full</td><td><code>/make-game &lt;idea&gt;</code></td><td><code>/account</code></td></tr>
-            <tr><td>Codex</td><td class="ok">full</td><td><code>$make-game &lt;idea&gt;</code></td><td><code>$account</code></td></tr>
+            <tr><td>Codex</td><td class="ok">full</td><td><code>$ongame-make-game &lt;idea&gt;</code></td><td><code>$ongame-account</code></td></tr>
             <tr><td>Gemini CLI</td><td class="ok">full</td><td><code>/make-game &lt;idea&gt;</code></td><td><code>/account</code></td></tr>
             <tr><td>Cursor</td><td class="ok">full</td><td><code>/make-game &lt;idea&gt;</code></td><td><code>/account</code></td></tr>
             <tr><td>Windsurf</td><td class="ok">commands</td><td><code>/make-game &lt;idea&gt;</code></td><td><code>/account</code></td></tr>
             <tr><td>opencode</td><td class="ok">commands</td><td><code>/make-game &lt;idea&gt;</code></td><td><code>/account</code></td></tr>
-            <tr><td>Copilot CLI</td><td class="ok">tools + guidance</td><td>just ask: <em>make a game about …</em></td><td><code>ongame-cli account</code></td></tr>
-            <tr><td>Amp</td><td class="ok">tools + guidance</td><td>just ask: <em>make a game about …</em></td><td><code>ongame-cli account</code></td></tr>
+            <tr><td>Copilot CLI</td><td class="ok">full</td><td><code>/make-game &lt;idea&gt;</code></td><td><code>/account</code></td></tr>
+            <tr><td>Amp</td><td class="ok">commands</td><td><code>make-game: &lt;idea&gt;</code></td><td><code>account:</code></td></tr>
           </tbody>
         </table>
       </div>
-      <p class="pipe-note"><strong>full</strong> — the game-making tools, the <code>/make-game</code>, <code>/account</code> and <code>/publish</code> commands, the skills behind them, and session hooks. <strong>commands</strong> — the tools, the three commands, and a short note in the agent's own instructions. <strong>tools + guidance</strong> — the tools plus a note in the agent's instructions that says exactly how to start; these agents have no slash-command surface, so you ask in words. Whatever you use, <code>ongame-cli account</code> in any terminal shows your plan and usage, and the install summary tells you, per agent, which of these you got and what to type.</p>
+      <p class="pipe-note"><strong>full</strong> — the game-making tools, the <code>/make-game</code>, <code>/account</code> and <code>/publish</code> commands, the skills behind them, and session hooks. <strong>commands</strong> — the tools, the three commands however this agent invokes them, and a short note in the agent's own instructions. Whatever you use, <code>ongame-cli account</code> in any terminal shows your plan and usage, and the install summary tells you, per agent, which of these you got and what to type.</p>
     </section>
 
     <!-- pipeline -->
@@ -324,6 +328,7 @@
           <div>
             <h3>Install once</h3>
             <p>The one-liner above installs ongame, detects the coding agents on your machine and asks which to set up — nothing to paste. An agent that is already open picks it up on its next session (in Claude&nbsp;Code, <code>/reload-plugins</code> does it right away). Installed a new agent later? Run <code>ongame-cli install</code> again.</p>
+            <p class="approve">Some agents ask you to approve the new tools once — Codex <code>/hooks</code>, Cursor's tool-server prompt, Gemini's folder trust. The install summary tells you which, and what to type.</p>
           </div>
         </div>
         <div class="stepcard">
@@ -337,7 +342,7 @@
           <div class="num">3</div>
           <div>
             <h3>Make games</h3>
-            <p>Say <code>/make-game &lt;your idea&gt;</code> and go — <code>$make-game</code> in Codex; in Copilot&nbsp;CLI or Amp, just ask for a game. Check your plan and usage anytime with <code>/account</code>, or <code>ongame-cli account</code> in any terminal.</p>
+            <p>Say <code>/make-game &lt;your idea&gt;</code> and go — <code>$ongame-make-game</code> in Codex, <code>make-game:</code> in Amp. Check your plan and usage anytime with <code>/account</code>, or <code>ongame-cli account</code> in any terminal.</p>
           </div>
         </div>
       </div>
@@ -357,7 +362,7 @@
     <section id="account">
       <p class="sec-label">Your account</p>
       <div class="cards">
-        <div class="card"><span class="ic">🆓</span><h3>You start on Free</h3><p>Sign in and the whole pipeline is yours — research, design, code, levels, polish, and a deployed URL. No trial clock, no card.</p></div>
+        <div class="card"><span class="ic">🆓</span><h3>You start on Free</h3><p>Sign in and run the whole guided pipeline free — research, design, guided code, polish, and a deployed URL you can share. No trial clock, no card.</p></div>
         <div class="card"><span class="ic">🔓</span><h3>What a paid plan adds</h3><p>Generated art &amp; sound in one art direction, retention-tuned level curves, and the continuously-optimized phase prompts. Free builds real games; paid builds ones that look and play the part.</p></div>
         <div class="card"><span class="ic">⚙️</span><h3>Manage it in one place</h3><p>Plan, payment, usage and spend caps all live at <a href="https://account.ongame.ai">account.ongame.ai</a>. Where your agent has commands, <code>/account</code> shows the same thing without leaving it; <code>ongame-cli account</code> does from any terminal.</p></div>
       </div>

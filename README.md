@@ -93,22 +93,21 @@ the table says so honestly — no agent is described as more than it is.
 | Agent | You get | Start a game | Your account |
 |---|---|---|---|
 | Claude Code | **full** | `/make-game <idea>` | `/account` |
-| Codex | **full** | `$make-game <idea>` | `$account` |
+| Codex | **full** | `$ongame-make-game <idea>` | `$ongame-account` |
 | Gemini CLI | **full** | `/make-game <idea>` | `/account` |
 | Cursor | **full** | `/make-game <idea>` | `/account` |
 | Windsurf | **commands** | `/make-game <idea>` | `/account` |
 | opencode | **commands** | `/make-game <idea>` | `/account` |
-| Copilot CLI | **tools + guidance** | just ask: *make a game about …* | `ongame-cli account` |
-| Amp | **tools + guidance** | just ask: *make a game about …* | `ongame-cli account` |
+| Copilot CLI | **full** | `/make-game <idea>` | `/account` |
+| Amp | **commands** | `make-game: <idea>` | `account:` |
 
 - **full** — the game-making tools, the `/make-game`, `/account` and `/publish` commands, the skills
   behind them, and session hooks.
-- **commands** — the tools, the three commands, and a short note in the agent's own instructions file.
-- **tools + guidance** — the tools, plus a marked note in the agent's global instructions that says
-  exactly how to start. These agents have no slash-command surface of their own, so you ask in words.
+- **commands** — the tools, the three commands however this agent invokes them, and a short note in the
+  agent's own instructions file.
 
 Whatever the agent, `ongame-cli account` in any terminal shows your plan and remaining usage, and
-`/publish` (or, where there are no commands, "publish this game") puts a finished game on a live URL.
+`/publish` (`$ongame-publish` in Codex, `publish:` in Amp) puts a finished game on a live URL.
 
 ### Claude Code — full
 
@@ -130,13 +129,14 @@ Whatever the agent, `ongame-cli account` in any terminal shows your plan and rem
   those entries is touched. By hand: `codex mcp add ongame -- "$HOME/.ongame/bin/ongame-cli" mcp`; on a
   Codex too old to have `mcp add`, copy [`codex/config-snippet.toml`](./codex/config-snippet.toml) into
   your `config.toml`.
-- **You get:** tools, `$make-game`, `$account`, `$publish` (Codex has no user-defined `/commands`; skills
-  are its equivalent and you invoke one by typing `$` and its name, or pick it from `/skills`), hooks.
-- **Start:** `$make-game <your game idea>`. Codex asks you to trust new hooks before it runs them: in a
+- **You get:** tools, `$ongame-make-game`, `$ongame-account`, `$ongame-publish` (Codex has no user-defined
+  `/commands`; skills are its equivalent, named after their folders — you invoke one by typing `$` and its
+  name, or pick it from `/skills`), hooks.
+- **Start:** `$ongame-make-game <your game idea>`. Codex asks you to trust new hooks before it runs them: in a
   session, type `/hooks` and approve the two ongame entries. Until you do, everything else still works —
   you only miss the session hooks.
 - **Verify:** `codex mcp get ongame --json` (exit 0 = registered) or `codex mcp list`.
-- **Uninstall:** `codex mcp remove ongame`; delete the ongame skill folders under `~/.agents/skills/`;
+- **Uninstall:** `codex mcp remove ongame` and `codex mcp remove playwright`; delete the ongame skill folders under `~/.agents/skills/`;
   remove the ongame entries from `~/.codex/hooks.json` and the block between `<!-- ongame:start -->` and
   `<!-- ongame:end -->` in `~/.codex/AGENTS.md`.
 
@@ -151,7 +151,7 @@ Whatever the agent, `ongame-cli account` in any terminal shows your plan and rem
   when it asks about the folder you're building in, say yes. A session that was already open picks the
   new pieces up on restart.
 - **Verify:** `gemini mcp list` prints a line beginning `ongame:`.
-- **Uninstall:** `gemini mcp remove -s user ongame`; delete the three `.toml` files from
+- **Uninstall:** `gemini mcp remove -s user ongame` and `gemini mcp remove -s user playwright`; delete the three `.toml` files from
   `~/.gemini/commands/`; remove the ongame entries from the `hooks` section of `~/.gemini/settings.json`
   and the marked block from `~/.gemini/GEMINI.md`.
 
@@ -167,14 +167,15 @@ Whatever the agent, `ongame-cli account` in any terminal shows your plan and rem
   in the `/` menu after a restart.
 - **Verify:** `ongame` appears under Settings → MCP in the IDE; from a terminal, `jq -e '.mcpServers.ongame'
   ~/.cursor/mcp.json`.
-- **Uninstall:** remove the `ongame` key from `~/.cursor/mcp.json`; delete the ongame skill folders from
+- **Uninstall:** remove the `ongame` and `playwright` keys from `~/.cursor/mcp.json`; delete the ongame skill folders from
   `~/.cursor/skills/`; remove the ongame entries from `~/.cursor/hooks.json`.
 
 ### Windsurf — commands
 
 - **Install:** automatic when Windsurf is installed. Windsurf has no command to register a tool server, so
   the installer merges an `ongame` entry into `~/.codeium/windsurf/mcp_config.json`, writes
-  `make-game.md`, `account.md` and `publish.md` into `~/.codeium/windsurf/global_workflows/`, and appends a
+  `make-game.md`, `account.md` and `publish.md` into `~/.codeium/windsurf/global_workflows/` (and the same
+  three as skills under `~/.codeium/windsurf/skills/`), and appends a
   short marked section to `~/.codeium/windsurf/memories/global_rules.md` (that file has a 6,000-character
   cap; if the note would not fit, the installer says so instead of truncating your rules).
 - **You get:** tools, `/make-game`, `/account`, `/publish` as workflows, and the note. The workflows and
@@ -182,8 +183,9 @@ Whatever the agent, `ongame-cli account` in any terminal shows your plan and rem
 - **Start:** `/make-game <your game idea>`. Restart Windsurf after installing so it reloads the config.
 - **Verify:** `~/.codeium/windsurf/mcp_config.json` contains `"ongame"` and
   `~/.codeium/windsurf/global_workflows/make-game.md` exists.
-- **Uninstall:** remove the `ongame` key from `~/.codeium/windsurf/mcp_config.json`; delete the three
-  workflow files; remove the marked block from `~/.codeium/windsurf/memories/global_rules.md`.
+- **Uninstall:** remove the `ongame` and `playwright` keys from `~/.codeium/windsurf/mcp_config.json`; delete the three
+  workflow files and the ongame skill folders under `~/.codeium/windsurf/skills/`; remove the marked block
+  from `~/.codeium/windsurf/memories/global_rules.md`.
 
 ### opencode — commands
 
@@ -194,41 +196,46 @@ Whatever the agent, `ongame-cli account` in any terminal shows your plan and rem
 - **Start:** `/make-game <your game idea>`. opencode reads its config at startup — restart it after
   installing.
 - **Verify:** `opencode mcp list` shows `✓ ongame connected`.
-- **Uninstall:** remove the `ongame` entry under `mcp` in `~/.config/opencode/opencode.json` (or
+- **Uninstall:** remove the `ongame` and `playwright` entries under `mcp` in `~/.config/opencode/opencode.json` (or
   `opencode.jsonc`); delete the three command files; remove the marked block from
   `~/.config/opencode/AGENTS.md`.
 
-### Copilot CLI — tools + guidance
+### Copilot CLI — full
 
 - **Install:** automatic when the GitHub Copilot CLI is installed — the installer runs
-  `copilot mcp add ongame` with the absolute path to the binary and appends a marked section to
-  `~/.copilot/copilot-instructions.md`. (Another tool called `copilot` — AWS's — is common on the same
-  PATH; the installer tells them apart by `copilot --version`.)
-- **You get:** the tools and a note in your global Copilot instructions that says how to start.
-- **Start:** there is no slash command here — just ask: *make a game about …*. Copilot reads its
-  instructions at session start, so open a new session after installing.
-- **Account:** `ongame-cli account` in any terminal.
+  `copilot mcp add ongame` with the absolute path to the binary, installs the three commands as skills
+  under `~/.copilot/skills/`, and appends a marked section to `~/.copilot/copilot-instructions.md`.
+  (Another tool called `copilot` — AWS's — is common on the same PATH; the installer tells them apart by
+  `copilot --version`.)
+- **You get:** tools, `/make-game`, `/account`, `/publish` as skills under `~/.copilot/skills/`, and a note
+  in your global Copilot instructions.
+- **Start:** `/make-game <your game idea>`. Copilot loads skills and tool servers at session start, so open a
+  new session after installing.
+- **Non-interactive runs** (`copilot -p "…"` in a script or CI) approve no tools by themselves — add
+  `--allow-tool ongame --allow-tool playwright`, or the run silently proceeds with no tools at all.
 - **Verify:** `copilot mcp get ongame --json` (exit 0 = registered) or `copilot mcp list`.
-- **Uninstall:** `copilot mcp remove ongame`; remove the marked block from
-  `~/.copilot/copilot-instructions.md`.
+- **Uninstall:** `copilot mcp remove ongame` and `copilot mcp remove playwright`; delete the ongame skill folders under `~/.copilot/skills/`;
+  remove the marked block from `~/.copilot/copilot-instructions.md`.
 
-### Amp — tools + guidance
+### Amp — commands
 
 - **Install:** automatic when `amp` is installed — the installer runs `amp mcp add ongame` with the
-  absolute path to the binary and appends a marked section to `~/.config/amp/AGENTS.md`.
-- **You get:** the tools and a note in your Amp instructions that says how to start.
-- **Start:** Amp has no slash commands (typing `/` opens its command palette) — just ask: *make a game
-  about …*.
-- **Account:** `ongame-cli account` in any terminal.
+  absolute path to the binary, installs the three commands as skills under `~/.config/agents/skills/`, and
+  appends a marked section to `~/.config/amp/AGENTS.md`.
+- **You get:** tools, the three commands as skills under `~/.config/agents/skills/`, and a note in your Amp
+  instructions.
+- **Start:** `make-game: <your game idea>`. Amp has no slash menu (typing `/` opens its own palette), so you
+  name the skill in your message; `account:` and `publish:` work the same way. Restart Amp after installing.
 - **Verify:** `amp mcp list --json` includes `"name": "ongame"`.
-- **Uninstall:** `amp mcp remove ongame`; remove the marked block from `~/.config/amp/AGENTS.md`.
+- **Uninstall:** `amp mcp remove ongame` and `amp mcp remove playwright`; delete the ongame skill folders under `~/.config/agents/skills/`;
+  remove the marked block from `~/.config/amp/AGENTS.md`.
 
 ## Your account
 
-- Where your agent has commands: `/account` (`$account` in Codex) shows your plan, remaining usage and
-  when it resets, and the link to manage your plan.
-- Anywhere, including agents with no commands: `ongame-cli account` prints the same view from the
-  terminal. If you are not signed in yet, it tells you to run `ongame-cli login`.
+- In your agent: `/account` — `$ongame-account` in Codex, `account:` in Amp — shows your plan, remaining
+  usage and when it resets, and the link to manage your plan.
+- In any terminal: `ongame-cli account` prints the same view, whatever agent you use. If you are not signed
+  in yet, it tells you to run `ongame-cli login`.
 - Plan, payment, usage and spend caps live at [account.ongame.ai](https://account.ongame.ai).
 
 ## Windows notes
@@ -239,9 +246,20 @@ Whatever the agent, `ongame-cli account` in any terminal shows your plan and rem
 - The binary lands in `%USERPROFILE%\.ongame\bin\ongame-cli.exe`. Where an agent resolves its tool
   command with a plain PATH lookup that ignores `PATHEXT` (Codex does), the installer writes that
   absolute `.exe` path rather than the bare name, so the entry works without any PATH help.
-- Because `irm | iex` cannot pass parameters, choose agents through the environment:
-  `$env:ONGAME_AGENTS = "claude,codex"; irm https://cli.ongame.ai/install.ps1 | iex`. Afterwards the
-  flags work directly: `ongame-cli install --agents gemini`.
+- Because `irm | iex` cannot pass parameters, every selection control has an environment form — set it
+  before the one-liner:
+
+  ```powershell
+  $env:ONGAME_AGENTS = "claude,codex"   # set up exactly these
+  $env:ONGAME_ALL = 1                   # every agent it finds
+  $env:ONGAME_YES = 1                   # accept the defaults, never ask
+  $env:ONGAME_NO_AGENTS = 1             # the binary only
+  irm https://cli.ongame.ai/install.ps1 | iex
+  ```
+
+  Or pass real parameters with the invocation form that carries arguments:
+  `iex "& {$(irm https://cli.ongame.ai/install.ps1)} -All"`. Afterwards the flags work directly:
+  `ongame-cli install --agents gemini`.
 - Agent configs live under your profile: `%USERPROFILE%\.codex` (or `%CODEX_HOME%`), `.gemini`,
   `.cursor`, `.codeium\windsurf`, `.copilot`, `.config\opencode` and `.config\amp` — the same file
   names as on macOS/Linux.
@@ -257,9 +275,10 @@ re-running it is always safe.
 ## Uninstall
 
 Undo the agent wiring you want gone with the per-agent steps above, then delete `~/.ongame`
-(`%USERPROFILE%\.ongame` on Windows) and the `PATH` line the installer added to your shell profile.
+(`%USERPROFILE%\.ongame` on Windows) — that also removes the shared build recipes at `~/.ongame/skills/`,
+which every agent reads — and the `PATH` line the installer added to your shell profile.
 
 ## Support
 
-This is a commercial product. For questions, issues, or billing, reach out through the ongame product
-you're using it from.
+This is a commercial product. For questions, issues or billing:
+[account.ongame.ai](https://account.ongame.ai) or [support@ongame.ai](mailto:support@ongame.ai).
