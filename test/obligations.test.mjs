@@ -131,6 +131,16 @@ check('an obligation named PROV-01 with a non-prov primitive FAILs loudly',
   verdictOf(r.results, 'PROV-01') === 'FAIL' && /prov/.test(of_(r.results, 'PROV-01').evidence || ''),
   of_(r.results, 'PROV-01').evidence);
 
+// [Codex re-review P1] the basename check ran BEFORE the generated-artefact denylist, so a citation
+// under assets/concept/ was accepted whenever ANY evidence file happened to share its basename —
+// reopening the exact bypass PROV-01 exists to close.
+r = run(PROV, {
+  sources: { 'a.ts': '/** MEASURED from assets/concept/shot.png, 768 px wide. */\nexport const T = 142;' },
+  evidence: ['shot.png'],
+});
+check('PROV-01 is not fooled by a basename collision with a generated path',
+  verdictOf(r.results, 'PROV-01') === 'FAIL' && r.exitCode === 1, of_(r.results, 'PROV-01').evidence);
+
 /* ────────────────────────── THE TEETH ────────────────────────── */
 
 r = run([{ id: 'R-01', primitive: 'model', enforcement: 'blocking' }]);
@@ -234,13 +244,73 @@ check('a path may not walk into prototype internals',
   verdictOf(r.results, 'D-08') === 'FAIL' && /__proto__|prototype|forbidden/i.test(of_(r.results, 'D-08').evidence || ''),
   of_(r.results, 'D-08').evidence);
 
+/* ─────── ABSENCE IS NOT A VALUE, AND A MALFORMED BRANCH IS NOT A PASS [Codex re-review P1] ─────── */
+
+// A path that resolves to NOTHING used to compare as an ordinary `undefined`, so a typo in an
+// observable satisfied a blocking predicate: `undefined !== null` is true.
+r = run([{ id: 'A-01', primitive: 'state', enforcement: 'blocking', state: 'any',
+  predicate: { cmp: [{ path: 'state.mispelled' }, 'ne', null] } }], { collected: { any: { W: 1, H: 1, state: { spelled: 1 } } } });
+check('a comparison against an ABSENT path FAILs and names the path',
+  verdictOf(r.results, 'A-01') === 'FAIL' && /mispelled/.test(of_(r.results, 'A-01').evidence || ''),
+  of_(r.results, 'A-01').evidence);
+
+r = run([{ id: 'A-02', primitive: 'state', enforcement: 'blocking', state: 'any',
+  predicate: { cmp: [{ path: 'state.a' }, 'eq', { path: 'state.b' }] } }], { collected: { any: { W: 1, H: 1, state: {} } } });
+check('two absent paths do not compare equal',
+  verdictOf(r.results, 'A-02') === 'FAIL', of_(r.results, 'A-02').evidence);
+
+// ...but a field that is PRESENT and null is a value, and `truthy` is the operator whose whole job is
+// asking whether something is there. Neither may become strict, or real predicates stop expressing.
+r = run([{ id: 'A-03', primitive: 'state', enforcement: 'blocking', state: 'any',
+  predicate: { cmp: [{ path: 'state.target' }, 'eq', null] } }], { collected: { any: { W: 1, H: 1, state: { target: null } } } });
+check('a present-and-null field still compares as a value',
+  verdictOf(r.results, 'A-03') === 'PASS', of_(r.results, 'A-03').evidence);
+
+r = run([{ id: 'A-04', primitive: 'state', enforcement: 'blocking', state: 'any',
+  predicate: { cmp: [{ count: { path: 'board', where: { truthy: { item: 'color' } } } }, 'eq', 1] } }],
+  { collected: { any: { W: 1, H: 1, board: [{ color: 'r' }, null, {}] } } });
+check('truthy still tolerates absent fields — it is the "is it there" operator',
+  verdictOf(r.results, 'A-04') === 'PASS', of_(r.results, 'A-04').evidence);
+
+// An empty conjunction is not a check. `{all:[]}` passed vacuously and satisfied a blocking obligation.
+for (const [id, pred, name] of [
+  ['E-01', { all: [] }, '{all:[]} is not a passing predicate'],
+  ['E-02', { any: [] }, '{any:[]} is not a passing predicate'],
+]) {
+  r = run([{ id, primitive: 'state', enforcement: 'blocking', state: 'any', predicate: pred }],
+    { collected: { any: { W: 1, H: 1 } } });
+  check(name, verdictOf(r.results, id) === 'FAIL', of_(r.results, id).evidence);
+}
+
+// Short-circuiting hid malformed branches: `{any:[true, <garbage>]}` never validated the garbage.
+r = run([{ id: 'E-03', primitive: 'state', enforcement: 'blocking', state: 'any',
+  predicate: { any: [{ truthy: true }, { cmp: [{ path: 'state.x' }, 'spaceship', 1] }] } }],
+  { collected: { any: { W: 1, H: 1, state: { x: 1 } } } });
+check('a malformed branch behind a short-circuit is still caught',
+  verdictOf(r.results, 'E-03') === 'FAIL' && /spaceship/.test(of_(r.results, 'E-03').evidence || ''),
+  of_(r.results, 'E-03').evidence);
+
+// Same hole under an implication whose guard is false: the `then` branch was never looked at.
+r = run([{ id: 'E-04', primitive: 'state', enforcement: 'blocking', state: 'any',
+  predicate: { when: { cmp: [{ path: 'state.screen' }, 'eq', 'win'] },
+    then: { nonsense: [1, 2] } } }], { collected: { any: { W: 1, H: 1, state: { screen: 'play' } } } });
+check('a malformed `then` is caught even when the guard is false',
+  verdictOf(r.results, 'E-04') === 'FAIL' && /nonsense/.test(of_(r.results, 'E-04').evidence || ''),
+  of_(r.results, 'E-04').evidence);
+
 /* ────────────────────────── BLOCKED IS NOT A REJECTION [Codex P1] ────────────────────────── */
 
 // The finding: `pose` was advertised as one of six primitives but special-cased to BLOCKED, and any
 // blocking non-PASS rejected — so a blocking pose obligation could never be released. A capability
 // this file does not have is a gap in the tooling, not a defect in the build.
-r = run([{ id: 'R-03', primitive: 'pose', enforcement: 'blocking' }]);
-check('pose without a predicate reports BLOCKED', verdictOf(r.results, 'R-03') === 'BLOCKED');
+// [Codex re-review P1] `pose` used to become BLOCKED automatically, with no declared gap — an
+// evasion path now that BLOCKED does not reject. The compiler must NAME the gap it is standing on.
+r = run([{ id: 'R-03x', primitive: 'pose', enforcement: 'blocking' }]);
+check('pose with neither a predicate nor a declared gap FAILs, it is not auto-BLOCKED',
+  verdictOf(r.results, 'R-03x') === 'FAIL' && r.exitCode === 1, of_(r.results, 'R-03x').evidence);
+
+r = run([{ id: 'R-03', primitive: 'pose', enforcement: 'blocking', blocked_on: 'pose.transform' }]);
+check('pose reports BLOCKED once the gap is declared', verdictOf(r.results, 'R-03') === 'BLOCKED');
 check('a blocking BLOCKED obligation does NOT reject the build', r.exitCode === 0,
   `exit ${r.exitCode}`);
 check('BLOCKED stays visible in the summary line', /BLOCKED/.test(r.stdout));
@@ -254,6 +324,12 @@ r = run([{ id: 'R-09', primitive: 'state', enforcement: 'blocking', blocked_on: 
 check('BLOCKED is refused for a capability the dispatcher does not recognise',
   verdictOf(r.results, 'R-09') === 'FAIL' && r.exitCode === 1,
   of_(r.results, 'R-09').evidence);
+
+// A SUBSTRING match let any sentence mentioning a gap claim it. The id must lead.
+r = run([{ id: 'R-09b', primitive: 'state', enforcement: 'blocking',
+  blocked_on: 'not really reference.resolution, I just do not want to check this' }]);
+check('a gap id buried mid-sentence does not earn BLOCKED',
+  verdictOf(r.results, 'R-09b') === 'FAIL' && r.exitCode === 1, of_(r.results, 'R-09b').evidence);
 
 // The third gap is not in this file but in the evidence: the primitive can read the build, and the
 // reference has no number to compare against. A real shipped package surfaced this one.
@@ -306,6 +382,25 @@ check('the emitted snippet runs in a page and returns px samples',
 check('the snippet maps the hitArea fraction to canvas pixels correctly',
   collectedFromPage?.px?.['cap-fill']?.[0] === 145 && collectedFromPage?.px?.['cap-fill']?.[1] === 815,
   `got ${JSON.stringify(collectedFromPage?.px?.['cap-fill'])} — expected [145,815,6]`);
+
+// [Codex re-review P2] `W`/`H` come from the canvas box while SKILL.md called them the viewport. On
+// a letterboxed canvas those differ, and `width / W` was silently scored against the wrong divisor.
+// Both are now returned under honest names, so a predicate picks the one it means.
+let inset = null, insetErr = null;
+try {
+  const c = { width: 780, height: 1400,
+    getBoundingClientRect: () => ({ left: 20, top: 50, width: 390, height: 700 }),
+    getContext: () => null };
+  const fn = new Function('window', 'document', `return (${snippet.trim()});`);
+  inset = fn({ __game: { diagnostics: { hitAreas: [] } }, innerWidth: 430, innerHeight: 800 },
+    { querySelector: (q) => (q === 'canvas' ? c : null), body: c });
+} catch (e) { insetErr = e.message; }
+check('a letterboxed canvas reports the drawing box and the viewport separately',
+  inset && inset.W === 390 && inset.H === 700 && inset.viewportW === 430 && inset.viewportH === 800,
+  insetErr || `W=${inset?.W} H=${inset?.H} viewportW=${inset?.viewportW} viewportH=${inset?.viewportH}`);
+check('SKILL.md no longer calls W/H the viewport',
+  /`W`, `H` \(the canvas drawing box|canvas drawing box/.test(SKILL) && /viewportW/.test(SKILL),
+  (SKILL.match(/`W`,\s*`H`[^\n]{0,80}/) || ['(not found)'])[0]);
 
 if (collectedFromPage) {
   fs.writeFileSync(path.join(dir, 'page.json'), JSON.stringify({ any: collectedFromPage }));

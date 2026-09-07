@@ -33,6 +33,8 @@
  *          | {lookup:<sel>, at:<term>, of:"<field>"}
  *          | {div|mul|add|sub:[<term>,<term>]} | {abs:<term>}
  *   sel   := {hitAreas:"<glob>"} | {path:"<dotted path to an array>"}   (+ optional where:<pred>)
+ *   payload: hitAreas (viewport px) · W,H (the CANVAS drawing box) · viewportW,viewportH · state ·
+ *            board · subjects · px
  *   pred  := {all|any:[<pred>...]} | {not:<pred>} | {when:<pred>, then:<pred>}
  *          | {cmp:[<term>, "eq"|"ne"|"lt"|"lte"|"gt"|"gte", <term>]}
  *          | {near:[<term>, <target>, <tol>]}  | {truthy:<term>}
@@ -130,7 +132,11 @@ if (cmd === 'probe') {
     } catch (e) { pxUnavailable[key] = 'getImageData threw: ' + e.message; }
   }
   return {
+    // W/H are the CANVAS drawing box — the surface a fidelity ratio should be taken against. The
+    // viewport is reported separately because on a letterboxed canvas they differ, and dividing a
+    // viewport-px hit area by the wrong one is a silently wrong number.
     state: g.state ?? null, board: g.board ?? null, W: box.width, H: box.height, hitAreas,
+    viewportW: window.innerWidth ?? box.width, viewportH: window.innerHeight ?? box.height,
     subjects: d.subjects ? JSON.parse(JSON.stringify(d.subjects)) : null,
     bindingsSettled: d.bindingsSettled ?? null, px, pxUnavailable,
   };
@@ -142,9 +148,10 @@ if (cmd === 'probe') {
 /* ---------- static check: provenance. Deterministic, no runtime, no binding. ---------- */
 /**
  * PROV-01: a constant claiming MEASURED must cite evidence that RESOLVES. Four outcomes per citation,
- * and the middle two are the ones a review found missing:
- *   1. resolves in the evidence root (.ref/ or evidence/, at any depth, by basename) -> reference truth, fine
+ * tested in THIS ORDER — the denylist outranks the basename lookup, or a basename collision launders
+ * a generated artefact into reference authority:
  *   2. matches a generated-artefact path                                             -> VIOLATION (fabricated authority)
+ *   1. resolves in the evidence root (.ref/ or evidence/, at any depth, by basename) -> reference truth, fine
  *   3. resolves somewhere in the build itself                                        -> allowed: measuring your OWN
  *                                                                                       shipped sprite is not a claim
  *                                                                                       about the reference
@@ -188,9 +195,12 @@ function checkProvenance(dir) {
       if (!cited.length) continue;
       claims++;
       for (const c of cited) {
-        if (evNames.has(path.basename(c))) continue;                                       // 1
         const where = `${path.relative(dir, f)}:${i + 1}`;
+        // The denylist is checked FIRST. Basename-first meant a citation under assets/concept/ was
+        // waved through whenever ANY evidence file happened to share its basename, which reopens the
+        // whole bypass: a generated path is never reference authority, coincidence or not.
         if (GENERATED.some((rx) => rx.test(c))) { violations.push(`${where} cites the generated artefact ${c}`); continue; } // 2
+        if (evNames.has(path.basename(c))) continue;                                       // 1
         if (resolvesInBuild(c)) { selfMeasured++; continue; }                              // 3
         violations.push(`${where} cites ${c}, which resolves in neither the evidence root nor the build`); // 4
       }
@@ -307,6 +317,88 @@ function termLabel(t) {
   return '?';
 }
 
+/**
+ * Validate the predicate TREE before evaluating it. Evaluation short-circuits — `{any:[true, X]}`
+ * never looks at X, and `{when:false, then:X}` never looks at X either — so a malformed X used to
+ * ride along inside a PASS. Shape is checkable without any data, so it is checked without any data.
+ */
+const TERM_KEYS = ['path', 'item', 'count', 'sum', 'gaps', 'px', 'lookup', 'abs', 'div', 'mul', 'add', 'sub'];
+function validateTerm(t) {
+  if (t === null || typeof t === 'number' || typeof t === 'string' || typeof t === 'boolean') return;
+  if (Array.isArray(t) || typeof t !== 'object') throw new Refuse(`unsupported term: ${JSON.stringify(t)}`);
+  const key = TERM_KEYS.find((k) => k in t);
+  if (!key) throw new Refuse(`unknown term keys [${Object.keys(t)}]`);
+  if (key === 'path' || key === 'item') {
+    if (typeof t[key] !== 'string' || !t[key].trim()) throw new Refuse(`{${key}} needs a non-empty string`);
+    for (const seg of t[key].split('.')) {
+      if (FORBIDDEN.has(seg)) throw new Refuse(`path segment "${seg}" is forbidden — a path may not walk into prototype internals`);
+    }
+    return;
+  }
+  if (key === 'count') return validateSel(t.count);
+  if (key === 'sum') { validateSel(t.sum); if (t.of === undefined) throw new Refuse('{sum} needs an "of" term'); return validateTerm(t.of); }
+  if (key === 'gaps') {
+    validateSel(t.gaps);
+    if (t.axis !== 'x' && t.axis !== 'y') throw new Refuse(`{gaps} needs axis "x" or "y", got ${JSON.stringify(t.axis)}`);
+    return;
+  }
+  if (key === 'px') {
+    if (typeof t.px !== 'string' || !t.px) throw new Refuse('{px} needs a sample key');
+    if (!['r', 'g', 'b'].includes(t.channel)) throw new Refuse(`{px} needs channel "r", "g" or "b", got ${JSON.stringify(t.channel)}`);
+    return;
+  }
+  if (key === 'lookup') {
+    validateSel(t.lookup);
+    if (t.at === undefined) throw new Refuse('{lookup} needs an "at" index term');
+    if (t.of !== undefined && typeof t.of !== 'string') throw new Refuse('{lookup} "of" must be a field name');
+    return validateTerm(t.at);
+  }
+  if (key === 'abs') return validateTerm(t.abs);
+  if (!Array.isArray(t[key]) || t[key].length !== 2) throw new Refuse(`{${key}} needs exactly two terms`);
+  t[key].forEach(validateTerm);
+}
+function validateSel(sel) {
+  if (!sel || typeof sel !== 'object' || Array.isArray(sel)) throw new Refuse('a selector must be an object');
+  if ('hitAreas' in sel) {
+    if (typeof sel.hitAreas !== 'string') throw new Refuse('{hitAreas} needs a glob string');
+  } else if ('path' in sel) {
+    if (typeof sel.path !== 'string' || !sel.path.trim()) throw new Refuse('a selector path must be a non-empty string');
+  } else throw new Refuse(`a selector needs "hitAreas" or "path", got keys [${Object.keys(sel)}]`);
+  if (sel.where !== undefined) validatePred(sel.where);
+}
+function validatePred(p) {
+  if (!p || typeof p !== 'object' || Array.isArray(p)) throw new Refuse(`a predicate must be an object, got ${JSON.stringify(p)}`);
+  for (const k of ['all', 'any']) {
+    if (!(k in p)) continue;
+    if (!Array.isArray(p[k])) throw new Refuse(`{${k}} needs an array`);
+    // An empty conjunction is not a check that passes, it is a check nobody wrote.
+    if (!p[k].length) throw new Refuse(`{${k}: []} is empty — an empty predicate cannot satisfy an obligation`);
+    return p[k].forEach(validatePred);
+  }
+  if ('not' in p) return validatePred(p.not);
+  if ('when' in p) {
+    if (!('then' in p)) throw new Refuse('{when} needs a "then" predicate');
+    validatePred(p.when); return validatePred(p.then);
+  }
+  if ('truthy' in p) return validateTerm(p.truthy);
+  if ('cmp' in p) {
+    if (!Array.isArray(p.cmp) || p.cmp.length !== 3) throw new Refuse('{cmp} needs [left, op, right]');
+    if (!(p.cmp[1] in OPS)) throw new Refuse(`unknown operator "${p.cmp[1]}" — allowed: ${Object.keys(OPS).join(', ')}`);
+    validateTerm(p.cmp[0]); return validateTerm(p.cmp[2]);
+  }
+  if ('near' in p) {
+    if (!Array.isArray(p.near) || p.near.length !== 3) throw new Refuse('{near} needs [term, target, tolerance]');
+    return p.near.forEach(validateTerm);
+  }
+  for (const kind of ['every', 'some', 'none']) {
+    if (!(kind in p)) continue;
+    validateSel(p[kind]);
+    if (!p.satisfies) throw new Refuse(`{${kind}} needs a "satisfies" predicate`);
+    return validatePred(p.satisfies);
+  }
+  throw new Refuse(`unknown predicate keys [${Object.keys(p)}]`);
+}
+
 const OPS = {
   eq: (a, b) => a === b, ne: (a, b) => a !== b,
   lt: (a, b) => a < b, lte: (a, b) => a <= b, gt: (a, b) => a > b, gte: (a, b) => a >= b,
@@ -332,13 +424,21 @@ function evalPred(p, env, tr) {
     const [l, op, rt] = p.cmp;
     if (!(op in OPS)) throw new Refuse(`unknown operator "${op}" — allowed: ${Object.keys(OPS).join(', ')}`);
     const lv = evalTerm(l, env), rv = evalTerm(rt, env);
+    // A term that resolves to NOTHING is not a value to compare. `undefined !== null` is true, so a
+    // typo in an observable used to satisfy a blocking predicate. A field that is PRESENT and null
+    // is still a value, and `truthy` remains the operator for asking whether something is there.
+    if (lv === undefined) throw new Refuse(`${termLabel(l)} resolves to nothing in the collected payload — absence is not a value to compare`);
+    if (rv === undefined) throw new Refuse(`${termLabel(rt)} resolves to nothing in the collected payload — absence is not a value to compare`);
     tr.push(`${termLabel(l)}=${JSON.stringify(fmt(lv))} ${op} ${JSON.stringify(fmt(rv))}`);
     return OPS[op](lv, rv);
   }
   if ('near' in p) {
     if (!Array.isArray(p.near) || p.near.length !== 3) throw new Refuse('{near} needs [term, target, tolerance]');
     const [l, target, tol] = p.near;
-    const lv = Number(evalTerm(l, env)), tv = Number(evalTerm(target, env)), tolv = Number(evalTerm(tol, env));
+    const raw = [evalTerm(l, env), evalTerm(target, env), evalTerm(tol, env)];
+    const missing = [l, target, tol].find((_, i) => raw[i] === undefined);
+    if (missing !== undefined) throw new Refuse(`${termLabel(missing)} resolves to nothing in the collected payload — absence is not a value to compare`);
+    const [lv, tv, tolv] = raw.map(Number);
     tr.push(`${termLabel(l)}=${fmt(lv)} vs ${fmt(tv)}±${tolv}`);
     return Math.abs(lv - tv) <= tolv;
   }
@@ -403,10 +503,14 @@ const results = obligations.map((o, idx) => {
 
   // BLOCKED must be EARNED: only a capability this dispatcher knows it lacks can produce it.
   if (o.blocked_on) {
-    const gap = Object.keys(KNOWN_GAPS).find((g) => String(o.blocked_on).includes(g));
+    // The gap id must LEAD the value. A substring match let any sentence that merely mentioned a gap
+    // claim it ("not really reference.resolution, I just do not want to check this").
+    const lead = String(o.blocked_on).trim().split(/[\s—,:;(]/)[0];
+    const gap = Object.prototype.hasOwnProperty.call(KNOWN_GAPS, lead) ? lead : null;
     if (!gap) {
-      return FAIL(`blocked_on ${JSON.stringify(o.blocked_on)} names no capability this dispatcher recognises — ` +
-        `allowed: ${Object.keys(KNOWN_GAPS).join(', ')}. Otherwise "blocked" is a way to opt out of the check.`);
+      return FAIL(`blocked_on ${JSON.stringify(o.blocked_on)} must BEGIN with a capability this dispatcher ` +
+        `recognises — one of: ${Object.keys(KNOWN_GAPS).join(', ')} (a free note may follow). Otherwise ` +
+        `"blocked" is a way to opt out of the check.`);
     }
     return { ...base, verdict: 'BLOCKED', evidence: `${gap}: ${KNOWN_GAPS[gap]}` };
   }
@@ -425,7 +529,10 @@ const results = obligations.map((o, idx) => {
   // would write one.
   if (o.predicate === undefined || o.predicate === null) {
     if (o.primitive === 'pose') {
-      return { ...base, verdict: 'BLOCKED', evidence: `pose.transform: ${KNOWN_GAPS['pose.transform']}` };
+      // NOT auto-BLOCKED. Inferring the gap from the primitive made every predicate-less pose
+      // obligation unverifiable-but-accepted, which is an opt-out now that BLOCKED does not reject.
+      return FAIL('a pose obligation needs either a predicate over the counter diagnostics.subjects DOES ' +
+        `expose, or an explicit blocked_on: pose.transform (${KNOWN_GAPS['pose.transform']})`);
     }
     return FAIL('obligation carries no predicate — it cannot be dispatched');
   }
@@ -443,6 +550,7 @@ const results = obligations.map((o, idx) => {
 
   const tr = [];
   try {
+    validatePred(o.predicate);
     const pass = evalPred(o.predicate, { root: ctx }, tr);
     const note = typeof o.evidence === 'string'
       ? '  (the obligation\'s `evidence` expression was ignored — evidence is generated from the trace)' : '';

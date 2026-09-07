@@ -266,7 +266,10 @@ pred := {all|any:[<pred>…]} | {not:<pred>} | {when:<pred>, then:<pred>} | {tru
 ```
 
 The payload a predicate reads is exactly: `hitAreas` (`{id,x,y,width,height}` in viewport px) · `W`,
-`H` (viewport) · `state` · `board` · `subjects` · `px`. Two behaviours worth knowing before you write
+`H` (the canvas drawing box — the surface a fidelity ratio belongs against) · `viewportW`,
+`viewportH` (reported separately because on a letterboxed canvas they differ, and dividing a
+viewport-px hit area by the wrong one is a silently wrong number) · `state` · `board` · `subjects` ·
+`px`. Two behaviours worth knowing before you write
 one: `every`/`some` over a selection that matched **nothing** is a FAIL, not a vacuous pass — a
 fidelity check that matched nothing is exactly the silence this machinery exists to remove; and
 `{when:…, then:…}` is how you scope an invariant to one state without a ternary.
