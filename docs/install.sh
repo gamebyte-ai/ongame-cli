@@ -24,6 +24,7 @@
 #
 #   --agents a,b    set up exactly these agents          --all         set up every agent detected
 #   -y, --yes       accept the defaults, never ask       --no-agents   install the binary only
+#   --no-path-update  leave every shell startup file alone (env form: ONGAME_NO_PATH_UPDATE=1)
 #
 # The flags are forwarded to `ongame-cli install` unchanged; a `--agents` flag beats ONGAME_AGENTS. The env
 # assignment goes on `sh`, the LAST command of the pipeline: `ONGAME_AGENTS=x curl … | sh` binds the variable
@@ -110,11 +111,15 @@ Options (forwarded to `ongame-cli install`):
   --all          set up every coding agent detected on this machine
   -y, --yes      accept the default selection without asking
   --no-agents    install the binary only; set up agents later with `ongame-cli install`
-  -h, --help     show this help
+
+Options handled here (NOT forwarded):
+  --no-path-update  do not touch any shell startup file; print the PATH line instead
+  -h, --help        show this help
 
 Environment:
   ONGAME_AGENTS=a,b    same as --agents (an explicit --agents flag wins over it)
   ONGAME_INSTALL_DIR   where to install (default: ~/.ongame)
+  ONGAME_NO_PATH_UPDATE  set to any non-empty value: same as --no-path-update
   CI                   when set, never asks — same as --yes
 
 Re-run `ongame-cli install` at any time to add a coding agent you installed later.
@@ -123,6 +128,9 @@ USAGE
 
 need_tty=yes
 agents_flag=no
+# `--no-path-update` is the ONE option this script acts on itself instead of forwarding: the PATH edit is the
+# installer's job, not the binary's (install.ps1's -NoPathUpdate is the same switch, kept in step with it).
+no_path_update=no
 n=$#
 while [ "$n" -gt 0 ]; do
   arg=$1; shift; n=$((n - 1))
@@ -130,6 +138,7 @@ while [ "$n" -gt 0 ]; do
     -y|--yes)     need_tty=no; set -- "$@" --yes ;;
     --all)        need_tty=no; set -- "$@" --all ;;
     --no-agents)  need_tty=no; set -- "$@" --no-agents ;;
+    --no-path-update) no_path_update=yes ;;
     # Both spellings are accepted; the binary is handed the two-token form only, so it has ONE shape to parse.
     --agents=*)
       [ -n "${arg#--agents=}" ] || error "--agents needs a value, e.g. --agents claude,codex"
@@ -145,6 +154,11 @@ done
 # (flag > env > prompt > defaults — the Homebrew/deno precedence); any other flags are forwarded alongside it.
 if [ "$agents_flag" = no ] && [ -n "${ONGAME_AGENTS:-}" ]; then
   need_tty=no; set -- "$@" --agents "$ONGAME_AGENTS"
+fi
+# The env form of --no-path-update, for the one-liner that cannot carry flags (install.ps1 reads exactly the
+# same variable). The flag wins; the variable only fills in what was not passed.
+if [ "$no_path_update" = no ] && [ -n "${ONGAME_NO_PATH_UPDATE:-}" ]; then
+  no_path_update=yes
 fi
 
 command -v curl >/dev/null 2>&1 || error "curl is required to install ongame-cli"
@@ -209,12 +223,23 @@ info "Detected platform: ${OS}/${ARCH} (asset: ${ASSET_NAME})"
 # ---------------------------------------------------------------------------
 # 2. Resolve the latest release, download the binary + checksums.txt, verify.
 # ---------------------------------------------------------------------------
+install_dir_existed=yes
+[ -d "$INSTALL_DIR" ] || install_dir_existed=no
 mkdir -p "$BIN_DIR"
 # Explicit mode, NOT whatever the umask leaves behind: under `umask 000` (not exotic — CI images, some Docker
 # bases, shared build boxes) a bare mkdir yields a world-WRITABLE directory holding an executable that is on
 # the user's PATH, which is a local-privilege-escalation surface. Same reason as the chmod 755 on the binary
 # below.
+#
+# The PARENT gets the same treatment, and it is not redundant: a world-writable ~/.ongame lets anyone who can
+# reach it rename `bin` aside and put their own `bin/ongame-cli` there — the executable is captured without
+# ever writing inside the 0755 directory. Applied when we just created it, and when an earlier run under a
+# loose umask already left it other-writable (that install is still on this machine's PATH), but never to a
+# pre-existing directory the user chose and set up themselves.
 chmod 755 "$BIN_DIR" 2>/dev/null || true
+if [ "$install_dir_existed" = no ] || [ -n "$(find "$INSTALL_DIR" -maxdepth 0 -perm -0002 2>/dev/null)" ]; then
+  chmod 755 "$INSTALL_DIR" 2>/dev/null || true
+fi
 
 info "Looking up the latest release..."
 # shellcheck disable=SC2046  # proto_args prints several flags that MUST word-split into separate arguments
@@ -284,6 +309,12 @@ else
   error "neither sha256sum nor shasum is available to verify the download"
 fi
 
+# Case-insensitively: sha256 is hex, and the recording side's case is not part of the guarantee (`shasum`
+# and `sha256sum` emit lower case, but a checksums.txt produced by certutil/Get-FileHash — as install.ps1's
+# `-ine` compare already allows for — is upper case). A case difference is not a mismatch; treating it as one
+# would reject a perfectly good binary.
+expected=$(printf '%s' "$expected" | tr 'ABCDEF' 'abcdef')
+actual=$(printf '%s' "$actual" | tr 'ABCDEF' 'abcdef')
 [ "$expected" = "$actual" ] || error "checksum mismatch for ${ASSET_NAME} (expected ${expected}, got ${actual}) — refusing to install a binary that doesn't match its published checksum"
 
 # chmod BEFORE the move, so the file at its final path is never briefly non-executable, and 755 rather than
@@ -309,31 +340,111 @@ info "Installed ongame-cli ${tag_name} -> ${BIN_DIR}/${BIN_NAME}"
 # wrong file and the wrong syntax while the script reported success. Fish gets its own conf.d snippet.
 # ---------------------------------------------------------------------------
 PATH_MARKER="# ongame-cli (added by install.sh)"
-PATH_LINE="export PATH=\"${BIN_DIR}:\$PATH\""
+# The block is CLOSED as well as opened. Everything between the two markers is ours, so a re-install can
+# remove exactly what a previous run wrote — no more, no less — and append the current one at the end.
+PATH_MARKER_END="# ongame-cli end"
+
+# Quote a directory as ONE literal word. `export PATH="${BIN_DIR}:$PATH"` looked right and was not: the rc
+# file is re-read by a shell, so a directory containing $, `, \ or " is EXPANDED at that point (MEASURED: an
+# install into a directory literally named `literal$FOO` produced a PATH entry the new shell could not find).
+# Single quotes suppress every expansion; the only character that cannot appear inside them is the quote
+# itself, which is spliced in as '\'' — end the string, an escaped quote, start it again. $PATH stays OUTSIDE
+# the quotes so it still expands, which is the whole point of the line.
+shell_quote() {
+  printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+}
+# fish needs one more step: inside its single quotes a backslash is an ESCAPE character (sh treats it as a
+# literal), so a backslash in the path has to be doubled. `\'` outside quotes means a literal quote in fish
+# exactly as it does in sh, so the splice itself carries over unchanged.
+fish_quote() {
+  printf "'%s'" "$(printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e "s/'/'\\\\''/g")"
+}
+
+BIN_DIR_SQ=$(shell_quote "$BIN_DIR")
+PATH_LINE="export PATH=${BIN_DIR_SQ}:\"\$PATH\""
 
 patched_any=0
 
-# patch_rc <file> <line-to-add>
-#   Appends only if this exact BIN_DIR is not already mentioned. If our marker is there with a DIFFERENT
-#   directory (an earlier install, or a moved one), the new line is appended after it — a later PATH entry
-#   wins in every shell here — and the change is announced, because a silent no-op is what made finding S2
-#   invisible.
+# strip_managed <file> — the file with every block we have ever written removed, on stdout.
+#   Closed blocks (marker … end marker) go whole. A block from an OLDER install had no end marker, so the
+#   skip also ends at the first line that is not one of the shapes this script writes — the user's own lines
+#   are never in danger. A blank line immediately before a marker is dropped with it, so repeated re-installs
+#   cannot accumulate blank lines.
+strip_managed() {
+  awk -v mark="$PATH_MARKER" -v endm="$PATH_MARKER_END" '
+    function flush() { if (held) { print heldline; held = 0 } }
+    {
+      if (skip) {
+        if ($0 == endm) { skip = 0; next }
+        if ($0 ~ /^export PATH=/ || $0 ~ /^if type -q fish_add_path/ || $0 ~ /^[[:space:]]*fish_add_path / \
+            || $0 == "else" || $0 ~ /^[[:space:]]*set -gx PATH / || $0 == "end") { next }
+        skip = 0
+      }
+      if ($0 == mark) { held = 0; skip = 1; next }
+      if ($0 ~ /^[[:space:]]*$/) { flush(); heldline = $0; held = 1; next }
+      flush(); print
+    }
+    END { flush() }
+  ' "$1"
+}
+
+# rc_warn <file> <what-to-add> — the file could not be written. NOT fatal, and this is the whole point:
+# the binary is already installed and the agent hand-off below is the step the user actually came for, so a
+# read-only or root-owned rc file (a managed dotfile, a stow/chezmoi symlink into a read-only store, an rc
+# belonging to another shell) must cost them one line to paste, not the rest of the install.
+rc_warn() {
+  info "Warning: could not update ${1} (not writable), so PATH was left alone there. Add this to it yourself:  ${2}"
+}
+
+# patch_rc <file> <body>
+#   Idempotency is keyed on an ACTIVE (uncommented) mention of the CURRENT bin directory — not on the marker,
+#   and not on the directory appearing anywhere in the file. Both weaker tests were wrong in a way that left
+#   the user with a working-looking install pointing at the wrong binary: the directory named only inside a
+#   COMMENT counted as "already on PATH", and finding our marker for a DIFFERENT directory stopped the update,
+#   so an A -> B -> A sequence left B's stale line last and B's binary winning. Anything else rewrites: our
+#   previous block is removed and the current one appended at the end, where a later PATH entry wins in every
+#   shell here.
 patch_rc() {
   rc_file="$1"
+  rc_body="$2"
   [ -f "$rc_file" ] || return 0
-  if grep -qF "$BIN_DIR" "$rc_file" 2>/dev/null; then
+
+  rc_marker=no
+  grep -qF "$PATH_MARKER" "$rc_file" 2>/dev/null && rc_marker=yes
+  # Comment lines are stripped before looking for the directory, so a mention inside a comment (ours or the
+  # user's) cannot pass for a live PATH entry.
+  if grep -v '^[[:space:]]*#' "$rc_file" 2>/dev/null | grep -qF "$BIN_DIR"; then
+    # Already live in this file — ours from an earlier run, or a line the user wrote. Either way, nothing to
+    # do and nothing to announce.
     patched_any=1
     return 0
   fi
-  if grep -qF "$PATH_MARKER" "$rc_file" 2>/dev/null; then
-    rc_note="Updated the ongame-cli PATH line in ${rc_file} — it now points at ${BIN_DIR} (the older line above it is left alone; delete it if you no longer want that install)."
+
+  if [ "$rc_marker" = yes ]; then
+    rc_note="Updated the ongame-cli PATH line in ${rc_file} — it now points at ${BIN_DIR}."
   else
     rc_note="Added ${BIN_DIR} to PATH in ${rc_file}"
   fi
-  {
-    printf '\n%s\n' "$PATH_MARKER"
-    printf '%s\n' "$2"
-  } >> "$rc_file"
+
+  if [ ! -w "$rc_file" ]; then
+    rc_warn "$rc_file" "$rc_body"
+    return 0
+  fi
+
+  # Built in full beside the file and then copied OVER it, rather than moved onto it: a move would replace
+  # the user's rc file with a new inode, dropping its mode, its owner and — for the dotfile managers people
+  # actually use — the symlink itself.
+  rc_tmp="${rc_file}.ongame-tmp.$$"
+  if ! strip_managed "$rc_file" > "$rc_tmp" 2>/dev/null; then
+    rm -f "$rc_tmp"; rc_warn "$rc_file" "$rc_body"; return 0
+  fi
+  if ! { printf '\n%s\n' "$PATH_MARKER"; printf '%s\n' "$rc_body"; printf '%s\n' "$PATH_MARKER_END"; } >> "$rc_tmp" 2>/dev/null; then
+    rm -f "$rc_tmp"; rc_warn "$rc_file" "$rc_body"; return 0
+  fi
+  if ! cat "$rc_tmp" > "$rc_file" 2>/dev/null; then
+    rm -f "$rc_tmp"; rc_warn "$rc_file" "$rc_body"; return 0
+  fi
+  rm -f "$rc_tmp"
   patched_any=1
   info "$rc_note"
 }
@@ -342,18 +453,33 @@ patch_rc() {
 # session (interactive or not), which is the officially documented place for exactly this.
 patch_fish() {
   fish_conf_dir="${HOME_DIR}/.config/fish/conf.d"
-  mkdir -p "$fish_conf_dir" 2>/dev/null || return 0
   fish_file="${fish_conf_dir}/ongame.fish"
-  [ -f "$fish_file" ] || : >> "$fish_file"
-  patch_rc "$fish_file" "if type -q fish_add_path
-    fish_add_path ${BIN_DIR}
+  fish_body="if type -q fish_add_path
+    fish_add_path $(fish_quote "$BIN_DIR")
 else
-    set -gx PATH ${BIN_DIR} \$PATH
+    set -gx PATH $(fish_quote "$BIN_DIR") \$PATH
 end"
+  if ! mkdir -p "$fish_conf_dir" 2>/dev/null; then
+    rc_warn "$fish_file" "$fish_body"; return 0
+  fi
+  if [ ! -f "$fish_file" ] && ! : >> "$fish_file" 2>/dev/null; then
+    rc_warn "$fish_file" "$fish_body"; return 0
+  fi
+  patch_rc "$fish_file" "$fish_body"
 }
 
-if [ -z "$HOME_DIR" ]; then
-  info "HOME is not set, so no shell startup file was changed. Add this to yours by hand:  export PATH=\"${BIN_DIR}:\$PATH\""
+# create_rc <file> — create it empty first, so patch_rc (which only touches files that exist) will write it.
+create_rc() {
+  if [ ! -f "$1" ] && ! : >> "$1" 2>/dev/null; then
+    rc_warn "$1" "$PATH_LINE"; return 1
+  fi
+  return 0
+}
+
+if [ "$no_path_update" = yes ]; then
+  info "Skipping the PATH update (--no-path-update). Add this line yourself when you want it:  ${PATH_LINE}"
+elif [ -z "$HOME_DIR" ]; then
+  info "HOME is not set, so no shell startup file was changed. Add this to yours by hand:  ${PATH_LINE}"
 else
   for rc in "$HOME_DIR/.zshrc" "$HOME_DIR/.bashrc" "$HOME_DIR/.bash_profile" "$HOME_DIR/.bash_login" "$HOME_DIR/.profile"; do
     patch_rc "$rc" "$PATH_LINE"
@@ -362,21 +488,30 @@ else
     patch_fish
   fi
   if [ "$patched_any" = "0" ]; then
-    # Nothing exists yet. Create the file THIS user's shell will actually read, rather than assuming
-    # ~/.profile: for fish that is conf.d, and for csh/tcsh there is nothing here we can write correctly, so
-    # say so instead of claiming a PATH edit that will never take effect.
+    # Nothing exists yet. Create the file THIS user's shell will actually READ — not ~/.profile, which zsh
+    # does not read at all (MEASURED: `zsh -lic 'command -v ongame-cli'` still exited 1 after a "successful"
+    # install that wrote ~/.profile) and which bash reads only when neither ~/.bash_profile nor ~/.bash_login
+    # exists. For csh/tcsh there is nothing here we can write correctly, so say so instead of claiming a PATH
+    # edit that will never take effect.
     case "${SHELL:-}" in
-      */fish)      patch_fish ;;
+      */fish)       patch_fish ;;
+      */zsh)        create_rc "${HOME_DIR}/.zshrc" && patch_rc "${HOME_DIR}/.zshrc" "$PATH_LINE" ;;
+      # macOS Terminal/iTerm start every shell as a LOGIN shell, which reads ~/.bash_profile and never
+      # ~/.bashrc; on Linux the terminal starts an interactive non-login shell, which is the other way round.
+      # Whichever we create is then the only one that exists, so bash's own fallback chain does the rest.
+      */bash)
+        if [ "$OS" = "darwin" ]; then bash_rc="${HOME_DIR}/.bash_profile"; else bash_rc="${HOME_DIR}/.bashrc"; fi
+        create_rc "$bash_rc" && patch_rc "$bash_rc" "$PATH_LINE" ;;
       */csh|*/tcsh) info "Your shell (${SHELL}) keeps its PATH in a file this installer does not edit. Add this line to it yourself:  setenv PATH ${BIN_DIR}:\$PATH" ;;
-      *)           : >> "${HOME_DIR}/.profile"; patch_rc "${HOME_DIR}/.profile" "$PATH_LINE" ;;
+      *)            create_rc "${HOME_DIR}/.profile" && patch_rc "${HOME_DIR}/.profile" "$PATH_LINE" ;;
     esac
   fi
 fi
 
 if [ "$patched_any" = "1" ]; then
-  info "Open a new shell (or run: export PATH=\"${BIN_DIR}:\$PATH\") to use ongame-cli directly."
+  info "Open a new shell (or run: ${PATH_LINE}) to use ongame-cli directly."
 else
-  info "PATH was not changed. To use ongame-cli directly, run:  export PATH=\"${BIN_DIR}:\$PATH\""
+  info "PATH was not changed. To use ongame-cli directly, run:  ${PATH_LINE}"
 fi
 
 # ---------------------------------------------------------------------------

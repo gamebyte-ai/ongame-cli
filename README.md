@@ -13,7 +13,7 @@ install the real `ongame-cli` binary, keep it up to date, and let each agent fin
 - `.claude-plugin/` — the Claude Code plugin manifest + marketplace listing (a static shim that points
   at the installed binary; it is not the application itself).
 - `bin/ongame-launcher` — a small, dependency-free launcher that hands off to the installed binary.
-  `bin/ongame-launcher.exe` is its Windows twin, a ~10KB C trampoline built reproducibly from
+  `bin/ongame-launcher.exe` is its Windows twin, a ~100KB C trampoline built reproducibly from
   `bin/win/ongame-launcher.c`.
 - `commands/`, `skills/`, `workflows/` — the Claude Code plugin's `/make-game`, `/account` and
   `/publish` commands, the skills behind them, and the build workflow.
@@ -63,6 +63,11 @@ Re-run it any time with `ongame-cli install`. It re-detects, reports anything al
 "already wired", adds what is missing, and changes nothing else. That is also how you add an agent you
 installed later.
 
+**One outside requirement.** Browser verification — the step that proves a build really runs before
+anything is called playable — uses a bundled Playwright server that needs **Node.js 18+ on your `PATH`**
+(for `npx`). Without it a build still runs end to end, but it is reported as `unverified` rather than
+playable.
+
 ### Choosing agents without the prompt
 
 ```
@@ -102,7 +107,7 @@ the table says so honestly — no agent is described as more than it is.
 | Amp | **commands** | `make-game: <idea>` | `account:` |
 
 - **full** — the game-making tools, the `/make-game`, `/account` and `/publish` commands, the skills
-  behind them, and session hooks.
+  behind them, and session hooks where the agent has them (today: Codex).
 - **commands** — the tools, the three commands however this agent invokes them, and a short note in the
   agent's own instructions file.
 
@@ -133,49 +138,53 @@ Whatever the agent, `ongame-cli account` in any terminal shows your plan and rem
   `/commands`; skills are its equivalent, named after their folders — you invoke one by typing `$` and its
   name, or pick it from `/skills`), hooks.
 - **Start:** `$ongame-make-game <your game idea>`. Codex asks you to trust new hooks before it runs them: in a
-  session, type `/hooks` and approve the two ongame entries. Until you do, everything else still works —
+  session, type `/hooks` and approve the ongame entries (there are several — they cover four session events). Until you do, everything else still works —
   you only miss the session hooks.
-- **Verify:** `codex mcp get ongame --json` (exit 0 = registered) or `codex mcp list`.
-- **Uninstall:** `codex mcp remove ongame` and `codex mcp remove playwright`; delete the ongame skill folders under `~/.agents/skills/`;
+- **Verify:** `codex mcp get ongame --json` (exit 0 = registered) or `codex mcp list`. If
+  `codex mcp remove` reports nothing, the entries are in `~/.codex/config.toml` — remove the
+  `[mcp_servers.ongame]` and `[mcp_servers.playwright]` tables there.
+- **Uninstall:** `codex mcp remove ongame` and `codex mcp remove playwright`; delete
+  `ongame-make-game/`, `ongame-account/` and `ongame-publish/` under `~/.agents/skills/`;
   remove the ongame entries from `~/.codex/hooks.json` and the block between `<!-- ongame:start -->` and
   `<!-- ongame:end -->` in `~/.codex/AGENTS.md`.
 
 ### Gemini CLI — full
 
 - **Install:** automatic when `gemini` is installed — the installer runs `gemini mcp add -s user ongame`,
-  writes `make-game.toml`, `account.toml` and `publish.toml` into `~/.gemini/commands/`, adds its hooks to
-  `~/.gemini/settings.json` (merged; your other hooks stay), and appends a marked section to
-  `~/.gemini/GEMINI.md`.
-- **You get:** tools, `/make-game`, `/account`, `/publish`, hooks.
+  writes `make-game.toml`, `account.toml` and `publish.toml` into `~/.gemini/commands/`, and appends a
+  marked section to `~/.gemini/GEMINI.md`. Your other entries in `~/.gemini/settings.json` stay
+  byte-for-byte.
+- **You get:** tools, `/make-game`, `/account`, `/publish`.
 - **Start:** `/make-game <your game idea>`. Gemini only starts tool servers in folders you have trusted —
   when it asks about the folder you're building in, say yes. A session that was already open picks the
   new pieces up on restart.
 - **Verify:** `gemini mcp list` prints a line beginning `ongame:`.
 - **Uninstall:** `gemini mcp remove -s user ongame` and `gemini mcp remove -s user playwright`; delete the three `.toml` files from
-  `~/.gemini/commands/`; remove the ongame entries from the `hooks` section of `~/.gemini/settings.json`
-  and the marked block from `~/.gemini/GEMINI.md`.
+  `~/.gemini/commands/`; remove the marked block from `~/.gemini/GEMINI.md`. If `gemini mcp remove`
+  reports nothing to remove, delete the `ongame` and `playwright` entries from
+  `~/.gemini/settings.json` by hand — that file is the fallback when the CLI cannot do it.
 
 ### Cursor — full
 
 - **Install:** automatic when Cursor is installed. Cursor has no command to register a tool server, so the
   installer merges an `ongame` entry into `~/.cursor/mcp.json` (your other servers stay byte-for-byte),
-  installs the three commands as skills under `~/.cursor/skills/`, and adds its hooks to
-  `~/.cursor/hooks.json`.
-- **You get:** tools, `/make-game`, `/account`, `/publish`, hooks.
+  and installs four skills under `~/.cursor/skills/` — `make-game`, `account`, `publish` and a shared
+  `ongame` recipe skill.
+- **You get:** tools, `/make-game`, `/account`, `/publish`.
 - **Start:** `/make-game <your game idea>`, in the IDE or the `agent` CLI. Cursor asks you to approve a new
   tool server the first time — approve `ongame` (in the CLI: `agent mcp enable ongame`). New skills show up
   in the `/` menu after a restart.
 - **Verify:** `ongame` appears under Settings → MCP in the IDE; from a terminal, `jq -e '.mcpServers.ongame'
   ~/.cursor/mcp.json`.
-- **Uninstall:** remove the `ongame` and `playwright` keys from `~/.cursor/mcp.json`; delete the ongame skill folders from
-  `~/.cursor/skills/`; remove the ongame entries from `~/.cursor/hooks.json`.
+- **Uninstall:** remove the `ongame` and `playwright` keys from `~/.cursor/mcp.json`; delete
+  `make-game/`, `account/`, `publish/` and `ongame/` from `~/.cursor/skills/`.
 
 ### Windsurf — commands
 
 - **Install:** automatic when Windsurf is installed. Windsurf has no command to register a tool server, so
   the installer merges an `ongame` entry into `~/.codeium/windsurf/mcp_config.json`, writes
-  `make-game.md`, `account.md` and `publish.md` into `~/.codeium/windsurf/global_workflows/` (and the same
-  three as skills under `~/.codeium/windsurf/skills/`), and appends a
+  `make-game.md`, `account.md` and `publish.md` into `~/.codeium/windsurf/global_workflows/` (and
+  `make-game` as a skill under `~/.codeium/windsurf/skills/`), and appends a
   short marked section to `~/.codeium/windsurf/memories/global_rules.md` (that file has a 6,000-character
   cap; if the note would not fit, the installer says so instead of truncating your rules).
 - **You get:** tools, `/make-game`, `/account`, `/publish` as workflows, and the note. The workflows and
@@ -184,21 +193,23 @@ Whatever the agent, `ongame-cli account` in any terminal shows your plan and rem
 - **Verify:** `~/.codeium/windsurf/mcp_config.json` contains `"ongame"` and
   `~/.codeium/windsurf/global_workflows/make-game.md` exists.
 - **Uninstall:** remove the `ongame` and `playwright` keys from `~/.codeium/windsurf/mcp_config.json`; delete the three
-  workflow files and the ongame skill folders under `~/.codeium/windsurf/skills/`; remove the marked block
+  workflow files and the `make-game/` skill folder under `~/.codeium/windsurf/skills/`; remove the marked block
   from `~/.codeium/windsurf/memories/global_rules.md`.
 
 ### opencode — commands
 
 - **Install:** automatic when `opencode` is installed — the installer runs `opencode mcp add ongame` with
   the absolute path to the binary, writes `make-game.md`, `account.md` and `publish.md` into
-  `~/.config/opencode/commands/`, and appends a marked section to opencode's global instructions file.
+  `~/.config/opencode/commands/`, and — only if you already have one — appends a marked section to
+  opencode's global instructions file (`~/.config/opencode/AGENTS.md`). The install summary says whether
+  that step ran.
 - **You get:** tools, `/make-game`, `/account`, `/publish`, and the note.
 - **Start:** `/make-game <your game idea>`. opencode reads its config at startup — restart it after
   installing.
 - **Verify:** `opencode mcp list` shows `✓ ongame connected`.
 - **Uninstall:** remove the `ongame` and `playwright` entries under `mcp` in `~/.config/opencode/opencode.json` (or
   `opencode.jsonc`); delete the three command files; remove the marked block from
-  `~/.config/opencode/AGENTS.md`.
+  `~/.config/opencode/AGENTS.md` if the summary said one was written.
 
 ### Copilot CLI — full
 
@@ -213,8 +224,11 @@ Whatever the agent, `ongame-cli account` in any terminal shows your plan and rem
   new session after installing.
 - **Non-interactive runs** (`copilot -p "…"` in a script or CI) approve no tools by themselves — add
   `--allow-tool ongame --allow-tool playwright`, or the run silently proceeds with no tools at all.
-- **Verify:** `copilot mcp get ongame --json` (exit 0 = registered) or `copilot mcp list`.
-- **Uninstall:** `copilot mcp remove ongame` and `copilot mcp remove playwright`; delete the ongame skill folders under `~/.copilot/skills/`;
+- **Verify:** `copilot mcp get ongame --json` (exit 0 = registered) or `copilot mcp list`. If
+  `copilot mcp remove` reports nothing, the entries were written to `~/.copilot/mcp-config.json`
+  directly — remove them there.
+- **Uninstall:** `copilot mcp remove ongame` and `copilot mcp remove playwright`; delete
+  `make-game/`, `account/` and `publish/` under `~/.copilot/skills/`;
   remove the marked block from `~/.copilot/copilot-instructions.md`.
 
 ### Amp — commands
@@ -226,8 +240,10 @@ Whatever the agent, `ongame-cli account` in any terminal shows your plan and rem
   instructions.
 - **Start:** `make-game: <your game idea>`. Amp has no slash menu (typing `/` opens its own palette), so you
   name the skill in your message; `account:` and `publish:` work the same way. Restart Amp after installing.
-- **Verify:** `amp mcp list --json` includes `"name": "ongame"`.
-- **Uninstall:** `amp mcp remove ongame` and `amp mcp remove playwright`; delete the ongame skill folders under `~/.config/agents/skills/`;
+- **Verify:** `amp mcp list --json` includes `"name": "ongame"`. If `amp mcp remove` reports nothing,
+  the entries are in Amp's own settings file — remove them there.
+- **Uninstall:** `amp mcp remove ongame` and `amp mcp remove playwright`; delete
+  `make-game/`, `account/` and `publish/` under `~/.config/agents/skills/`;
   remove the marked block from `~/.config/amp/AGENTS.md`.
 
 ## Your account
@@ -275,8 +291,18 @@ re-running it is always safe.
 ## Uninstall
 
 Undo the agent wiring you want gone with the per-agent steps above, then delete `~/.ongame`
-(`%USERPROFILE%\.ongame` on Windows) — that also removes the shared build recipes at `~/.ongame/skills/`,
-which every agent reads — and the `PATH` line the installer added to your shell profile.
+(`%USERPROFILE%\.ongame` on Windows). That also removes the shared build recipes at `~/.ongame/skills/`,
+which every agent except Claude Code reads (the Claude Code plugin carries its own copy), the record of
+what was installed at `~/.ongame/installed-files.json`, and the binary itself.
+
+Two more things the installer can leave behind:
+
+- **The `PATH` line.** It is in whichever startup files you already had — any of `~/.zshrc`, `~/.bashrc`,
+  `~/.bash_profile`, `~/.bash_login`, `~/.profile` — or, for fish, in `~/.config/fish/conf.d/ongame.fish`
+  (delete that file). Each edit is the block between `# ongame-cli (added by install.sh)` and
+  `# ongame-cli end`. On Windows the entry is in the per-user `PATH` (System → Environment Variables).
+- **Backups.** Where the installer had to write over a file you already had, the original is beside it as
+  `<name>.ongame-backup-<timestamp>`. Nothing removes those but you.
 
 ## Support
 

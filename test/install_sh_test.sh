@@ -117,12 +117,17 @@ printf 'mock release server on %s (tag %s), installer shell: %s\n' "$ROOT" "$TAG
 # --fail-metadata, --redirect-http). One process per mode because they are startup flags; each gets its own
 # stderr file so the "no request reached the release server" counters on $SRV_ERR stay meaningful.
 # start_mock <flags...> — prints the base URL, or nothing if it failed to come up.
-EXTRA_PIDS=""
-ep=""   # the EXIT trap below iterates $EXTRA_PIDS into it
+# The pid goes to a FILE, not to a variable. Every call site is `X=$(start_mock …)`, and a `$(…)` runs in a
+# SUBSHELL: a variable assigned in there is gone the moment the substitution ends, so the EXIT trap below
+# never saw those pids and every failure-mode mock outlived the harness (MEASURED: four node processes still
+# running after a 116/116 pass). A file crosses the subshell boundary; the trap reads it back.
+EXTRA_PID_FILE="${WORK}/mock.pids"
+: > "$EXTRA_PID_FILE"
+ep=""   # the EXIT trap below iterates the pid file into it
 start_mock() {
   sm_out=$(mktemp "${WORK}/mock.XXXXXX")
   node "$MOCK" --port 0 --dir "$FIXTURES" --tag "$TAG" "$@" >"$sm_out" 2>"${sm_out}.err" &
-  EXTRA_PIDS="${EXTRA_PIDS} $!"
+  printf '%s\n' "$!" >> "$EXTRA_PID_FILE"
   sm_i=0
   while ! grep -q '^LISTENING ' "$sm_out" 2>/dev/null; do
     sm_i=$((sm_i + 1))
@@ -131,7 +136,7 @@ start_mock() {
   done
   printf 'http://127.0.0.1:%s' "$(sed -n 's/^LISTENING //p' "$sm_out" | head -n1)"
 }
-trap 'kill "$SRV_PID" 2>/dev/null; wait "$SRV_PID" 2>/dev/null; for ep in $EXTRA_PIDS; do kill "$ep" 2>/dev/null; done; rm -rf "$WORK"' EXIT
+trap 'kill "$SRV_PID" 2>/dev/null; wait "$SRV_PID" 2>/dev/null; for ep in $(cat "$EXTRA_PID_FILE" 2>/dev/null); do kill "$ep" 2>/dev/null; wait "$ep" 2>/dev/null; done; rm -rf "$WORK"' EXIT
 
 # ---------------------------------------------------------------------------
 # Forcing the two terminal situations.
@@ -595,6 +600,11 @@ if [ "$can_detach" = yes ]; then
   assert_eq "21: the binary is -rwxr-xr-x, not world-writable" "-rwxr-xr-x" "$(ls -ld "${h}/.ongame/bin/ongame-cli" | cut -c1-10)"
   # shellcheck disable=SC2012
   assert_eq "21: the bin directory is drwxr-xr-x" "drwxr-xr-x" "$(ls -ld "${h}/.ongame/bin" | cut -c1-10)"
+  # The PARENT too: a world-writable ~/.ongame lets anyone who can reach it rename `bin` aside and drop in
+  # their own bin/ongame-cli — the executable on the user's PATH is captured without ever writing inside the
+  # 0755 directory. chmod on `bin` alone was not enough.
+  # shellcheck disable=SC2012
+  assert_eq "21: the install root is drwxr-xr-x, not world-writable" "drwxr-xr-x" "$(ls -ld "${h}/.ongame" | cut -c1-10)"
 else
   skip "21: cannot force a no-terminal session here"
 fi
@@ -644,6 +654,142 @@ case "${WORK}:${PATH}" in
       skip "23: cannot force a no-terminal session here"
     fi ;;
 esac
+
+echo ""
+echo "=== case 24: A -> B -> A leaves A winning (idempotency is keyed on the ACTIVE line for the CURRENT dir) ==="
+# The regression: the check was "is this directory mentioned anywhere in the file", and our own marker for
+# the OLD directory counted, so the third install did nothing and a new shell still resolved ongame-cli to B.
+# The proof is not the file's text, it is what a shell that READS the file resolves.
+if [ "$can_detach" = yes ]; then
+  h=$(fresh_home)
+  RUN_INSTALL_DIR="${h}/optA"; run_install "$h" detached "" >/dev/null 2>&1
+  RUN_INSTALL_DIR="${h}/optB"; run_install "$h" detached "" >/dev/null 2>&1
+  RUN_INSTALL_DIR="${h}/optA"; run_install "$h" detached ""; code=$?
+  RUN_INSTALL_DIR=""
+  # shellcheck disable=SC2016  # $1 belongs to the inner sh that sources the rc file
+  resolved=$(env -i HOME="$h" PATH="/usr/bin:/bin" sh -c '. "$1" >/dev/null 2>&1; command -v ongame-cli || true' _ "${h}/.zshrc")
+  assert_eq "24: exit code 0" "0" "$code"
+  assert_eq "24: a new shell resolves ongame-cli to the LAST install (A), not the middle one" "${h}/optA/bin/ongame-cli" "$resolved"
+  assert_eq "24: exactly one ongame-cli block in the rc file" "1" "$(count_marker "${h}/.zshrc")"
+  assert_eq "24: no ACTIVE line for B is left behind" "0" "$(grep -v '^[[:space:]]*#' "${h}/.zshrc" | grep -c "${h}/optB/bin" || true)"
+  assert_eq "24: the user's own rc lines are still there" "2" "$(grep -c -e '# my zshrc' -e 'export EDITOR=vim' "${h}/.zshrc")"
+else
+  skip "24: cannot force a no-terminal session here"
+fi
+
+echo ""
+echo "=== case 25: an install directory containing \$ and a space still resolves in a new shell ==="
+# The rc line is re-read BY A SHELL, so a double-quoted path is expanded again at that point: an install into
+# `literal$FOO with space` wrote a line the new shell could not resolve (and, with a space, split into two
+# arguments in the fish snippet). Single-quoting the directory is what makes this pass.
+if [ "$can_detach" = yes ]; then
+  h=$(fresh_home)
+  mkdir -p "${h}/.config/fish"
+  printf '# my fish config\n' > "${h}/.config/fish/config.fish"
+  odd_dir="${h}/literal\$FOO with space"
+  RUN_INSTALL_DIR="$odd_dir"; run_install "$h" detached ""; code=$?
+  RUN_INSTALL_DIR=""
+  # FOO is deliberately set in the reading shell: if the line is not literal, this is what it expands to.
+  # shellcheck disable=SC2016
+  resolved=$(env -i HOME="$h" FOO=surprise PATH="/usr/bin:/bin" sh -c '. "$1" >/dev/null 2>&1; command -v ongame-cli || true' _ "${h}/.zshrc")
+  assert_eq       "25: exit code 0" "0" "$code"
+  assert_eq       "25: the binary really is in the odd directory" "yes" "$([ -x "${odd_dir}/bin/ongame-cli" ] && echo yes || echo no)"
+  assert_eq       "25: a new shell resolves it despite the \$ and the space" "${odd_dir}/bin/ongame-cli" "$resolved"
+  assert_contains "25: the rc line quotes the directory as one literal word" "$(cat "${h}/.zshrc")" "export PATH='${odd_dir}/bin':\"\$PATH\""
+  assert_contains "25: the fish snippet quotes it too" "$(cat "${h}/.config/fish/conf.d/ongame.fish" 2>/dev/null)" "fish_add_path '${odd_dir}/bin'"
+else
+  skip "25: cannot force a no-terminal session here"
+fi
+
+echo ""
+echo "=== case 26: an unwritable rc file WARNS and still hands off to the binary ==="
+# The regression: any rc file the user cannot write (a read-only dotfile, a chezmoi/stow symlink into a
+# read-only store, an rc owned by another account) aborted the installer with `set -e` AFTER the binary was
+# installed — so the agent wiring, the step the user actually came for, never ran at all.
+if [ "$can_detach" = yes ] && [ "$(id -u)" != "0" ]; then
+  h=$(fresh_home)
+  cp "${h}/.zshrc" "${h}/.zshrc.orig"
+  chmod 444 "${h}/.zshrc"
+  run_install "$h" detached ""; code=$?
+  chmod 644 "${h}/.zshrc"
+  assert_eq       "26: exit code 0 (a warning, not an abort)" "0" "$code"
+  assert_contains "26: says which file it could not write" "$(cat "$ERR")" "could not update ${h}/.zshrc"
+  assert_contains "26: gives the line to paste" "$(cat "$ERR")" "export PATH='${h}/.ongame/bin'"
+  assert_eq       "26: the unwritable file is byte-identical" "yes" "$(cmp -s "${h}/.zshrc" "${h}/.zshrc.orig" && echo yes || echo no)"
+  assert_eq       "26: the binary is installed" "yes" "$([ -x "${h}/.ongame/bin/ongame-cli" ] && echo yes || echo no)"
+  assert_contains "26: the agent hand-off STILL happened" "$(argv_of "$h")" "$PREFIX"
+elif [ "$(id -u)" = "0" ]; then
+  skip "26: running as root, where an unwritable file is still writable"
+else
+  skip "26: cannot force a no-terminal session here"
+fi
+
+echo ""
+echo "=== case 27: no rc file at all -> the file THIS shell actually reads, not ~/.profile ==="
+# zsh does not read ~/.profile, so the old "create ~/.profile and report success" left the user with an
+# install that a new zsh could not find (MEASURED: `zsh -lic 'command -v ongame-cli'` exited 1).
+if [ "$can_detach" = yes ]; then
+  h=$(fresh_home_bare)
+  run_install "$h" detached "SHELL=/bin/zsh"; code=$?
+  assert_eq       "27: exit code 0" "0" "$code"
+  assert_eq       "27: ~/.zshrc created and patched once" "1" "$(count_marker "${h}/.zshrc")"
+  assert_eq       "27: ~/.profile NOT created" "no" "$([ -e "${h}/.profile" ] && echo yes || echo no)"
+  assert_contains "27: the message names the file it really wrote" "$(cat "$ERR")" "${h}/.zshrc"
+
+  # bash: the file depends on the platform, because macOS terminals start LOGIN shells (~/.bash_profile) and
+  # Linux terminals start interactive non-login ones (~/.bashrc).
+  case "$(uname -s)" in Darwin) want_bash_rc=".bash_profile"; other_bash_rc=".bashrc" ;; *) want_bash_rc=".bashrc"; other_bash_rc=".bash_profile" ;; esac
+  h2=$(fresh_home_bare)
+  run_install "$h2" detached "SHELL=/bin/bash"; code=$?
+  assert_eq "27: bash exit code 0" "0" "$code"
+  assert_eq "27: bash gets ~/${want_bash_rc}" "1" "$(count_marker "${h2}/${want_bash_rc}")"
+  assert_eq "27: and not ~/${other_bash_rc}" "no" "$([ -e "${h2}/${other_bash_rc}" ] && echo yes || echo no)"
+  assert_eq "27: bash: ~/.profile NOT created" "no" "$([ -e "${h2}/.profile" ] && echo yes || echo no)"
+
+  # plain sh keeps the old behaviour: ~/.profile is exactly the file it reads.
+  h3=$(fresh_home_bare)
+  run_install "$h3" detached "SHELL=/bin/sh" >/dev/null 2>&1
+  assert_eq "27: /bin/sh still gets ~/.profile" "1" "$(count_marker "${h3}/.profile")"
+else
+  skip "27: cannot force a no-terminal session here"
+fi
+
+echo ""
+echo "=== case 28: --no-path-update (and ONGAME_NO_PATH_UPDATE) install without touching any startup file ==="
+if [ "$can_detach" = yes ]; then
+  h=$(fresh_home)
+  run_install "$h" detached "" --no-path-update; code=$?
+  assert_eq           "28: exit code 0" "0" "$code"
+  assert_eq           "28: the rc file is untouched" "0" "$(count_marker "${h}/.zshrc")"
+  assert_contains     "28: says the PATH update was skipped" "$(cat "$ERR")" "Skipping the PATH update"
+  assert_contains     "28: prints the line to add by hand" "$(cat "$ERR")" "export PATH='${h}/.ongame/bin'"
+  assert_eq           "28: the binary is installed" "yes" "$([ -x "${h}/.ongame/bin/ongame-cli" ] && echo yes || echo no)"
+  assert_contains     "28: the agent hand-off still happened" "$(argv_of "$h")" "$PREFIX"
+  assert_not_contains "28: --no-path-update is NOT forwarded to the binary" "$(argv_of "$h")" "[--no-path-update]"
+
+  h2=$(fresh_home)
+  run_install "$h2" detached "ONGAME_NO_PATH_UPDATE=1"; code=$?
+  assert_eq       "28: env form exit code 0" "0" "$code"
+  assert_eq       "28: env form leaves the rc file untouched" "0" "$(count_marker "${h2}/.zshrc")"
+  assert_contains "28: env form says so too" "$(cat "$ERR")" "Skipping the PATH update"
+else
+  skip "28: cannot force a no-terminal session here"
+fi
+
+echo ""
+echo "=== case 29: an UPPER-CASE checksums.txt is accepted (sha256 hex has no case) ==="
+# certutil / Get-FileHash publish upper case. A byte-for-byte compare rejects a perfectly good binary;
+# install.ps1 has always compared with -ine, and install.sh now folds case too.
+UPPER_ROOT=$(start_mock --upper-checksum) || UPPER_ROOT=""
+if [ -n "$UPPER_ROOT" ]; then
+  h=$(fresh_home)
+  RUN_MOCK_ROOT="$UPPER_ROOT"; run_install "$h" plain ""; code=$?; RUN_MOCK_ROOT=""
+  assert_eq           "29: exit code 0" "0" "$code"
+  assert_not_contains "29: not reported as a mismatch" "$(cat "$ERR")" "checksum mismatch"
+  assert_eq           "29: binary installed and executable" "yes" "$([ -x "${h}/.ongame/bin/ongame-cli" ] && echo yes || echo no)"
+else
+  skip "29: could not start the --upper-checksum mock"
+fi
 
 echo ""
 echo "=================================================="

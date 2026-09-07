@@ -45,6 +45,12 @@ const failMetadata = has('fail-metadata');
  * nothing. The target is real and serves the file, so a PASS means the guard refused, not that the URL 404ed.
  */
 const redirectHttp = has('redirect-http');
+/**
+ * Publish the (correct) hashes in UPPER CASE. sha256 is hex and its case carries no meaning, but a consumer
+ * that compares the two strings byte-for-byte rejects a perfectly good binary — the shape a checksums.txt
+ * produced by certutil or PowerShell's Get-FileHash really has.
+ */
+const upperChecksum = has('upper-checksum');
 
 const assets = () => readdirSync(dir).filter((f) => statSync(join(dir, f)).isFile() && f !== 'checksums.txt');
 
@@ -52,7 +58,8 @@ function checksumsBody() {
   return assets()
     .map((name) => {
       const real = createHash('sha256').update(readFileSync(join(dir, name))).digest('hex');
-      const hash = badChecksum ? '0'.repeat(64) : real;
+      let hash = badChecksum ? '0'.repeat(64) : real;
+      if (upperChecksum) hash = hash.toUpperCase();
       // The real file is written by `cd dist-bin && shasum -a 256 ongame-cli-*`, i.e. bare basenames and TWO
       // spaces. Reproduced exactly so the consumers' basename matching is tested against the real shape.
       return omitChecksum ? null : `${hash}  ${name}`;

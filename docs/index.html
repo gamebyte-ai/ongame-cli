@@ -248,6 +248,12 @@
       and asks which to set up. Then open one and say <code>/make-game a cozy match-3 with a weather twist</code>
       (<code>$ongame-make-game</code> in Codex; <code>make-game:</code> in Amp).
     </p>
+    <p class="install-then">
+      Browser verification — the step that proves a build really runs before anything is called playable —
+      uses a bundled Playwright server that needs <strong>Node.js&nbsp;18+</strong> on your
+      <code>PATH</code>. Without it a build still runs end to end, but it is reported as
+      <code>unverified</code> rather than playable.
+    </p>
 
     <!-- The no-prompt forms. Everything after `sh -s --` reaches the installer as arguments (POSIX `sh -s`), and the
          environment-variable form is the one that also works for the Windows one-liner, where `irm | iex` has no
@@ -299,22 +305,21 @@
           </tbody>
         </table>
       </div>
-      <p class="pipe-note"><strong>full</strong> — the game-making tools, the <code>/make-game</code>, <code>/account</code> and <code>/publish</code> commands, the skills behind them, and session hooks. <strong>commands</strong> — the tools, the three commands however this agent invokes them, and a short note in the agent's own instructions. Whatever you use, <code>ongame-cli account</code> in any terminal shows your plan and usage, and the install summary tells you, per agent, which of these you got and what to type.</p>
+      <p class="pipe-note"><strong>full</strong> — the game-making tools, the <code>/make-game</code>, <code>/account</code> and <code>/publish</code> commands, the skills behind them, and session hooks where the agent has them (today: Codex). <strong>commands</strong> — the tools, the three commands however this agent invokes them, and a short note in the agent's own instructions. Whatever you use, <code>ongame-cli account</code> in any terminal shows your plan and usage, and the install summary tells you, per agent, which of these you got and what to type.</p>
     </section>
 
     <!-- pipeline -->
     <section id="pipeline">
-      <p class="sec-label">The pipeline — 9 phases, your call at every gate</p>
+      <p class="sec-label">The pipeline — 8 phases, your call at every gate</p>
       <div class="pipe">
         <div class="phase"><span class="n">01</span><h3>Research</h3><p>Find the angle worth building, not the obvious clone.</p></div>
         <div class="phase"><span class="n">02</span><h3>Concept</h3><p>The hook, the core loop, and a visual first look — you approve it.</p></div>
         <div class="phase"><span class="n">03</span><h3>Design</h3><p>A real game-design doc scoped to what you actually want.</p></div>
-        <div class="phase"><span class="n">04</span><h3>Code</h3><p>A fully-playable build first — mechanic before polish.</p></div>
-        <div class="phase"><span class="n">05</span><h3>Art</h3><p>Consistent, generated sprites, UI and backgrounds — real, not gray-box.</p></div>
-        <div class="phase"><span class="n">06</span><h3>Sound</h3><p>SFX and music wired into the moments that matter.</p></div>
+        <div class="phase"><span class="n">04</span><h3>Art</h3><p>Consistent, generated sprites, UI and backgrounds — real, not gray-box.</p></div>
+        <div class="phase"><span class="n">05</span><h3>Sound</h3><p>SFX and music wired into the moments that matter.</p></div>
+        <div class="phase"><span class="n">06</span><h3>Code</h3><p>A fully-playable build — the mechanic, with the art and audio already in hand.</p></div>
         <div class="phase"><span class="n">07</span><h3>Levels</h3><p>A difficulty curve tuned for retention, not random.</p></div>
-        <div class="phase"><span class="n">08</span><h3>Polish</h3><p>Juice, menus, transitions — the feel that makes it land.</p></div>
-        <div class="phase"><span class="n">09</span><h3>Deploy</h3><p>Built and shipped — a real URL you can play and share.</p></div>
+        <div class="phase"><span class="n">08</span><h3>Polish</h3><p>Juice, menus, transitions — the feel that makes it land. Then <code>/publish</code> puts it on a real URL.</p></div>
       </div>
       <p class="pipe-note"><strong>You stay in control.</strong> ongame pauses at every gate to show you what it made and get your yes before moving on — and it verifies the game really runs in a browser before ever calling it playable.</p>
     </section>
