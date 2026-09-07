@@ -13,8 +13,23 @@
 #      %USERPROFILE%\.ongame\bin\ongame-cli.exe.
 #   2. Add that bin directory to the PER-USER PATH (registry, idempotent, non-truncating) and broadcast
 #      the change so newly launched processes pick it up.
-#   3. Hand off to `ongame-cli install` — Claude Code plugin registration, Codex `[mcp_servers.ongame]`,
-#      the version file.
+#   3. Hand off to `ongame-cli install` — the binary detects the coding agents present on this machine
+#      (Claude Code, Codex, Gemini CLI, Cursor, Windsurf, Copilot CLI, opencode, Amp), asks which of them
+#      to set up when it has a console to ask on (the usual ones are pre-selected; Enter accepts), wires
+#      each one, verifies by reading back, prints per agent what to type, and records the version file.
+#
+# Choosing agents without the prompt — the same controls install.sh has, as PowerShell parameters:
+#
+#   $env:ONGAME_AGENTS='codex,gemini'; irm https://cli.ongame.ai/install.ps1 | iex     # env var (one-liner)
+#   iex "& {$(irm https://cli.ongame.ai/install.ps1)} -All"                            # parameters (Scoop's form)
+#   ongame-cli install --agents codex,gemini                                           # re-run, any time later
+#
+#   -Agents a,b   set up exactly these agents         -All        set up every agent detected
+#   -Yes          accept the defaults, never ask      -NoAgents   install the binary only (was -NoPluginSetup)
+#
+# They are forwarded to `ongame-cli install` as `--agents a,b` / `--all` / `--yes` / `--no-agents`; an explicit
+# -Agents beats $env:ONGAME_AGENTS. Re-running `ongame-cli install` on its own re-detects and offers again —
+# that is also how an agent installed later gets added.
 #
 # macOS/Linux have their own installer: `curl -fsSL https://cli.ongame.ai/install.sh | sh`.
 #
@@ -23,10 +38,27 @@
 # chosen for that intersection; see the individual comments before "simplifying" any of them.
 
 param(
-  # `irm ... | iex` cannot pass parameters (the pipeline hands `iex` a plain string), so both switches
-  # are also readable from the environment — that is the ONLY way to reach them in the documented
-  # one-liner form. `$env:ONGAME_NO_PATH_UPDATE=1; irm https://cli.ongame.ai/install.ps1 | iex`
+  # `irm ... | iex` cannot pass parameters (the pipeline hands `iex` a plain string), so EVERY control below
+  # is also readable from the environment — that is the ONLY way to reach them there:
+  # `$env:ONGAME_AGENTS` (-Agents), `$env:ONGAME_ALL` (-All), `$env:ONGAME_YES` (-Yes),
+  # `$env:ONGAME_NO_AGENTS` (-NoAgents), `$env:ONGAME_NO_PATH_UPDATE` (-NoPathUpdate). Any non-empty value
+  # counts. Every parameter also works in the invocation form that DOES carry arguments (the one Scoop
+  # documents): `iex "& {$(irm https://cli.ongame.ai/install.ps1)} -Agents codex,gemini -Yes"`.
   [switch]$NoPathUpdate,
+  # Which coding agents `ongame-cli install` sets up. `[string[]]`, NOT `[string]`: PowerShell parses an
+  # unquoted `-Agents claude,codex` as an ARRAY (the comma is the array operator), and a `[string]` parameter
+  # would coerce that array by joining it with SPACES — the binary would receive "claude codex". Declared as
+  # an array and re-joined with commas below, `-Agents claude,codex` and `-Agents 'claude,codex'` both arrive
+  # as `claude,codex`.
+  [string[]]$Agents = @(),
+  # Set up every coding agent detected on this machine.
+  [switch]$All,
+  # Accept the default selection without asking.
+  [switch]$Yes,
+  # Install the binary only; run `ongame-cli install` later to set up coding agents.
+  [switch]$NoAgents,
+  # The previous name of -NoAgents. Kept as an alias, and via $env:ONGAME_NO_PLUGIN_SETUP, because users have
+  # already read it in the README — renaming a documented switch out from under them is a support ticket.
   [switch]$NoPluginSetup
 )
 
@@ -36,8 +68,29 @@ $ErrorActionPreference = 'Stop'
 # have the problem, but silencing it is harmless there.
 $ProgressPreference = 'SilentlyContinue'
 
-if (-not $NoPathUpdate -and $env:ONGAME_NO_PATH_UPDATE) { $NoPathUpdate = $true }
-if (-not $NoPluginSetup -and $env:ONGAME_NO_PLUGIN_SETUP) { $NoPluginSetup = $true }
+# Every selection control has an environment form, because `irm | iex` cannot pass parameters and the
+# environment is the ONLY way to reach them in the one-liner. Without ONGAME_ALL / ONGAME_YES /
+# ONGAME_NO_AGENTS a Windows user simply could not do what `sh -s -- --all` / `--no-agents` do on POSIX.
+# A parameter given explicitly always wins; the env var only fills in what was not passed.
+#
+# `$Explicit` is the set of parameters that were actually PASSED. Explicitness is ContainsKey, NOT the
+# switch's value: `-NoAgents:$false` and `-NoAgents` both bind the parameter and only the value differs, so
+# the old `-not $NoAgents` test could not tell "not passed" from "passed as false" — with
+# `$env:ONGAME_NO_AGENTS=1` set, an explicit `-NoAgents:$false` still sent `--no-agents`, reversing the
+# documented precedence in the one case where the user was most explicit.
+$Explicit = $PSBoundParameters
+if (-not $Explicit.ContainsKey('NoPathUpdate') -and $env:ONGAME_NO_PATH_UPDATE) { $NoPathUpdate = $true }
+if (-not $Explicit.ContainsKey('All')  -and $env:ONGAME_ALL) { $All = $true }
+if (-not $Explicit.ContainsKey('Yes')  -and $env:ONGAME_YES) { $Yes = $true }
+# -NoPluginSetup is the retired spelling of -NoAgents; it and both environment forms all mean the same thing,
+# and an explicit -NoAgents (either value) is more specific than any of them.
+if (-not $Explicit.ContainsKey('NoAgents') -and ($NoPluginSetup -or $env:ONGAME_NO_AGENTS -or $env:ONGAME_NO_PLUGIN_SETUP)) {
+  $NoAgents = $true
+}
+# An explicit -Agents beats the env var (flag > env > prompt > defaults — the Homebrew/deno precedence). The
+# env var is one string, so it becomes a one-element array and the join below leaves it untouched.
+if (-not $Explicit.ContainsKey('Agents') -and $env:ONGAME_AGENTS) { $Agents = @($env:ONGAME_AGENTS) }
+$AgentList = ($Agents -join ',')
 
 # .NET Framework's default protocol selection on a stock 5.1 does not include TLS 1.2, and github.com /
 # api.github.com refuse anything older — without this, every web call below fails with a bare
@@ -244,47 +297,55 @@ try {
   # open right now), and Windows will not let a running image be overwritten or deleted — but it WILL let
   # it be renamed aside (both MEASURED on a real windows-latest runner). This is the same three-step
   # strategy the binary's own updater uses (cli/src/updater.ts, swapIntoPlace); keep them in step.
-  #   a. Try the plain move-over first. Nothing holding the target (the common case) → one atomic rename.
-  #   b. Otherwise rename the target aside to `.old-<ms>-<rand>` and move the new file in.
-  #   c. If (b)'s second move fails, PUT THE OLD ONE BACK — leaving the target missing would break every
-  #      future launch, and a broken existing install is far worse than a failed upgrade.
-  # The `.old-*` aside cannot be deleted while the old process still holds it (EPERM, also measured); the
-  # binary sweeps those at the start of a later launch.
+  #   a. If something is already installed, rename it aside to `.old-<ms>-<rand>` FIRST.
+  #   b. Move the new file into the (now empty) target path.
+  #   c. If (b) fails, PUT THE OLD ONE BACK — leaving the target missing would break every future launch,
+  #      and a broken existing install is far worse than a failed upgrade.
+  #
+  # Why not `Move-Item -Force` over the target: -Force is not an atomic replace. It DELETES the destination
+  # and then moves (PowerShell's FileSystemProvider does exactly that), so an interruption or a failure
+  # between the two leaves NO ongame-cli at all — and there is nothing left to detect that from, which is
+  # how the previous version could exit without restoring anything. Renaming aside first keeps a working
+  # copy on disk at every instant, which is what makes (c) possible.
+  #
+  # The `.old-*` aside cannot be deleted while the old process still holds it (EPERM, also measured); it is
+  # removed here when it can be, and the binary sweeps the rest at the start of a later launch.
   # -------------------------------------------------------------------------
-  $swapped = $false
-  try {
-    Move-Item -LiteralPath $stagedBin -Destination $BinPath -Force   # (a)
-    $swapped = $true
-  } catch {
-    # Nothing to move aside means (a) failed for some OTHER reason (a locked or read-only directory,
-    # a policy block) — there is no recovery dance to attempt, so say so directly.
-    if (-not (Test-Path -LiteralPath $BinPath)) {
-      Stop-Install "could not install $BinPath — $($_.Exception.Message)"
+  $movedAside = $null
+  if (Test-Path -LiteralPath $BinPath) {
+    $movedAside = Join-Path $BinDir ('.old-' + [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() + '-' + [System.IO.Path]::GetRandomFileName())
+    try {
+      Move-Item -LiteralPath $BinPath -Destination $movedAside                                            # (a)
+    } catch {
+      Stop-Install "could not move the existing ongame-cli aside to replace it ($($_.Exception.Message)) — your existing install is untouched and still works. Close any open Claude Code / Codex session and re-run this installer."
     }
   }
 
-  if (-not $swapped) {
-    $movedAside = Join-Path $BinDir ('.old-' + [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() + '-' + [System.IO.Path]::GetRandomFileName())
-    Write-Step 'An ongame-cli process is holding the installed binary — renaming it aside and installing over it (close any open Claude Code / Codex session so the leftover can be swept).'
-    try {
-      Move-Item -LiteralPath $BinPath -Destination $movedAside      # (b1)
-    } catch {
-      Stop-Install "could not move the running ongame-cli aside to replace it ($($_.Exception.Message)) — your existing install is untouched and still works. Close any open Claude Code / Codex session and re-run this installer."
-    }
-    $swapError = $null
-    try {
-      Move-Item -LiteralPath $stagedBin -Destination $BinPath       # (b2)
-      $swapped = $true
-    } catch {
-      $swapError = $_.Exception.Message
-    }
-    if (-not $swapped) {
+  $swapError = $null
+  try {
+    Move-Item -LiteralPath $stagedBin -Destination $BinPath                                               # (b)
+  } catch {
+    $swapError = $_.Exception.Message
+  }
+
+  if ($swapError) {
+    if ($movedAside) {
       $restoreError = $null
-      try { Move-Item -LiteralPath $movedAside -Destination $BinPath } catch { $restoreError = $_.Exception.Message }  # (c)
+      try { Move-Item -LiteralPath $movedAside -Destination $BinPath } catch { $restoreError = $_.Exception.Message }   # (c)
       if ($restoreError) {
         Stop-Install "could not install the new binary ($swapError) AND could not restore the previous one ($restoreError). Your working ongame-cli is saved at $movedAside — rename it back to $BinPath. The binary also restores the newest aside automatically on its next launch."
       }
       Stop-Install "could not install the new binary ($swapError) — the previous one was restored and still works."
+    }
+    Stop-Install "could not install $BinPath — $swapError"
+  }
+
+  if ($movedAside) {
+    # Gone in the common case (nothing was holding it). Still there = a live ongame-cli process has the old
+    # image open; that is not a failure, but say so, because the leftover only disappears once it is closed.
+    Remove-Item -LiteralPath $movedAside -Force -ErrorAction SilentlyContinue
+    if (Test-Path -LiteralPath $movedAside) {
+      Write-Step "An ongame-cli process is still holding the previous binary, so it was left at $movedAside — close any open Claude Code / Codex session and it will be swept on the next launch."
     }
   }
 } finally {
@@ -309,13 +370,14 @@ if (-not $probe.Launched) {
   Stop-Install "$BinPath was installed but could not be executed ($($probe.Error)) — antivirus, SmartScreen or an execution policy is blocking it. Allow that path and re-run this installer."
 }
 if ($probe.Output -notmatch 'ongame-cli') {
-  Write-Step "Warning: $BinPath ran but did not print the expected usage line. Continuing; if ongame does not appear in Claude Code, re-run this installer."
+  Write-Step "Warning: $BinPath ran but did not print the expected usage line. Continuing; if ongame does not appear in your coding agent, re-run this installer."
 }
 
 # The release tag the updater compares against to decide whether to self-update. `ongame-cli install`
-# below writes the same bytes to the same path (install.sh has the same overlap) — kept here as well so
-# -NoPluginSetup still leaves the updater a correct baseline instead of forcing a redundant ~100MB
-# re-download on the first launch. The NAME is a contract with cli/src/updater.ts, which derives it as
+# below writes the same bytes to the same path (install.sh has the same overlap) — kept here as well so a
+# wiring step that could not be launched (antivirus, execution policy) still leaves the updater a correct
+# baseline instead of forcing a redundant ~100MB re-download on the first launch. The NAME is a contract
+# with cli/src/updater.ts, which derives it as
 # `.<binary file name>.version` — on Windows that includes the `.exe`.
 # WriteAllText with an explicit no-BOM UTF8: Windows PowerShell 5.1's Set-Content/Out-File -Encoding utf8
 # prepends a BOM, and the updater compares the file's contents to the release tag as a string — a BOM
@@ -418,26 +480,51 @@ if ($NoPathUpdate) {
 # ---------------------------------------------------------------------------
 # 4. Post-install wiring — HANDED TO THE BINARY.
 #
-# `ongame-cli install` registers the Claude Code plugin (marketplace + plugin, both list-then-act guarded
-# so re-running never duplicates anything, and always via the full HTTPS marketplace URL), patches Codex
-# CLI's `[mcp_servers.ongame]` if %CODEX_HOME%/%USERPROFILE%\.codex exists — on Windows with the ABSOLUTE
-# path to ongame-cli.exe, because Codex resolves `command` with a plain PATH lookup that does not apply
-# PATHEXT — and records the installed release tag.
+# `ongame-cli install` detects the coding agents on this machine, asks which to set up when it has a console
+# to ask on (the forwarded selection flags settle it without asking), wires each one — every write is
+# read-first, so a re-run reports "already wired" and changes nothing — verifies by reading back, prints per
+# agent what to type, and records the installed release tag. Where a platform needs the ABSOLUTE path to
+# ongame-cli.exe rather than a PATH lookup (Codex resolves its `command` without PATHEXT), the binary knows.
 #
 # Why it lives in the binary and not here: install.sh needs exactly the same logic, and two copies of it
 # (one sh, one PowerShell) would drift within a release or two. This script keeps only what is genuinely
 # per-platform. The subcommand reports every outcome on stderr and ALWAYS exits 0 by contract, so an
-# absent Codex or a broken `claude` CLI can never turn a good install into a failed one.
+# absent agent or a broken agent CLI can never turn a good install into a failed one.
+#
+# THE CONSOLE HAND-OFF — the twin of install.sh's /dev/tty step, which Windows makes simpler: under
+# `irm … | iex` the pipeline carries the script TEXT into `iex`, the process's stdin is never redirected, and
+# a native child started with `&` inherits the console — so the binary can prompt on its own stdin with no
+# /dev/tty analogue needed. The one thing this script must decide is when there is NOBODY to ask: stdin
+# redirected (a `pwsh -File … < NUL`, a scheduled task, a remoting session) or `CI` set. Then `--yes` is
+# appended so the binary takes the defaults and can never block. `[Console]::IsInputRedirected` is the
+# documented probe (.NET 4.5+, so Windows PowerShell 5.1 has it); should it throw in an exotic host, the safe
+# reading is "not interactive" — a wrong default is recoverable with `ongame-cli install`, a hung installer
+# is not. The binary owns the prompt itself; this script never calls Read-Host.
 # ---------------------------------------------------------------------------
-if ($NoPluginSetup) {
-  Write-Step ''
-  Write-Step 'Skipping Claude Code / Codex wiring (-NoPluginSetup). Run `ongame-cli install` yourself when you want it.'
-} else {
-  Write-Step ''
-  $wiring = Invoke-Native -FilePath $BinPath -Arguments @('install', '--version', $tagName)
-  if (-not $wiring.Launched) {
-    Write-Step "Could not run ``$BinPath install`` ($($wiring.Error)) — the binary is installed; run it yourself to finish wiring up Claude Code and Codex."
+Write-Step ''
+$wiringArgs = @('install', '--version', $tagName)
+$needTty = $true   # rustup-init.sh's name: does the binary still have a question to ask?
+if ($AgentList) { $wiringArgs += @('--agents', $AgentList); $needTty = $false }
+if ($All)       { $wiringArgs += '--all';                    $needTty = $false }
+if ($Yes)       { $wiringArgs += '--yes';                    $needTty = $false }
+if ($NoAgents)  { $wiringArgs += '--no-agents';              $needTty = $false }
+if ($needTty) {
+  # Two different reasons not to ask, reported as two different messages — same split, same words as
+  # install.sh. Collapsing them told anyone debugging a CI install that there was "no interactive console",
+  # which is not what happened and sends them looking at the wrong thing.
+  $redirected = $true
+  try { $redirected = [Console]::IsInputRedirected } catch { $redirected = $true }
+  if ($env:CI) {
+    Write-Step 'CI is set — using the default agent selection without asking. Change it any time with:  ongame-cli install'
+    $wiringArgs += '--yes'
+  } elseif ($redirected) {
+    Write-Step 'No interactive console to ask on — using the default agent selection. Change it any time with:  ongame-cli install'
+    $wiringArgs += '--yes'
   }
+}
+$wiring = Invoke-Native -FilePath $BinPath -Arguments $wiringArgs
+if (-not $wiring.Launched) {
+  Write-Step "Could not run ``$BinPath install`` ($($wiring.Error)) — the binary is installed; run ``ongame-cli install`` yourself to set up your coding agents."
 }
 
 Write-Step ''

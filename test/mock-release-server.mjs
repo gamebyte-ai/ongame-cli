@@ -39,6 +39,18 @@ const omitChecksum = has('omit-checksum');
 const badChecksum = has('bad-checksum');
 /** Fail the release-metadata call, to exercise "GitHub unreachable → keep the working binary". */
 const failMetadata = has('fail-metadata');
+/**
+ * 302 every asset download to a plain `http://` URL — the "HTTPS-only" downgrade path. A consumer that
+ * follows redirects across schemes takes the bait; one that pins the redirect protocol refuses and installs
+ * nothing. The target is real and serves the file, so a PASS means the guard refused, not that the URL 404ed.
+ */
+const redirectHttp = has('redirect-http');
+/**
+ * Publish the (correct) hashes in UPPER CASE. sha256 is hex and its case carries no meaning, but a consumer
+ * that compares the two strings byte-for-byte rejects a perfectly good binary — the shape a checksums.txt
+ * produced by certutil or PowerShell's Get-FileHash really has.
+ */
+const upperChecksum = has('upper-checksum');
 
 const assets = () => readdirSync(dir).filter((f) => statSync(join(dir, f)).isFile() && f !== 'checksums.txt');
 
@@ -46,7 +58,8 @@ function checksumsBody() {
   return assets()
     .map((name) => {
       const real = createHash('sha256').update(readFileSync(join(dir, name))).digest('hex');
-      const hash = badChecksum ? '0'.repeat(64) : real;
+      let hash = badChecksum ? '0'.repeat(64) : real;
+      if (upperChecksum) hash = hash.toUpperCase();
       // The real file is written by `cd dist-bin && shasum -a 256 ongame-cli-*`, i.e. bare basenames and TWO
       // spaces. Reproduced exactly so the consumers' basename matching is tested against the real shape.
       return omitChecksum ? null : `${hash}  ${name}`;
@@ -68,9 +81,32 @@ const server = createServer((req, res) => {
     return;
   }
 
+  // The downgrade target: same file, reached without the redirect. Kept OUT of the redirect branch so the
+  // redirect can point at something that genuinely works.
+  if (path.startsWith('/plain/')) {
+    if (path === '/plain/checksums.txt') {
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      res.end(checksumsBody());
+      return;
+    }
+    try {
+      const body = readFileSync(join(dir, path.slice('/plain/'.length)));
+      res.writeHead(200, { 'content-type': 'application/octet-stream', 'content-length': body.length });
+      res.end(body);
+    } catch {
+      res.writeHead(404); res.end('no such asset');
+    }
+    return;
+  }
+
   const prefix = `/${repo}/releases/download/${tag}/`;
   if (path.startsWith(prefix)) {
     const name = path.slice(prefix.length);
+    if (redirectHttp) {
+      res.writeHead(302, { location: `http://127.0.0.1:${server.address().port}/plain/${name}` });
+      res.end();
+      return;
+    }
     if (name === 'checksums.txt') {
       res.writeHead(200, { 'content-type': 'text/plain' });
       res.end(checksumsBody());

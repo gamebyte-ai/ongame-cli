@@ -1,28 +1,33 @@
-# ongame-cli — Codex CLI MCP server registration.
+# ongame — what `codex mcp add` writes for the ongame MCP server (OpenAI Codex CLI).
 #
-# CONFIDENCE LEVEL: verified, not guessed — checked directly against a real, live
-# `~/.codex/config.toml` (this machine, 2026-07-21). Every existing `[mcp_servers.X]` stdio entry in
-# that file uses exactly this shape (`command`, `args`, optional `startup_timeout_sec`, optional
-# `.env` sub-table) — e.g. `[mcp_servers.context7]` → `command = "npx"`, `args = ["-y",
-# "@upstash/context7-mcp"]`, `startup_timeout_sec = 120.0`. `command = "ongame-cli"` (a bare name,
-# not an absolute path) resolves via PATH exactly the way `command = "npx"`/`"uvx"`/`"node"` already
-# do for other entries in that same file — which is why install.sh's PATH patch (step 3) must run
-# before this section, not after.
+# THIS FILE IS DOCUMENTATION, NOT SOMETHING TO APPEND. The installer no longer pastes a block into your
+# config; it runs
 #
-# THIS FILE IS DOCUMENTATION, NOT THE IMPLEMENTATION. install.sh used to fetch it over the network and
-# append it; the block is now emitted by `ongame-cli install` (cli/src/install.ts, `codexSnippet`) so that
-# install.sh and install.ps1 share one implementation instead of two that drift. Keep the two in step if you
-# change either — cli/test/install.test.ts asserts this exact shape.
+#     codex mcp add ongame -- /ABSOLUTE/PATH/.ongame/bin/ongame-cli mcp
 #
-# One deliberate per-platform difference the binary applies: on WINDOWS `command` is the ABSOLUTE path to
-# `ongame-cli.exe` (e.g. `C:\\Users\\you\\.ongame\\bin\\ongame-cli.exe`, backslashes escaped for TOML),
-# because Codex resolves `command` with a plain PATH lookup that does not apply PATHEXT — a bare
-# `ongame-cli` finds nothing there. POSIX keeps the bare name below.
+# and Codex itself writes the block below into `$CODEX_HOME/config.toml` (default `~/.codex/config.toml`,
+# `%USERPROFILE%\.codex\config.toml` on Windows). Verified against Codex CLI 0.153.4: `codex mcp add` takes
+# an absolute command path (your shell expands `~` before Codex sees it), writes exactly `command` + `args`,
+# prints `Added global MCP server 'ongame'.`, and a second add for the same name silently overwrites the
+# first — so re-running the installer is safe, but it also discards any keys you added by hand under this
+# block (re-add them afterwards).
 #
-# If you're wiring this up by hand, copy the block below into your own config.toml (idempotently — the
-# installer checks for the `[mcp_servers.ongame]` header first and never duplicates it).
+#   Check it:   codex mcp get ongame --json     (exit 0 + JSON when registered; exit 1 when not)
+#   Remove it:  codex mcp remove ongame
+#
+# WHY AN ABSOLUTE PATH ON EVERY PLATFORM (not only Windows): Codex resolves `command` with a plain lookup
+# when the server starts. A bare `ongame-cli` relies on Codex inheriting the PATH your shell profile set up —
+# true in a terminal, not from an IDE or a launcher — and on Windows the lookup does not apply PATHEXT, so
+# the bare name finds nothing at all. The earlier installer appended a bare-name block to config.toml by hand
+# and on at least one machine the block never landed, leaving Codex with raw tools and no `ongame` server.
+# `codex mcp add` with the absolute path closes both failure modes and lets Codex own its own file.
+#
+# STARTUP TIMEOUT: `codex mcp add` cannot set `startup_timeout_sec`, and Codex's default is 10 seconds.
+# ongame-cli checks for a newer release when it starts, so on a slow connection the first launch of a
+# session can miss that window and Codex reports the `ongame` server as timed out. If that happens, add the
+# commented line below under the block by hand — Codex keeps it until the next `codex mcp add ongame`.
 
 [mcp_servers.ongame]
-command = "ongame-cli"
+command = "/Users/you/.ongame/bin/ongame-cli"   # Windows: "C:\\Users\\you\\.ongame\\bin\\ongame-cli.exe"
 args = ["mcp"]
-startup_timeout_sec = 120.0
+# startup_timeout_sec = 120.0   # optional — see STARTUP TIMEOUT above
