@@ -75,7 +75,7 @@ description: Game concept — vision, core loop, target audience + visual placeh
    as `editOf` for the whole set. **Intent decides fidelity (your judgment, not a rule):** if the user wants a 1:1
    remake of the shared game → derive visuals that MATCH the reference ("recreate this exact scene and style"); if
    they want their own game inspired by it → ADAPT ("in the style of the reference, but <our game's own identity>").
-   Forge gated/unavailable → gray-box placeholder (flag it; never present gray-box as done).
+   Asset generation gated/unavailable → gray-box placeholder (flag it; never present gray-box as done).
 3b. **LOCK THE LOOK before any asset wave — write `docs/ART_DIRECTION.md`.** Palette, **atmosphere numbers**
    (fog colour / start / end, ambient, exposure), silhouette rules, material language, and what the game must NOT
    look like. Where a visual reference exists — the user's screenshot, the anchor you just generated — take those

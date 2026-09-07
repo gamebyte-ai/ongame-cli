@@ -59,7 +59,7 @@ tool generates PURE retention-math**, and you integrate it into the game code.
      (ongame). **Valid** = the checks above hold: length matches, a generally-increasing (monotonic-ish) ramp with
      no `NaN`/holes/missing fields, level-0 easy+rewarding, ≥1 relief level. Judge-independent backbone, distinct from the
      gate's self-judged `phase_quality`. Fail-soft: a failed `brain_score` NEVER blocks the build; no-op if
-     `buildId`/brain is absent.
+     `buildId` is absent or memory is unavailable.
 
 6. **Emit the phase's headline decision (observability) — BEFORE `state_advance`:**
    ```

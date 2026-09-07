@@ -5,7 +5,7 @@ description: Audio phase — extract the sound manifest from GAME_DESIGN, genera
 # Audio Phase (vision phase 6 — production)
 
 Goal: complete the game's **feel** with sound. UI clicks, match/cascade pops, win/lose
-stingers, and looped music. Sound is an **optional layer**: if forge is absent or a piece
+stingers, and looped music. Sound is an **optional layer**: if sound generation is unavailable or a piece
 cannot be generated, the game stays **silent but fully playable** (gray-box parity — the same
 discipline as the assets phase). The sound toggle in Settings controls only the audio output,
 not the gameplay.
@@ -29,7 +29,7 @@ not the gameplay.
 Read `docs/GAME_DESIGN.md`, generate the **sound manifest** based on the game's core loop. Manifest =
 an array of `{ id, role, kind, text, durationSeconds?, loop }` (write to `audio/manifest.json` — the anchor for the
 code phase and tests). Each row carries an `id` (kebab-case, becomes the file name) and a `text`
-(the English sound-description prompt that goes to forge).
+(the English sound-description prompt sent to sound generation).
 
 Canonical roles — skip if not in the design, add if present (this list is a baseline; extend based on the design genre):
 
@@ -140,7 +140,7 @@ toggle works. The toggle state is persistent via `storageService` (SettingsBindi
 - **`trace_emit` the headline `phase.output`** (ONE per phase — the audio phase's main decision; nests as a `generation` observation under the phase span, so the eval can read context→artifact→why). Emit it **after** the build is tsc-clean + the manifest is written, **before** `state_advance`:
   ```
   trace_emit(buildId, name="phase.output", payload={
-    input:    <the CONTEXT this phase consumed — the GAME_DESIGN.md core loop / genre / core verb that the sound manifest was derived from, plus the prior-phase inputs used (the game's interactive verbs + win/lose screens that the roles map to, and whether forge/sound_request was reachable)>,
+    input:    <the CONTEXT this phase consumed — the GAME_DESIGN.md core loop / genre / core verb that the sound manifest was derived from, plus the prior-phase inputs used (the game's interactive verbs + win/lose screens that the roles map to, and whether `sound_request` was reachable)>,
     output:   <the ARTIFACT produced — audio/manifest.json (the role list with each piece's id/role/kind/loop + silent flags + resolved assets/forge/sound-<hash>.mp3 path), the AudioService wiring written into the App (load/playSfx/playMusic/resume), generated vs skipped(silent) counts, and the tsc-clean result>,
     metadata: {
       decision: <the MAIN choice this phase made — which sound roles were included vs skipped and how they were mapped to this genre (e.g. match→score/reward moment, cascade→combo), the music loop choice, and per-piece durationSeconds (short SFX vs ~8-12s seamless music loop)>,

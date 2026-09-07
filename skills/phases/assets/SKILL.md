@@ -5,7 +5,7 @@ description: Asset generation phase — full asset manifest from GAME_DESIGN.md,
 # Assets Phase (production)
 
 This phase generates the game's **visual identity**: in a single consistent art direction, it
-prints ALL the visuals required by GAME_DESIGN.md with **real forge** and wires them into the
+prints ALL the visuals required by GAME_DESIGN.md with **real generated assets** and wires them into the
 game code. Output: a game that renders with real textures instead of gray-box and speaks a
 single language.
 
@@ -43,7 +43,7 @@ is most likely to look foreign and the user is the one who can tell you what it 
   anchor came from an EARLIER session, since the sealed handle dies in ~24h;
 - a public `http(s)` URL.
 
-**Only a file on the user's DISK needs the upload step**, and only because forge runs remotely and cannot read
+**Only a file on the user's DISK needs the upload step**, and only because generation runs remotely and cannot read
 their filesystem: copy it under `assets/reference/`, call `forge_reference` for a slot, hand that to
 `reference_upload` → `assetId`, then use it as `editOf`. If you already hold an id or a URL, skip all of that —
 going through the upload path with an anchor you already have is wasted work, and it is the reason this flow gets
@@ -103,7 +103,7 @@ result, so nothing is "already known" — go and read it:
 1. Read `docs/CONCEPT.md` and collect the visual paths it recorded (the concept phase materializes a
    menu mock plus 2-3 in-game frames with the HUD and attaches their paths).
 2. Confirm those files actually exist on disk under `{gameDir}`, and that they are **real
-   generations, not gray-box placeholders** — the concept phase flags placeholders when forge was
+   generations, not gray-box placeholders** — the concept phase flags placeholders when generation was
    gated or unavailable, and a placeholder is not a visual anyone wants their game to match.
 3. A user-supplied reference image (`{gameDir}/assets/reference/`) counts exactly the same way.
 
@@ -138,8 +138,8 @@ Read the answer for **intent**, not keywords — and respect its SCOPE:
   concept budget on an unconfirmed guess cannot be taken back. Say plainly which way you went and that
   a word from them switches it.
 
-**For every group sourced from the concept, first make the concept REACHABLE by forge.** This step is
-not optional and not implied: what survives across phases is a path on disk, and forge runs remotely —
+**For every group sourced from the concept, first make the concept REACHABLE by the generator.** This step is
+not optional and not implied: what survives across phases is a path on disk, and generation runs remotely —
 it cannot open your filesystem. Skip this and §2/§3 will mint a fresh anchor from `ART_PREFIX` and
 generate art with no relationship to the picture the user just approved, while you report that you
 matched it.
@@ -224,7 +224,7 @@ square/horizontal/vertical), **variant group** (if any — e.g. `btn-*`, 3-4 but
 language).
 
 > **Manifest = approval-gate point.** Before starting generation, show the user a brief summary
-> of the manifest (how many assets, which groups). The approved manifest determines the forge
+> of the manifest (how many assets, which groups). The approved manifest determines the generation
 > budget; do not do unnecessary generation (Pareto: generate the visuals the game actually
 > renders).
 
@@ -247,7 +247,7 @@ Recipe + the reference-measurement procedure: `knowledge_get({ key: 'pattern:art
 
 
 The main lever for consistency is **prompt engineering**: establish a SINGLE **art-direction
-prefix prompt** and append it **verbatim** to the prompt of EVERY asset in the manifest. Forge
+prefix prompt** and append it **verbatim** to the prompt of EVERY asset in the manifest. Generation
 v1 generates stateless (each call independent) — this shared prefix is the guarantee of a
 single language.
 
@@ -267,15 +267,15 @@ asset-specific description`.
 
 ---
 
-## 3. REAL forge generation for each asset
+## 3. REAL generation for each asset
 
 Generation is a **two-step HYBRID** (the secret stays server-side; the bytes come back in the
 return, the client writes them to disk):
 
-1. **`forge_request(spec)`** (ongame, OAuth) — if the forge service is up, it returns a **small ref
+1. **`forge_request(spec)`** (ongame, OAuth) — if generation is available, it returns a **small ref
    manifest plus a `download` slot**: `{ assets: [{ kind, fileRef | bytesBase64, model, meta:{ assetId, ... },
    placeholder: false, ... }], download: { url, token } }`. Ref entries carry a sealed `fileRef` instead of
-   bytes — the manifest stays ~1-2KB in context; **NO `path`, NO disk write**. If forge is unreachable, it
+   bytes — the manifest stays ~1-2KB in context; **NO `path`, NO disk write**. If generation is unreachable, it
    automatically falls back to **gray-box fallback** (`placeholder: true`); in that case **notify**
    the user and flag it in the phase output — do not say "done" with gray-box.
 2. **`assets_materialize(gameDir, assets, download)`** (ongame, token-less) — hand it the `assets`
@@ -292,10 +292,10 @@ return, the client writes them to disk):
 > `asset_library_list({ gameId })` — "what did I make/use for this game" instead of listing the whole tenant
 > library and filtering yourself. Same field on `sound_request`; for the async path (`forge_generate_async`/
 > `forge_rig`) pass it to `asset_job_status` when you POLL, not at submit — you already know the game at poll
-> time, and forge itself never needs to carry it. Purely a correlation key; omit it if there's no game context
+> time, and the generator itself never needs to carry it. Purely a correlation key; omit it if there's no game context
 > yet (e.g. a standalone reference generation).
 
-> **Size/weight (automatic + optional):** forge automatically web-optimizes EVERY raster output
+> **Size/weight (automatic + optional):** every raster output is automatically web-optimized
 > (PNG palette quantization + compression — 70-85% reduction in game art, visual quality preserved).
 > You do NOT need to do anything for this. **`maxDim?`** (px) is optional and is an agent judgment: it
 > crops the asset's maximum edge (NEVER enlarges). Small icon/gem → ~256, button/UI/logo → ~512-1024,
@@ -321,8 +321,8 @@ return, the client writes them to disk):
     `3d-char`.
 - **`prompt`** — `ART_PREFIX + asset description` (Step 2). English, concrete, single subject.
 - **`aspectRatio?`** — `'1:1'|'16:9'|'9:16'|'4:3'|'3:4'`. Pass for non-square assets (banner 16:9,
-  splash/vertical 9:16); otherwise forge falls back to 1:1. (Now a parameter — no verbal description needed in the prompt.)
-- **`transparent?`** — transparent background. If true, forge applies remove-bg after generation →
+  splash/vertical 9:16); otherwise it falls back to 1:1. (Now a parameter — no verbal description needed in the prompt.)
+- **`transparent?`** — transparent background. If true, the background is removed after generation →
   PNG with alpha. **YOU as the agent judge this** (not a rule): if an object like a logo/icon/button/UI/tile/
   sprite/character sits on top of something else in the scene → `transparent: true`.
   If you are generating a full-screen **background/scene** → `transparent: false`/empty (it should already be filled).
@@ -330,9 +330,9 @@ return, the client writes them to disk):
 - **`spriteParams?`** (sprite) — `{ motion, framesPerRow, rows, fps }`. In the prompt, describe an
   **evenly-spaced NxN grid** + a **consistent character** ("4x4 sprite sheet walk cycle, 16 evenly spaced cells,
   consistent character across all frames, side view"). Put the `framesPerRow×rows` layout here
-  (forge computes JSON frame coordinates from this — no physical slice). `motion`=animation name
+  (JSON frame coordinates are computed from this — no physical slice). `motion`=animation name
   (walk/idle/attack), `fps`=playback speed hint. Sprites are usually `transparent: true`. **batch=1
-  is mandatory** (forge rejects batch>1 sprites with an explicit error; if you want variants, make a separate
+  is mandatory** (batch>1 sprites are rejected with an explicit error; if you want variants, make a separate
   call with a separate prompt). `editOf` is **not used** in sprite — the sheet is always generated from the prompt
   (a reference-consistent sheet is a later slice).
   > **Transparency cleanliness:** if `transparent:true`, request a **FLAT SINGLE-COLOR background** in the prompt (e.g.
@@ -389,7 +389,7 @@ the asset (a job you never poll again costs nothing, per the tool's own contract
      non-humanoid or non-T-pose mesh will make the rig job fail (check `asset_job_status`'s failure `detail`).
    - There is no `enableSafetyChecker` on `forge_rig`; the generation-time one on `charParams` above is
      unrelated and unchanged.
-4. **Never blind-retry a `retryable:false` job** — same discipline as every other forge tool's labelled
+4. **Never blind-retry a `retryable:false` job** — same discipline as every other generation tool's labelled
    response.
 
 Flow — **parallelism belongs to the `forge_batch` tool, NEVER to parallel agents** (one writer per gameDir):
@@ -408,7 +408,7 @@ Flow — **parallelism belongs to the `forge_batch` tool, NEVER to parallel agen
    **async-only** (§3.5) — `forge_request`/`forge_batch` reject it with a 422; submit via `forge_generate_async`
    and poll via `asset_job_status`, then `forge_rig` for rigging.
 
-Flag rows whose asset returns `placeholder: true` separately (forge was absent / kind out of v1 scope).
+Flag rows whose asset returns `placeholder: true` separately (generation was unavailable / kind out of v1 scope).
 
 ---
 
@@ -427,12 +427,12 @@ never generated as an independent prompt (independent prompts yield unrelated-lo
 
 > **What `editOf` accepts — and the two ids that are BOTH called "assetId":**
 > - **`meta.assetId`** from a previous `forge_request` result, or a `reference_upload` (**works with REMOTE
->   forge — this is the product path, always prefer it**) — the **sealed** handle (looks like `asset:…`).
+>   generation — this is the product path, always prefer it**) — the **sealed** handle (looks like `asset:…`).
 >   Tenant-bound and **short-lived (~24h)**: mint what you need in-session.
 > - **`assetId`** from `asset_library_list` / `asset_library_get` (looks like `a_<hex>`) — the **stable library
 >   id** of an asset you already generated. It does **not** expire, so this is the one to use when the anchor
 >   came from an earlier session. (Reaching past ~24h with a sealed handle is the classic dead-anchor.)
-> - a public http(s) URL, or a forge-server-local file path (dev-only convenience — a customer's forge cannot
+> - a public http(s) URL, or a generator-local file path (dev-only convenience — the customer's generator cannot
 >   read their disk).
 >
 > Both forms are accepted; pick by where you got the anchor. If an id resolves to nothing you get a **named,
@@ -495,10 +495,10 @@ exactly; otherwise → ADAPT the reference to our game's own style.
 **Many DIFFERENT assets in parallel → `forge_batch`** (§3 flow — the default for every manifest slice).
 **N candidates of the SAME prompt → `spec.batch = N`** (works inside both `forge_request` and a `forge_batch` spec).
 
-> **How it works:** forge **actually processes** `batch` — it generates N parallel visuals in a single call;
+> **How it works:** `batch` is **actually processed** — it generates N parallel visuals in a single call;
 > the returned manifest's `assets` array holds **all N** entries. Pass that array (plus the `download` slot) to
 > `assets_materialize(gameDir, assets, download)` → its `paths` give you each candidate on disk. Review the
-> candidates, pick the most suitable or use all of them. (If forge is unreachable, the gray-box
+> candidates, pick the most suitable or use all of them. (If generation is unreachable, the gray-box
 > fallback returns a single placeholder asset.)
 
 > **`gameId` on `forge_batch`:** each `specs[]` entry accepts its own `gameId` (§3's note) — set it on every spec
@@ -527,7 +527,7 @@ load real textures. Otherwise the game still renders line-art/placeholder.
 4. **Gray-box cleanup:** replace the remaining placeholder drawings in code (colored rectangle/circle) and
    `assets/placeholder`/`assets/forge` references with real `/assets/...` URLs;
    leave no dead code (no tech-debt).
-5. **Sprite (atlas) load:** for the sprite kind, the forge manifest returns a multi-file asset (the
+5. **Sprite (atlas) load:** for the sprite kind, the returned manifest carries a multi-file asset (the
    atlas PNG + the JSON) and `assets_materialize` writes both → its `paths` include the **JSON** and
    the sibling PNG. **Keep both in the same directory (sibling)** when you copy to `public/assets/` —
    the JSON's `meta.image` field references the PNG by file-name; if you put them in separate directories it breaks
@@ -565,11 +565,11 @@ load real textures. Otherwise the game still renders line-art/placeholder.
 - `preview_start(gameDir)` → confirm by eye in the browser whether the real textures appear and whether there are missing/404 assets
   (console). Evidence → claim; look yourself before saying "done".
 - For a missing/deviating asset, fix the prompt and reprint; each row's `outputPath` in the manifest
-  should be either real (`placeholder: false`) or deliberately flagged "out-of-v1 / forge was absent".
+  should be either real (`placeholder: false`) or deliberately flagged "out-of-v1 / generation was unavailable".
 - **Deterministic sub-score (`assets_ok`):** right after materialize + verify, emit the objective result —
   `brain_score(gameId=<slug>, phase="assets", name="assets_ok", value=<1 if every requested asset is written (each manifest row has a real outputPath) AND tsc is clean else 0>, buildId=<buildId>, comment="<N written / M requested, tsc result>")`
   (ongame). Judge-independent backbone, distinct from the gate's self-judged `phase_quality`. Fail-soft: a failed
-  `brain_score` NEVER blocks the build; no-op if `buildId`/brain is absent.
+  `brain_score` NEVER blocks the build; no-op if `buildId` is absent or memory is unavailable.
 
 ---
 
