@@ -222,16 +222,25 @@ function checkProvenance(dir) {
   // reason: real code writes `bottle-glass.png`, not `public/assets/bottle-glass.png`. Checking three
   // fixed prefixes flagged a genuine self-measurement on a shipped build. Widening it is safe because
   // the generated-artefact denylist is tested BEFORE this.
-  const buildNames = new Set();
+  // basename -> where it actually resolved. The denylist is tested against the RESOLVED path, not
+  // just the cited string: a bare `shot.png` whose only copy in the build is assets/concept/shot.png
+  // would otherwise be waved through as a self-measurement and reopen the whole bypass.
+  const buildNames = new Map();
   (function walkAssets(d, depth) {
     if (depth > 6 || !fs.existsSync(d)) return;
     for (const e of fs.readdirSync(d, { withFileTypes: true })) {
       if (e.isDirectory()) {
         if (!/^(node_modules|\.git|dist|\.ref|evidence)$/.test(e.name)) walkAssets(path.join(d, e.name), depth + 1);
-      } else if (/\.(png|jpg|jpeg|mp4|webm)$/i.test(e.name)) buildNames.add(e.name);
+      } else if (/\.(png|jpg|jpeg|mp4|webm)$/i.test(e.name)) {
+        const rel = path.relative(dir, path.join(d, e.name)).split(path.sep).join('/');
+        if (!buildNames.has(e.name)) buildNames.set(e.name, []);
+        buildNames.get(e.name).push(rel);
+      }
     }
   })(dir, 0);
-  const resolvesInBuild = (c) => buildNames.has(path.basename(c));
+  // A self-measurement needs at least one copy that is NOT a generated artefact.
+  const resolvesInBuild = (c) =>
+    (buildNames.get(path.basename(c)) || []).some((rel) => !GENERATED.some((rx) => rx.test(rel)));
   for (const f of files) {
     const lines = fs.readFileSync(f, 'utf8').split('\n');
     for (let i = 0; i < lines.length; i++) {

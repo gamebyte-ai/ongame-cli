@@ -131,6 +131,24 @@ r = run(PROV, {
 check('a bare-basename citation of a shipped asset resolves wherever it actually lives',
   verdictOf(r.results, 'PROV-01') === 'PASS', of_(r.results, 'PROV-01').evidence);
 
+// [Codex 6th pass P1] and the widening reopened the bypass from the other side: a BARE basename whose
+// only copy in the build is a generated artefact was waved through as a self-measurement. The denylist
+// is tested against the path the basename actually resolved to.
+r = run(PROV, {
+  sources: { 'a.ts': '/** MEASURED from shot.png, 768 px wide. */\nexport const T = 142;' },
+  evidence: ['other.png'], assets: ['concept/shot.png'],
+});
+check('a bare basename resolving ONLY to generated art is still a violation',
+  verdictOf(r.results, 'PROV-01') === 'FAIL' && r.exitCode === 1, of_(r.results, 'PROV-01').evidence);
+
+// ...but a name that ALSO exists as a real shipped asset keeps the exemption.
+r = run(PROV, {
+  sources: { 'a.ts': '/** MEASURED from shot.png, 768 px wide. */\nexport const T = 142;' },
+  evidence: ['other.png'], assets: ['concept/shot.png', 'sprites/shot.png'],
+});
+check('the same name shipped as a real asset keeps the self-measurement exemption',
+  verdictOf(r.results, 'PROV-01') === 'PASS', of_(r.results, 'PROV-01').evidence);
+
 // ...but the exemption is "it resolves", not "it starts with assets/" — an asset that is not there
 // is an unresolvable citation like any other.
 r = run(PROV, { sources: { 'a.ts': SELF }, evidence: ['shot_04.png'] });
