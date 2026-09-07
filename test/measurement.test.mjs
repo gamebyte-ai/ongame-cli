@@ -11,6 +11,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import zlib from 'node:zlib';
 import { execFileSync } from 'node:child_process';
 import * as M from '../tools/measure/measure.mjs';
 import { writePng } from '../tools/measure/overlay.mjs';
@@ -115,10 +116,17 @@ if (jpg) {
     `${cJpg.hex} exactness=${cJpg.exactness} tol=${cJpg.tolerance} std=${JSON.stringify(cJpg.dispersion.std)}`);
   check('and its source record marks itself lossy',
     M.source(jpg).source.lossless === false && /FAMILY/.test(M.source(jpg).claimable));
-} else {
-  const noTool = M.colour(path.join(DIR, 'nope.jpg'), { rect: [0.2, 0.8, 0.2, 0.8] });
-  check('with no transcoder present, lossy evidence is UNSUPPORTED_EVIDENCE rather than a number',
-    noTool.validity === M.UNSUPPORTED_EVIDENCE, noTool.note);
+}
+// A review caught this branch testing the wrong thing: it used to point at a nonexistent .jpg, so it
+// asserted missing-file handling and would have passed with no transcode path at all. This file has
+// real JPEG magic and garbage after it, so the codec IS recognised and the transcode is what fails.
+{
+  const bad = path.join(DIR, 'broken.jpg');
+  fs.writeFileSync(bad, Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(64, 0x41)]));
+  const r = M.colour(bad, { rect: [0.2, 0.8, 0.2, 0.8] });
+  check('lossy evidence that cannot be decoded is UNSUPPORTED_EVIDENCE, and says it was the transcode',
+    r.validity === M.UNSUPPORTED_EVIDENCE && !/does not exist/.test(r.note || ''),
+    `${r.validity}: ${(r.note || '').slice(0, 90)}`);
 }
 
 /* ── 5b. A transcode must not launder the source's quality ────────────────────────────────────────
@@ -240,6 +248,124 @@ check('a region too small to median is UNRESOLVED, not a lucky pixel',
 const missing = M.runs(path.join(DIR, 'does-not-exist.png'), { band: [0.3, 0.5], base: 'W' });
 check('a missing evidence file is UNSUPPORTED_EVIDENCE with the path named',
   missing.validity === M.UNSUPPORTED_EVIDENCE && /does-not-exist/.test(missing.note || ''), missing.note);
+
+/* ── the decoder's own surface: it reads EXTERNALLY acquired material ──────────────────────────────
+   A code review pointed out that every fixture above is written by `writePng`, which only emits
+   RGB8/filter-0. So the decoder's riskiest paths — the four filters, 16-bit, palette, and every
+   malformed shape — could all regress while this file stayed green. These build the bytes by hand. */
+const crc32 = (buf) => { let c = ~0;
+  for (const b of buf) { c ^= b; for (let k = 0; k < 8; k++) c = c & 1 ? (c >>> 1) ^ 0xedb88320 : c >>> 1; }
+  return ~c >>> 0; };
+function png(chunks) {
+  const parts = [Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])];
+  for (const [type, data] of chunks) {
+    const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+    const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(body));
+    parts.push(len, body, crc);
+  }
+  return Buffer.concat(parts);
+}
+const ihdr = (w, h, depth, ctype) => { const b = Buffer.alloc(13);
+  b.writeUInt32BE(w, 0); b.writeUInt32BE(h, 4); b[8] = depth; b[9] = ctype; return b; };
+const put = (name, buf) => { const f = path.join(DIR, name); fs.writeFileSync(f, buf); return f; };
+
+// every filter type, one per row, over a known 4x4 RGB8 image whose true colour is (10,20,30)
+{
+  const w = 8, h = 8, stride = w * 3;
+  const rows = [];
+  for (let y = 0; y < h; y++) {
+    const ft = y % 5;
+    const raw = Buffer.alloc(stride);
+    for (let x = 0; x < w; x++) { raw[x * 3] = 10; raw[x * 3 + 1] = 20; raw[x * 3 + 2] = 30; }
+    const line = Buffer.alloc(stride);
+    for (let i = 0; i < stride; i++) {
+      const a = i >= 3 ? raw[i - 3] : 0, b = ft === 0 ? 0 : raw[i], c = i >= 3 ? raw[i - 3] : 0;
+      if (ft === 0) line[i] = raw[i];
+      else if (ft === 1) line[i] = (raw[i] - a) & 255;
+      else if (ft === 2) line[i] = (raw[i] - b) & 255;             // Up: previous row is identical
+      else if (ft === 3) line[i] = (raw[i] - ((a + b) >> 1)) & 255;
+      else { const pa = Math.abs(b - c), pb = Math.abs(a - c), pc = Math.abs(a + b - 2 * c);
+             line[i] = (raw[i] - (pa <= pb && pa <= pc ? a : pb <= pc ? b : c)) & 255; }
+    }
+    rows.push(Buffer.concat([Buffer.from([ft]), line]));
+  }
+  const f = put('filters.png', png([['IHDR', ihdr(w, h, 8, 2)], ['IDAT', zlib.deflateSync(Buffer.concat(rows))], ['IEND', Buffer.alloc(0)]]));
+  const r = M.colour(f, { rect: [0.1, 0.9, 0.25, 0.95] });
+  check('all four PNG filters unfilter to the same known colour',
+    r.validity === M.VALID && r.value[0] === 10 && r.value[1] === 20 && r.value[2] === 30,
+    `${r.validity} ${r.hex ?? ''}`);
+}
+// 16-bit RGB: the decoder takes the high byte
+{
+  const w = 8, h = 8, stride = w * 6;
+  const rows = [];
+  for (let y = 0; y < h; y++) { const line = Buffer.alloc(stride);
+    for (let x = 0; x < w; x++) { line.writeUInt16BE(0x2211, x * 6); line.writeUInt16BE(0x4433, x * 6 + 2); line.writeUInt16BE(0x6655, x * 6 + 4); }
+    rows.push(Buffer.concat([Buffer.from([0]), line])); }
+  const f = put('sixteen.png', png([['IHDR', ihdr(w, h, 16, 2)], ['IDAT', zlib.deflateSync(Buffer.concat(rows))], ['IEND', Buffer.alloc(0)]]));
+  const r = M.colour(f, { rect: [0.0, 1.0, 0.0, 1.0] });
+  check('16-bit RGB decodes to the high byte of each channel',
+    r.validity === M.VALID && r.value[0] === 0x22 && r.value[1] === 0x44 && r.value[2] === 0x66, `${r.validity} ${r.hex ?? ''}`);
+}
+// indexed colour, and the two ways it can be malformed
+{
+  const w = 8, h = 8;
+  const row = Buffer.concat([Buffer.from([0]), Buffer.alloc(w, 1)]);
+  const idat = Buffer.concat(Array.from({ length: h }, () => row));
+  const plte = Buffer.from([0, 0, 0, 90, 100, 110]);
+  const ok = put('indexed.png', png([['IHDR', ihdr(w, h, 8, 3)], ['PLTE', plte], ['IDAT', zlib.deflateSync(idat)], ['IEND', Buffer.alloc(0)]]));
+  const r = M.colour(ok, { rect: [0.0, 1.0, 0.0, 1.0] });
+  check('an indexed PNG decodes through its palette',
+    r.validity === M.VALID && r.value[0] === 90 && r.value[2] === 110, `${r.validity} ${r.hex ?? ''}`);
+  const noPlte = put('nopalette.png', png([['IHDR', ihdr(w, h, 8, 3)], ['IDAT', zlib.deflateSync(idat)], ['IEND', Buffer.alloc(0)]]));
+  const r2 = M.colour(noPlte, { rect: [0.0, 1.0, 0.0, 1.0] });
+  check('an indexed PNG with NO palette is refused, not crashed or read as black',
+    r2.validity === M.UNSUPPORTED_EVIDENCE && /palette|PLTE/i.test(r2.note || ''), `${r2.validity} ${r2.note ?? ''}`);
+  const shortPlte = put('shortpalette.png', png([['IHDR', ihdr(w, h, 8, 3)], ['PLTE', Buffer.from([0, 0, 0])], ['IDAT', zlib.deflateSync(idat)], ['IEND', Buffer.alloc(0)]]));
+  const r3 = M.colour(shortPlte, { rect: [0.0, 1.0, 0.0, 1.0] });
+  check('an index past the end of a short palette is refused, not silently black',
+    r3.validity === M.UNSUPPORTED_EVIDENCE, `${r3.validity} ${r3.note ?? ''}`);
+}
+// a zlib stream that ends mid-image must not become fabricated black pixels
+{
+  const w = 4, h = 4, stride = w * 3;
+  const full = Buffer.concat(Array.from({ length: h }, () => Buffer.concat([Buffer.from([0]), Buffer.alloc(stride, 200)])));
+  const short = full.subarray(0, full.length - stride);          // one row missing, still valid zlib
+  const f = put('truncated.png', png([['IHDR', ihdr(w, h, 8, 2)], ['IDAT', zlib.deflateSync(short)], ['IEND', Buffer.alloc(0)]]));
+  const r = M.colour(f, { rect: [0.0, 1.0, 0.0, 1.0] });
+  check('a stream that ends mid-image is refused, not padded with invented black',
+    r.validity === M.UNSUPPORTED_EVIDENCE && /truncat|short|expected/i.test(r.note || ''), `${r.validity} ${r.note ?? ''}`);
+}
+// a tiny file that declares an enormous image must not be allocated
+{
+  const f = put('huge.png', png([['IHDR', ihdr(60000, 60000, 8, 2)], ['IDAT', zlib.deflateSync(Buffer.alloc(16))], ['IEND', Buffer.alloc(0)]]));
+  const t0 = Date.now();
+  const r = M.colour(f, { rect: [0.0, 1.0, 0.0, 1.0] });
+  check('a tiny file declaring a 60000x60000 image is refused quickly, not allocated',
+    r.validity === M.UNSUPPORTED_EVIDENCE && Date.now() - t0 < 2000, `${r.validity} in ${Date.now() - t0}ms`);
+}
+// alpha is discarded by design, so a record must SAY so rather than let RGB pass as visual evidence
+{
+  const w = 2, h = 2, stride = w * 4;
+  const rows = Array.from({ length: h }, () => { const line = Buffer.alloc(stride);
+    for (let x = 0; x < w; x++) { line[x * 4] = 5; line[x * 4 + 1] = 6; line[x * 4 + 2] = 7; line[x * 4 + 3] = 0; }
+    return Buffer.concat([Buffer.from([0]), line]); });
+  const f = put('rgba.png', png([['IHDR', ihdr(w, h, 8, 6)], ['IDAT', zlib.deflateSync(Buffer.concat(rows))], ['IEND', Buffer.alloc(0)]]));
+  const r = M.source(f);
+  check('an alpha-bearing source declares that its alpha was discarded',
+    r.validity === M.VALID && r.decode?.alpha_discarded === true,
+    `decode=${JSON.stringify(r.decode)}`);
+  check('...and does not present fully transparent RGB as exact visual truth',
+    /alpha/i.test(r.claimable || ''), r.claimable);
+}
+// countFills must clamp its rect like the other primitives do
+{
+  const r = M.countFills(TRAY, { rect: [-0.5, 1.9, -0.4, 1.7] });
+  check('countFills clamps an out-of-bounds rect instead of reading undefined pixels',
+    r.validity !== M.VALID || (Number.isFinite(r.value) && r.colours.every((c) => c.rgb.every(Number.isFinite))),
+    `${r.validity} value=${r.value}`);
+}
 
 fs.rmSync(DIR, { recursive: true, force: true });
 console.log(`\n  ${failures ? `${failures} FAILURE(S)` : 'the measurement contract holds'}`);

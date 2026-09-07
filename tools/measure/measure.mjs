@@ -104,8 +104,11 @@ export function source(file) {
     aspect_hw: round(img.h / img.w, 5), aspect_wh: round(img.w / img.h, 5),
     tolerance: { colour_per_channel: t.colour, geometry_px: t.geom_px,
                  geometry_normalized_W: round(t.geom_px / img.w), geometry_normalized_H: round(t.geom_px / img.h) },
-    claimable: t.lossless ? 'exact values are claimable from this source'
-                          : 'lossy source: colour is a FAMILY, not an exact value',
+    claimable: (t.lossless ? 'exact values are claimable from this source'
+                           : 'lossy source: colour is a FAMILY, not an exact value')
+      + (img.decode?.alpha_discarded
+        ? ' — and this source carries ALPHA, which is discarded: the RGB of a transparent pixel is not what a viewer sees'
+        : ''),
   }, { base: 'ratio' });
 }
 
@@ -415,8 +418,11 @@ export function countFills(file, { rect, minSat = 60, minShare = 0.02, merge = 7
   if (o.err) return o.err;
   const img = o.img;
   const [fx0, fx1, fy0, fy1] = rect;
-  const x0 = Math.floor(fx0 * img.w), x1 = Math.ceil(fx1 * img.w);
-  const y0 = Math.floor(fy0 * img.h), y1 = Math.ceil(fy1 * img.h);
+  // clamped like every other primitive: an out-of-bounds rect otherwise reads `undefined` pixels and
+  // can classify them as saturated, returning VALID over numbers that were never in the image.
+  const x0 = Math.max(0, Math.floor(fx0 * img.w)), x1 = Math.min(img.w, Math.ceil(fx1 * img.w));
+  const y0 = Math.max(0, Math.floor(fy0 * img.h)), y1 = Math.min(img.h, Math.ceil(fy1 * img.h));
+  if (x1 - x0 < 1 || y1 - y0 < 1) return bad('count_fills', UNRESOLVED, 'region is empty after clamping', img, opts);
   const bins = new Map();
   let sat = 0, total = 0;
   for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {

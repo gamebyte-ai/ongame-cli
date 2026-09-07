@@ -26,6 +26,12 @@ export function codecOf(buf) {
 export const LOSSLESS = new Set(['PNG']);
 
 /** Decode a PNG into {w, h, rgb} where rgb is a Uint8Array of 3 bytes per pixel. */
+/** A tiny file may DECLARE an enormous image. Refuse before allocating, and cap the inflate: this
+ *  decoder reads externally acquired reference material, so a hostile or corrupt header must cost
+ *  a rejection, not the process. 80 MPx covers any real screenshot family by a wide margin. */
+const MAX_PIXELS = 80e6;
+const DEPTHS = { 0: [1, 2, 4, 8, 16], 2: [8, 16], 3: [1, 2, 4, 8], 4: [8, 16], 6: [8, 16] };
+
 export function decodePng(buf) {
   let p = 8, w = 0, h = 0, depth = 0, ctype = 0, interlace = 0;
   const idat = [];
@@ -45,12 +51,26 @@ export function decodePng(buf) {
   }
   if (!w || !h) throw new UnsupportedEvidence('PNG has no IHDR');
   if (interlace) throw new UnsupportedEvidence('interlaced (Adam7) PNG is not decoded');
-  if (![8, 16].includes(depth) && ctype !== 3) throw new UnsupportedEvidence(`PNG bit depth ${depth} not supported`);
-  const raw = zlib.inflateSync(Buffer.concat(idat));
   const channels = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }[ctype];
   if (!channels) throw new UnsupportedEvidence(`PNG colour type ${ctype} not supported`);
+  if (!DEPTHS[ctype].includes(depth)) {
+    throw new UnsupportedEvidence(`PNG bit depth ${depth} is not legal for colour type ${ctype}`);
+  }
+  if (w * h > MAX_PIXELS) {
+    throw new UnsupportedEvidence(`PNG declares ${w}x${h} = ${Math.round(w * h / 1e6)} MPx, over the ${MAX_PIXELS / 1e6} MPx limit — refused before allocating`);
+  }
+  if (ctype === 3 && !pal) throw new UnsupportedEvidence('indexed PNG carries no PLTE palette');
   const bpp = Math.max(1, Math.ceil(channels * depth / 8));
   const stride = Math.ceil(channels * depth * w / 8);
+  const expected = h * (1 + stride);
+  let raw;
+  try { raw = zlib.inflateSync(Buffer.concat(idat), { maxOutputLength: expected + 1024 }); }
+  catch (e) { throw new UnsupportedEvidence(`PNG image data did not inflate within its declared size: ${e.message}`); }
+  // A zlib stream can be perfectly valid and still stop mid-image. Reading past it yields `undefined`,
+  // which lands in a Uint8Array as ZERO — a measurement over fabricated black pixels, reported as VALID.
+  if (raw.length < expected) {
+    throw new UnsupportedEvidence(`PNG image data is truncated: expected ${expected} bytes for ${w}x${h}, inflated ${raw.length}`);
+  }
   const out = new Uint8Array(w * h * 3);
   let prev = Buffer.alloc(stride);
   let off = 0;
@@ -72,6 +92,10 @@ export function decodePng(buf) {
       if (ctype === 3) {
         const bits = depth, idx = depth === 8 ? line[x]
           : (line[Math.floor(x * bits / 8)] >> (8 - bits - (x * bits) % 8)) & ((1 << bits) - 1);
+        // A short PLTE would otherwise decode out-of-range indexes as black and report it as measured.
+        if ((idx + 1) * 3 > pal.length) {
+          throw new UnsupportedEvidence(`indexed PNG uses palette index ${idx} but PLTE holds only ${Math.floor(pal.length / 3)} entries`);
+        }
         r = pal[idx * 3]; g = pal[idx * 3 + 1]; bl = pal[idx * 3 + 2];
       } else if (depth === 8) {
         const o = x * channels;
@@ -87,7 +111,10 @@ export function decodePng(buf) {
     }
     prev = line;
   }
-  return { w, h, rgb: out };
+  // Alpha is deliberately not carried: every primitive here measures colour and geometry of what is
+  // DRAWN, and no caller composites. But that has to be visible, or a caller reads the RGB of a fully
+  // transparent pixel as visual evidence — so it is reported rather than silently dropped.
+  return { w, h, rgb: out, hasAlpha: ctype === 4 || ctype === 6 || !!trns };
 }
 
 const CACHE = path.join(os.tmpdir(), 'ongame-measure-cache');
@@ -117,14 +144,16 @@ export function decode(file) {
   const buf = fs.readFileSync(abs);
   const codec = codecOf(buf);
   if (codec === 'PNG') {
-    return { ...decodePng(buf), codec, lossless: true, file: abs, bytes: buf.length,
-             decode: { path: 'native-png', transcoded: false, tool: null } };
+    const d = decodePng(buf);
+    return { ...d, codec, lossless: true, file: abs, bytes: buf.length,
+             decode: { path: 'native-png', transcoded: false, tool: null, alpha_discarded: d.hasAlpha } };
   }
   if (codec === 'UNKNOWN') throw new UnsupportedEvidence(`unrecognised evidence format: ${path.basename(abs)}`);
   const { png, tool } = transcodeToPng(abs);
   // The ORIGINAL codec is what the measurement is about. Being handed PNG bytes internally does not
   // make a JPEG lossless, and the tolerance downstream is derived from `codec`, never from what the
   // decoder happened to produce. The transcode is recorded so a reader can tell the two apart.
-  return { ...decodePng(fs.readFileSync(png)), codec, lossless: false, file: abs, bytes: fs.statSync(abs).size,
-           decode: { path: 'transcoded-to-png', transcoded: true, tool, cache: png } };
+  const d = decodePng(fs.readFileSync(png));
+  return { ...d, codec, lossless: false, file: abs, bytes: fs.statSync(abs).size,
+           decode: { path: 'transcoded-to-png', transcoded: true, tool, cache: png, alpha_discarded: d.hasAlpha } };
 }
