@@ -141,7 +141,7 @@ row of pips) · `asset_family`. Flag anything you are UNSURE of; those are the d
     5 true citations for every 2 real violations; basename resolution flagged **2 of 12 claims, both
     genuine, zero false positives**, and 0 of 7 on a build that had no package at all.
   - **Measuring your own shipped sprite to place it is NOT a violation.** *"measured on the shipped
-    file, 224x683 forge canvas"* is legitimate: it is fitting geometry to an asset, not claiming
+    file, 224x683 source canvas"* is legitimate: it is fitting geometry to an asset, not claiming
     reference truth. What fails is a GENERATED concept image or screenshot standing in for the
     reference — `assets/concept/*`, `docs/concept/*`, `.ongame/screenshots/*`, `runtime_*.png`.
   Implementable in about thirty lines over the source tree with no runtime and no browser. It belongs
