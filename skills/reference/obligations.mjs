@@ -113,6 +113,15 @@ const results = obligations.map((o) => {
     return { ...base, verdict: bound.pass ? 'PASS' : 'FAIL', evidence: String(bound.evidence ?? '') };
   }
   if (!o.predicate) {
+    // A primitive whose limits are KNOWN reports BLOCKED, not FAIL: `pose` exposes a change COUNTER
+    // (diagnostics.subjects[].poseChanges) and no rendered transform, so an obligation about where a
+    // moving subject actually landed cannot be expressed yet. That is a missing capability, not a
+    // broken build — and the difference matters, because FAIL here would reject builds for a gap in
+    // this file. Every other primitive still FAILS without a predicate: the compiler owed one.
+    if (o.primitive === 'pose') {
+      return { ...base, verdict: 'BLOCKED',
+        evidence: 'pose without a predicate: diagnostics.subjects exposes poseChanges (a counter) and no rendered rect/rotation, so this cannot be dispatched today' };
+    }
     return { ...base, verdict: 'FAIL', evidence: 'obligation carries no predicate — it cannot be dispatched' };
   }
   const ctx = byState[o.state || 'any'];
@@ -123,7 +132,14 @@ const results = obligations.map((o) => {
   const scope = {
     hitAreas, W: ctx.W, H: ctx.H, state: ctx.state, board: ctx.board, subjects: ctx.subjects,
     pick: (glob) => hitAreas.filter((h) => new RegExp('^' + String(glob).replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$').test(h.id)),
-    px: ctx.px || {},
+    // px is a FUNCTION, not a bag. It looks up a colour the collector already sampled — the
+    // dispatcher drives no browser, so it cannot go and read a pixel on demand. A predicate that
+    // asks for a sample nobody collected gets a clear message instead of `undefined.r`.
+    px: (key) => {
+      const bag = ctx.px || {};
+      if (!(key in bag)) throw new Error(`no pixel sample collected for "${key}" — the probe payload must carry px["${key}"]`);
+      return bag[key];
+    },
   };
   try {
     const fn = new Function(...Object.keys(scope), `return (${o.predicate});`);

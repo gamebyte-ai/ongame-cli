@@ -242,8 +242,13 @@ reconstruction-critical `truth` lines, the `blocking` assumptions (**build- AND 
 Also write **`{gameDir}/docs/obligations.json`** — the same `verification` blocks as a machine-readable
 array, one object per obligation: `id`, `primitive`, `enforcement`, `state`, `observable`,
 `evidence_locator`, plus `blocked_on` when it cannot run. For `hitArea`/`state`/`pixel` add a
-`predicate` (a JS expression over `{hitAreas, W, H, state, board, subjects, pick(glob), px}` returning
-a boolean) and an `evidence` expression returning the measured value as a string. This file is what
+`predicate` (a JS expression over the collected context, returning a boolean) and an `evidence`
+expression returning the measured value as a string. The context is exactly:
+`hitAreas` (array of `{id,x,y,width,height}` in viewport px) · `W`, `H` (viewport) · `state` · `board`
+· `subjects` · `pick(glob)` → the hitAreas whose id matches, `*` allowed · **`px(key)` → a
+FUNCTION** returning the `[r,g,b]` the collector sampled under that key, and throwing a named error if
+nobody collected it. `px` is not a bag you index: the dispatcher drives no browser, so a colour has to
+have been sampled by the probe before a predicate can ask for it — name the key in `required_state`. This file is what
 `skills/reference/obligations.mjs` dispatches; the prose list below is what the agent reads. The prose
 alone was measured to be insufficient — that is the whole reason the JSON exists.
 
