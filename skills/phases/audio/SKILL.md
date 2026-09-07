@@ -140,7 +140,7 @@ toggle works. The toggle state is persistent via `storageService` (SettingsBindi
 - **`trace_emit` the headline `phase.output`** (ONE per phase — the audio phase's main decision; nests as a `generation` observation under the phase span, so the eval can read context→artifact→why). Emit it **after** the build is tsc-clean + the manifest is written, **before** `state_advance`:
   ```
   trace_emit(buildId, name="phase.output", payload={
-    input:    <the CONTEXT this phase consumed — the GAME_DESIGN.md core loop / genre / core verb that the sound manifest was derived from, plus the prior-phase inputs used (the game's interactive verbs + win/lose screens that the roles map to, and whether forge/sound_request was reachable)>,
+    input:    <the CONTEXT this phase consumed — the GAME_DESIGN.md core loop / genre / core verb that the sound manifest was derived from, plus the prior-phase inputs used (the game's interactive verbs + win/lose screens that the roles map to, and whether `sound_request` was reachable)>,
     output:   <the ARTIFACT produced — audio/manifest.json (the role list with each piece's id/role/kind/loop + silent flags + resolved assets/forge/sound-<hash>.mp3 path), the AudioService wiring written into the App (load/playSfx/playMusic/resume), generated vs skipped(silent) counts, and the tsc-clean result>,
     metadata: {
       decision: <the MAIN choice this phase made — which sound roles were included vs skipped and how they were mapped to this genre (e.g. match→score/reward moment, cascade→combo), the music loop choice, and per-piece durationSeconds (short SFX vs ~8-12s seamless music loop)>,

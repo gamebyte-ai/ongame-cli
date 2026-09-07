@@ -479,7 +479,7 @@ immediately before the re-invoke, `phases: [<phase(s) to redo>]` + `notes`, no `
 ## 4. Phase execution
 
 Each phase runs according to `skills/phases/<phase>/SKILL.md`. Phase skills call the `ongame` tools
-`knowledge_get` / `knowledge_list` and `forge_request({kind, prompt, …})` as needed. **Forge is a two-step
+`knowledge_get` / `knowledge_list` and `forge_request({kind, prompt, …})` as needed. **Asset generation is a two-step
 hybrid:** `forge_request` returns a base64 asset **manifest** `{assets:[…]}` (NO path, NO disk write) → then call
 `assets_materialize(gameDir, assets)` (`ongame`) → `{paths}`; use **those** returned paths. (Audio is the
 same shape: `sound_request({prompt, …})` → `assets_materialize`.) Each phase leaves a trace via

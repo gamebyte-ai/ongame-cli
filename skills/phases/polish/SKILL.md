@@ -375,7 +375,7 @@ did not clearly improve, keep its old assets.
     deploy, indistinguishable from a real broken deploy, and poisons the signal. Instead tell the user plainly that
     the build is *not deploy-verified* and what the next step is on their target. A `0` is only for a deploy you
     actually attempted and that actually failed (a broken build, a failed/partial upload, a stale live URL).
-  - Fail-soft: a failed `brain_score` NEVER blocks the build; no-op if `buildId`/brain is absent.
+  - Fail-soft: a failed `brain_score` NEVER blocks the build; no-op if `buildId` is absent or memory is unavailable.
 
 ## Finish (gate + wiring)
 - **Is gameplay unbroken:** the `window.__game` smoke before/after the effects must give the same result;
@@ -384,7 +384,7 @@ did not clearly improve, keep its old assets.
 - Fix until **`tsc --noEmit` clean** (gate).
 - **Observability (the phase's headline decision → a `generation` observation under the phase span):** BEFORE `state_advance`,
   `trace_emit({buildId, name="phase.output", payload={`
-  `input: <the context this phase consumed — the `profile_get` history signal that set the scope, any polish/juice `brain_recall` lesson(s) + `knowledge_get` key(s), and the prior-phase inputs used: GAME_DESIGN.md game type, the code-phase Controller/View seams, forge asset availability>,`
+  `input: <the context this phase consumed — the `profile_get` history signal that set the scope, any polish/juice `brain_recall` lesson(s) + `knowledge_get` key(s), and the prior-phase inputs used: GAME_DESIGN.md game type, the code-phase Controller/View seams, asset generation availability>,`
   `output: <the artifact produced — the polish sub-phases actually applied (e.g. splash/menu/settings/HUD/juice/transitions/bg/game-over/button-feedback), the file(s) written/edited, telemetry-injected? published publicUrl?, the `tsc --noEmit` clean + `window.__game` smoke result>,`
   `metadata: { decision: <the MAIN choice — the POLISH SCOPE selected (Full 1–9 / Core juice 4+5+9 / Juice-only 5) and the headline juice/menu direction>, why: <the RATIONALE — explicitly cite what drove it: the `profile_get` history lean (production→full vs idea-exploration→core) or the AskUserQuestion answer, plus any `brain_recall` retention/juice lesson and the GAME_DESIGN.md game type that shaped the sub-phase ordering> }`
   `}})` — ONE emit (the phase's headline decision), no-op if `buildId` is absent.

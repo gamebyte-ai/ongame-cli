@@ -272,7 +272,7 @@ asset-specific description`.
 Generation is a **two-step HYBRID** (the secret stays server-side; the bytes come back in the
 return, the client writes them to disk):
 
-1. **`forge_request(spec)`** (ongame, OAuth) — if the forge service is up, it returns a **small ref
+1. **`forge_request(spec)`** (ongame, OAuth) — if generation is available, it returns a **small ref
    manifest plus a `download` slot**: `{ assets: [{ kind, fileRef | bytesBase64, model, meta:{ assetId, ... },
    placeholder: false, ... }], download: { url, token } }`. Ref entries carry a sealed `fileRef` instead of
    bytes — the manifest stays ~1-2KB in context; **NO `path`, NO disk write**. If generation is unreachable, it
@@ -569,7 +569,7 @@ load real textures. Otherwise the game still renders line-art/placeholder.
 - **Deterministic sub-score (`assets_ok`):** right after materialize + verify, emit the objective result —
   `brain_score(gameId=<slug>, phase="assets", name="assets_ok", value=<1 if every requested asset is written (each manifest row has a real outputPath) AND tsc is clean else 0>, buildId=<buildId>, comment="<N written / M requested, tsc result>")`
   (ongame). Judge-independent backbone, distinct from the gate's self-judged `phase_quality`. Fail-soft: a failed
-  `brain_score` NEVER blocks the build; no-op if `buildId`/brain is absent.
+  `brain_score` NEVER blocks the build; no-op if `buildId` is absent or memory is unavailable.
 
 ---
 
