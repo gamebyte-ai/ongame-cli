@@ -77,6 +77,36 @@ PNG is decoded here (8- and 16-bit, greyscale/RGB/RGBA/palette, non-interlaced) 
 an exact claim can live. Lossy evidence is transcoded with `sips` or `ffmpeg` if either is present;
 when neither is, the caller gets `UNSUPPORTED_EVIDENCE` rather than a number.
 
+## known limitations
+
+**Semantic selection is not solved here, and one case shows exactly where the line falls.** Keying the
+wooden canvas of a board game returns two clean, evenly-sized runs — and they are the bare wood strips
+either side of the pattern, not the canvas. The selectivity guard does not catch it because the
+selection never touches the band's edges.
+
+It was tested whether bounding the region fixes this: crop the evidence to the containing rect (the
+belt ring the canvas sits inside) and measure again. It does not, and the reason generalises —
+**containment narrows the search space but cannot separate target from distractor when the distractor
+lives inside the container and shares its colour.** Asking where the wood is inside the wood has no
+answer. What that case needs is a different OBSERVABLE (the canvas edge against the belt's dark
+track), which is bbox-shaped and deliberately out of scope below.
+
+The same experiment produced one more boundary worth knowing: **a colour key is only applicable to a
+SOLID region.** Keys sampled off a shaded ball and a glossy button came back `kind: TEXTURED`, and the
+median of a shaded thing is a blend that matches almost nothing (match_fraction 0.006 and 0.07). Since
+`colour` already reports `kind`, whether a key is usable at all is decidable before it is used.
+
+Also standing: `count_fills` disagreed with the package on all three census claims tried (off by one
+each way), which is why it is marked optional rather than shipped as a peer of the other four.
+
+## explicitly out of scope
+
+standalone `bbox` · OCR / digit reading · temporal / frame differencing · automatic region discovery ·
+grid census · corner radius · stroke width · gradient endpoints · any screen/region taxonomy.
+
+Each was either measured to be unnecessary (real claim incidence 0-1) or measured to fail (`bbox` 1/5,
+temporal 0/2) in the lab replay that set this scope.
+
 ## running it
 
 ```
