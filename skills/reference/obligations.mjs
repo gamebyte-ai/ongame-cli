@@ -121,7 +121,12 @@ if (cmd === 'probe') {
   console.log('// ---8<--- BEGIN PAGE SNIPPET');
   console.log(`(() => {
   const g = window.__game || {}, d = g.diagnostics || {};
-  const el = document.querySelector('canvas');
+  // The LARGEST canvas, not the first: a hidden preloader canvas ahead of the game canvas silently
+  // sourced W/H and every pixel sample from the wrong surface.
+  const cs = document.querySelectorAll ? Array.prototype.slice.call(document.querySelectorAll('canvas')) : [];
+  const all = cs.length ? cs : [document.querySelector('canvas')].filter(Boolean);
+  const area = (c) => { const r = c.getBoundingClientRect(); return r.width * r.height; };
+  const el = all.slice().sort((a, b) => area(b) - area(a))[0] || null;
   const box = (el || document.body).getBoundingClientRect();
   const hitAreas = (d.hitAreas || []).map(h => ({ id: h.id, x: h.x, y: h.y, width: h.width, height: h.height }));
   // Pixel samples are anchored on a hit area, at a FRACTION of its rect, so the key survives a
@@ -257,9 +262,14 @@ function select(sel, env) {
   if ('hitAreas' in sel) xs = (env.root.hitAreas || []).filter((h) => globRx(sel.hitAreas).test(h.id));
   else if ('path' in sel) {
     const v = walkPath(sel.path, env.root);
-    if (v === undefined || v === null) xs = [];
-    else if (!Array.isArray(v)) throw new Refuse(`selector path "${sel.path}" is not an array`);
-    else xs = v;
+    // An ABSENT surface is not an empty one. `{count:{path:"state.missing"}}` used to be 0 and could
+    // satisfy `eq 0` although nothing was ever observed; present-and-empty still counts as zero.
+    if (v === undefined || v === null) {
+      throw new Refuse(`selector path "${sel.path}" resolves to nothing in the collected payload — ` +
+        `an absent surface is not an empty one`);
+    }
+    if (!Array.isArray(v)) throw new Refuse(`selector path "${sel.path}" is not an array`);
+    xs = v;
   } else throw new Refuse(`a selector needs "hitAreas" or "path", got keys [${Object.keys(sel)}]`);
   if (sel.where) xs = xs.filter((item) => evalPred(sel.where, { ...env, item }, []));
   return xs;
@@ -301,6 +311,12 @@ function evalTerm(t, env) {
   if ('lookup' in t) {
     const xs = select(t.lookup, env);
     const at = evalTerm(t.at, env);
+    // An INDEX, never a property name: `at: "constructor"` read the array prototype instead of the
+    // game's data, and any string key would have done the same.
+    if (typeof at !== 'number' || !Number.isInteger(at) || at < 0) {
+      throw new Refuse(`{lookup} "at" must be a non-negative integer index, got ${JSON.stringify(at)}`);
+    }
+    if (at >= xs.length) throw new Refuse(`{lookup} index ${at} is past the end of ${selLabel(t.lookup)} (length ${xs.length})`);
     const hit = xs[at];
     if (hit == null) return undefined;
     return t.of === undefined ? hit : walkPath(t.of, hit);
@@ -401,6 +417,9 @@ function validateSel(sel) {
   } else if ('path' in sel) {
     if (typeof sel.path !== 'string' || !sel.path.trim()) throw new Refuse('a selector path must be a non-empty string');
   } else throw new Refuse(`a selector needs "hitAreas" or "path", got keys [${Object.keys(sel)}]`);
+  // Selectors escaped the exactly-one-operator rule: {hitAreas, path} validated and then silently
+  // used hitAreas.
+  if ('hitAreas' in sel && 'path' in sel) throw new Refuse('a selector must name ONE source, got both "hitAreas" and "path"');
   const allowed = new Set(['hitAreas', 'path', 'where']);
   const extra = Object.keys(sel).filter((k) => !allowed.has(k));
   if (extra.length) throw new Refuse(`selector carries unknown key(s) [${extra}]`);
@@ -533,6 +552,9 @@ const results = obligations.map((o, idx) => {
   }
   // PROV-01 is the standing provenance lock and is dispatched by primitive, not by id. Drift between
   // the two is a package bug that would otherwise look like a missing model binding.
+  // The provenance lock's enforcement is not the package's to choose: `advisory` turned a
+  // generated-art citation into an ADVISORY-FAIL and the decision back into ACCEPT.
+  if (o.primitive === 'prov') base.enforcement = 'blocking';
   if (/^PROV-/.test(o.id) && o.primitive !== 'prov') {
     return FAIL(`${o.id} must carry primitive "prov" (it is a static source check, not a ${o.primitive} check)`);
   }

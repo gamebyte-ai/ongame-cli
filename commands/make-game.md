@@ -239,9 +239,15 @@ Then collect two lists, and keep them **apart** — this separation is the point
 Confirm in one sentence and continue; ask only if a wrong guess would cost more than the question.
 
 
-## 1.7 Reference Compiler (ONLY when 1.2 judged a reference; needs gameDir, so it runs here)
+## 1.7 Reference Compiler (ONLY when 1.2 judged a reference)
 
 Skip this section entirely on `create_from_idea`.
+
+**Ordering.** This step WRITES into `{gameDir}`, and `gameDir` is fixed in §2 step 2 — not here. So
+run identity resolution and evidence acquisition as soon as 1.2 has judged a reference, but do the
+writing (and therefore the whole of this section) once `gameDir` exists and before §2's Workflow
+call, which is where the digest is passed. Reading this section in document order and compiling
+immediately leaves the compiler with nowhere to put the package.
 
 Apply `skills/reference/SKILL.md` with the `reference_seeds` and `overrides` from 1.2. It resolves
 identity, discovers and acquires evidence, and writes

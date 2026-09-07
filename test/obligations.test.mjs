@@ -137,6 +137,32 @@ const enumLine = (SKILL.match(/^\s*primitive:\s*[a-z|]+$/m) || ['(enum line not 
 check('SKILL.md lists `prov` among the primitives an obligation may name',
   /\bprov\b/.test(enumLine), enumLine.trim());
 
+// [Codex 4th pass P1] the provenance lock could be DOWNGRADED: `enforcement: advisory` made a
+// generated-art citation an ADVISORY-FAIL and the decision ACCEPT. It is the one obligation whose
+// enforcement is not the package's to choose.
+r = run([{ id: 'PROV-01', primitive: 'prov', enforcement: 'advisory' }],
+  { sources: { 'a.ts': DIRTY }, evidence: ['shot_04_gameplay.png'] });
+check('PROV-01 cannot be downgraded to advisory',
+  verdictOf(r.results, 'PROV-01') === 'FAIL' && r.exitCode === 1 &&
+  of_(r.results, 'PROV-01').enforcement === 'blocking',
+  `enforcement=${of_(r.results, 'PROV-01').enforcement} exit=${r.exitCode}`);
+
+// The measured floor this lock has to keep: "measured" is ordinary English in real game code
+// ("freshly measured", "a measured layout"). Across the four shipped A/B builds, treating a claim
+// with no cited file as a violation produced 6-39 findings per build and essentially all of them were
+// prose, including on the two arms that had no reference package at all. The lock fires on a CITED
+// FILE for that reason, and this case pins the floor so that never regresses into noise.
+r = run(PROV, {
+  sources: { 'a.ts': `/** Every registered rect, freshly measured. This is what diagnostics maps over. */
+export const RECTS = [];
+// floor makes it the wrong size against a measured layout; an invisible margin would too.
+export const PAD = 8;` },
+  evidence: ['shot_04.png'],
+});
+check('ordinary "measured" prose with no citation is not a violation',
+  verdictOf(r.results, 'PROV-01') === 'PASS',
+  of_(r.results, 'PROV-01').evidence);
+
 // Drift guard: an obligation named PROV-01 that carries some other primitive is a package bug.
 r = run([{ id: 'PROV-01', primitive: 'model', enforcement: 'blocking' }], { sources: { 'a.ts': CLEAN }, evidence: ['shot_04.png'] });
 check('an obligation named PROV-01 with a non-prov primitive FAILs loudly',
@@ -288,6 +314,45 @@ r = run([{ id: 'C-02', primitive: 'hitArea', enforcement: 'blocking', state: 'an
   { collected: { any: { W: 430, H: 1, state: {} } } });
 check('absence does not survive a division inside near()',
   verdictOf(r.results, 'C-02') === 'FAIL', of_(r.results, 'C-02').evidence);
+
+// [Codex 4th pass P1] selector-backed terms laundered absence: a missing path became `[]`, so
+// `{count:{path:"state.missing"}}` was 0 and satisfied `eq 0` although the surface was never there.
+r = run([{ id: 'C-06', primitive: 'state', enforcement: 'blocking', state: 'any',
+  predicate: { cmp: [{ count: { path: 'state.missing' } }, 'eq', 0] } }],
+  { collected: { any: { W: 1, H: 1, state: {} } } });
+check('a selector over an ABSENT path FAILs instead of counting zero',
+  verdictOf(r.results, 'C-06') === 'FAIL' && /missing|nothing/.test(of_(r.results, 'C-06').evidence || ''),
+  of_(r.results, 'C-06').evidence);
+
+// ...while a surface that is PRESENT and empty is a real observation of zero.
+r = run([{ id: 'C-07', primitive: 'state', enforcement: 'blocking', state: 'any',
+  predicate: { cmp: [{ count: { path: 'state.balls' } }, 'eq', 0] } }],
+  { collected: { any: { W: 1, H: 1, state: { balls: [] } } } });
+check('a present-but-empty collection still counts as zero',
+  verdictOf(r.results, 'C-07') === 'PASS', of_(r.results, 'C-07').evidence);
+
+// [Codex 4th pass P1] selectors escaped the exactly-one-operator rule: {hitAreas, path} validated and
+// then silently used hitAreas.
+r = run([{ id: 'C-08', primitive: 'hitArea', enforcement: 'blocking', state: 'any',
+  predicate: { cmp: [{ count: { hitAreas: '*', path: 'state.realThings' } }, 'gte', 1] } }],
+  { collected: { any: { W: 1, H: 1, hitAreas: [{ id: 'a', x: 0, y: 0, width: 1, height: 1 }], state: {} } } });
+check('a selector carrying two sources is refused, not resolved by key order',
+  verdictOf(r.results, 'C-08') === 'FAIL', of_(r.results, 'C-08').evidence);
+
+// [Codex 4th pass P1] lookup/at could index INHERITED array properties, so `at:"constructor"` read the
+// prototype instead of game data.
+r = run([{ id: 'C-09', primitive: 'state', enforcement: 'blocking', state: 'any',
+  predicate: { cmp: [{ lookup: { path: 'board' }, at: 'constructor' }, 'ne', null] } }],
+  { collected: { any: { W: 1, H: 1, board: [{ color: 'r' }] } } });
+check('lookup refuses a non-index `at`, so it cannot read the prototype',
+  verdictOf(r.results, 'C-09') === 'FAIL' && /index|integer/i.test(of_(r.results, 'C-09').evidence || ''),
+  of_(r.results, 'C-09').evidence);
+
+r = run([{ id: 'C-10', primitive: 'state', enforcement: 'blocking', state: 'any',
+  predicate: { cmp: [{ lookup: { path: 'board' }, at: 7, of: 'color' }, 'eq', 'r'] } }],
+  { collected: { any: { W: 1, H: 1, board: [{ color: 'r' }] } } });
+check('lookup refuses an index past the end of the collection',
+  verdictOf(r.results, 'C-10') === 'FAIL', of_(r.results, 'C-10').evidence);
 
 // [Codex 3rd pass P1] both validation and evaluation took the FIRST recognised key and ignored the
 // rest, so a malformed check could hide behind a well-formed sibling key in the same object.
@@ -481,6 +546,20 @@ try {
   inset = fn({ __game: { diagnostics: { hitAreas: [] } }, innerWidth: 430, innerHeight: 800 },
     { querySelector: (q) => (q === 'canvas' ? c : null), body: c });
 } catch (e) { insetErr = e.message; }
+// [Codex 4th pass P2] the probe took the FIRST canvas, so a hidden preloader canvas ahead of the game
+// canvas silently sourced W/H and every pixel sample from the wrong surface.
+let picked = null, pickErr = null;
+try {
+  const mk = (w, h, bw, bh) => ({ width: w, height: h,
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: bw, height: bh }), getContext: () => null });
+  const preloader = mk(32, 32, 0, 0), game = mk(780, 1400, 390, 700);
+  const fn = new Function('window', 'document', `return (${snippet.trim()});`);
+  picked = fn({ __game: { diagnostics: { hitAreas: [] } }, innerWidth: 430, innerHeight: 800 },
+    { querySelector: () => preloader, querySelectorAll: () => [preloader, game], body: preloader });
+} catch (e) { pickErr = e.message; }
+check('the probe picks the largest visible canvas, not the first in the DOM',
+  picked && picked.W === 390 && picked.H === 700, pickErr || `W=${picked?.W} H=${picked?.H}`);
+
 check('a letterboxed canvas reports the drawing box and the viewport separately',
   inset && inset.W === 390 && inset.H === 700 && inset.viewportW === 430 && inset.viewportH === 800,
   insetErr || `W=${inset?.W} H=${inset?.H} viewportW=${inset?.viewportW} viewportH=${inset?.viewportH}`);

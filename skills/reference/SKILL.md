@@ -125,8 +125,14 @@ row of pips) · `asset_family`. Flag anything you are UNSURE of; those are the d
       enforcement: blocking
   ```
   Its rule is one line: **a constant that claims to be measured must cite a file that resolves in the
-  evidence root.** Two tuning details, both paid for in a measured trial — get them wrong and the lint
-  is ignored within a day:
+  evidence root.** Note the scope precisely: the lock fires on a claim that CITES A FILE, and a claim
+  that cites nothing is outside its reach. That is a measured boundary, not an oversight — across four
+  shipped builds, treating an uncited `measured` as a violation produced 6-39 findings each and
+  essentially all of them were ordinary English (*"freshly measured"*, *"against a measured layout"*),
+  including on two arms that had no reference package at all. A lint at that noise level is ignored
+  within a day. Its `enforcement` is also not the package's to choose: the dispatcher forces PROV-01
+  blocking, because `advisory` turned a generated-art citation into a passing build.
+  Three tuning details, all paid for in a measured trial:
   - **Resolve the cited BASENAME against the evidence directory, do not prefix-match the path.** Real
     code writes `shots_03_home_map.png`, not `evidence/shots_03_home_map.png`. A prefix match flagged
     5 true citations for every 2 real violations; basename resolution flagged **2 of 12 claims, both
