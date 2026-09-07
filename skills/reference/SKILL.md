@@ -61,13 +61,15 @@ row of pips) · `asset_family`. Flag anything you are UNSURE of; those are the d
   reconstruction_critical: true|false     # true => counter_evidence_checked AND verification REQUIRED
   superseded_by: null                     # set when a later measurement retracts this one
   verification:                           # REQUIRED when reconstruction_critical; omit otherwise
-    primitive: model|state|geometry|hitArea|pose|pixel
+    primitive: prov|model|state|geometry|hitArea|pose|pixel
     observable: "<the ONE quantity or relation a harness reads — not the statement restated>"
     required_state: "<the game state it is read in: 'any', or a named instance + the moment>"
     tolerance: "<accept band, or 'exact'>"
     evidence_locator: "<the reference evidence file this obligation rests on>"
     enforcement: blocking|advisory        # see the epistemic-safety rule below
-    blocked_on: null                      # name the missing primitive if it cannot run today
+    blocked_on: null                      # `pose.transform`, `pixel.sample` or `reference.resolution`
+                                          # — the ONLY three the dispatcher recognises; free text is
+                                          # refused as a FAIL, so "blocked" cannot mean "skip this"
 ```
 
 ### The rules that carry the most weight
@@ -88,7 +90,7 @@ row of pips) · `asset_family`. Flag anything you are UNSURE of; those are the d
 - **Say how it could be checked, never check it. `[V1.2]`** Every `reconstruction_critical`
   requirement carries a `verification` block. You are describing an obligation for the harness that
   runs later — you do NOT run it, you do not write test code, and you do not open the game. The
-  obligation names one of the SIX primitives the pipeline already has, so it is a hand-off, not a new
+  obligation names one of the primitives the pipeline already has, so it is a hand-off, not a new
   framework:
   | primitive | what reads it | good for |
   |---|---|---|
@@ -96,8 +98,10 @@ row of pips) · `asset_family`. Flag anything you are UNSURE of; those are the d
   | `geometry` | vitest over the layout functions | fractions, pitch, row split, aspect |
   | `state` | `window.__game.state` / `.board` | transitions, counters, screen routing |
   | `hitArea` | `__game.diagnostics.hitAreas` | anything the player can press, in viewport px |
-  | `pose` | `__game.diagnostics.subjects` | that a subject actually animated |
-  | `pixel` | screenshot sample / frame diff | colour, flatness, composition, an effect drawing at all |
+  | `pose` | `__game.diagnostics.subjects` | that a subject actually animated — a COUNTER only, so an
+    obligation about *where* it landed cannot be dispatched: set `blocked_on: pose.transform` |
+  | `pixel` | a screenshot sample the probe takes, anchored on a hit area | colour, flatness, composition, an effect drawing at all |
+  | `prov` | the source tree, no runtime | that a `MEASURED` constant cites evidence that resolves (PROV-01) |
   `observable` must be the quantity a harness READS, not the statement in other words: *"the source
   bottle's neck x against the target's mouth-centre x, in viewport px"* — not *"the pour looks right"*.
   If no primitive can carry it today, still write the block, set `blocked_on` to the missing capability
@@ -113,7 +117,7 @@ row of pips) · `asset_family`. Flag anything you are UNSURE of; those are the d
   ```yaml
   - id: PROV-01
     verification:
-      primitive: model
+      primitive: prov
       observable: "every source constant whose comment claims MEASURED / observed, and the path it cites"
       required_state: any
       tolerance: exact
@@ -241,22 +245,63 @@ reconstruction-critical `truth` lines, the `blocking` assumptions (**build- AND 
 
 Also write **`{gameDir}/docs/obligations.json`** — the same `verification` blocks as a machine-readable
 array, one object per obligation: `id`, `primitive`, `enforcement`, `state`, `observable`,
-`evidence_locator`, plus `blocked_on` when it cannot run. For `hitArea`/`state`/`pixel` add a
-`predicate` (a JS expression over the collected context, returning a boolean) and an `evidence`
-expression returning the measured value as a string. The context is exactly:
-`hitAreas` (array of `{id,x,y,width,height}` in viewport px) · `W`, `H` (viewport) · `state` · `board`
-· `subjects` · `pick(glob)` → the hitAreas whose id matches, `*` allowed · **`px(key)` → a
-FUNCTION** returning the `[r,g,b]` the collector sampled under that key, and throwing a named error if
-nobody collected it. `px` is not a bag you index: the dispatcher drives no browser, so a colour has to
-have been sampled by the probe before a predicate can ask for it — name the key in `required_state`. This file is what
+`evidence_locator`, plus `blocked_on` when it cannot run.
+
+For `hitArea`/`state`/`pixel`/`pose` add a **`predicate`** — and a predicate is **DATA, never code**.
+The dispatcher refuses a string: it used to evaluate one with `new Function`, which was arbitrary
+execution as the workflow user off material acquired from an external reference. The whole language is:
+
+```
+term := <number|string|boolean|null>
+      | {path:"state.belt.balls.length"}   # dotted walk over the collected payload; no prototype access
+      | {item:"width"}                     # a field of the item under a quantifier
+      | {count:<sel>} | {sum:<sel>, of:<term>} | {gaps:<sel>, axis:"x"|"y"}
+      | {px:"<key>", channel:"r"|"g"|"b"}  # a sample the probe took (see `samples` below)
+      | {lookup:<sel>, at:<term>, of:"<field>"}
+      | {div|mul|add|sub:[<term>,<term>]} | {abs:<term>}
+sel  := {hitAreas:"<glob>"} | {path:"<dotted path to an array>"}     (+ optional where:<pred>)
+pred := {all|any:[<pred>…]} | {not:<pred>} | {when:<pred>, then:<pred>} | {truthy:<term>}
+      | {cmp:[<term>,"eq"|"ne"|"lt"|"lte"|"gt"|"gte",<term>]} | {near:[<term>,<target>,<tol>]}
+      | {every|some|none:<sel>, satisfies:<pred>}
+```
+
+The payload a predicate reads is exactly: `hitAreas` (`{id,x,y,width,height}` in viewport px) · `W`,
+`H` (viewport) · `state` · `board` · `subjects` · `px`. Two behaviours worth knowing before you write
+one: `every`/`some` over a selection that matched **nothing** is a FAIL, not a vacuous pass — a
+fidelity check that matched nothing is exactly the silence this machinery exists to remove; and
+`{when:…, then:…}` is how you scope an invariant to one state without a ternary.
+
+Do NOT write an `evidence` expression. Evidence is generated from the evaluation trace, so a FAIL
+reports the measured number (`div(width,W)=0.1395 vs 0.1396±0.0014`) without you writing a second
+expression — which was the other thing being executed as code.
+
+A `pixel` obligation must also declare the samples it needs, because the dispatcher drives no browser
+and can only read a colour the probe already took:
+`"samples": {"cap-fill": {"hitArea": "bottle-0", "at": [0.5, 0.15]}}` — `at` is a FRACTION of that hit
+area's rect, so the key survives a resolution change. A sample the page cannot give up comes back BLOCKED, not
+FAIL — and on a real build that is the common case, not the exception: a live check on a shipped game
+found its canvas is WebGL, so `getContext('2d')` is null and `getImageData` never runs. `px` is plain
+data in the payload, so a caller that already holds a browser may sample a screenshot itself and fill
+the key in; what the dispatcher refuses to do is guess.
+
+This file is what
 `skills/reference/obligations.mjs` dispatches; the prose list below is what the agent reads. The prose
 alone was measured to be insufficient — that is the whole reason the JSON exists.
 
 `obligations` is the §3 `verification` blocks, one line each, in the shape
 `<id> [<primitive>] <observable> @ <required_state> ±<tolerance> ← <evidence_locator>` — plus
 `(advisory)` when it is not blocking, and `(BLOCKED ON <capability>)` when it cannot run today.
-Carry ALL of them: they are short, and unlike a truth line an obligation that does not arrive is a
-check nobody writes. **This is the one list not to trade against prose.** A measured field run found
+Carry ALL of them — the digest does not cap this list — and unlike a truth line, an obligation that
+does not arrive is a check nobody writes. **This is the one list not to trade against prose.**
+
+Three verdicts, and only one of them stops a build: a blocking **FAIL** rejects; **BLOCKED** (a
+capability the dispatcher knows it lacks) is reported and does not, because a hole in the tooling is
+not a defect in the game; `(advisory)` is reported and must not fail the build. BLOCKED has to be
+earned through one of three named capabilities — `pose.transform` (the primitive exposes a counter,
+not a transform), `pixel.sample` (the page cannot give up the colour) or `reference.resolution` (the
+primitive could read the build fine and the *reference* has no number to compare against, e.g. a
+300 ms easing under 2 s sampling; §4 then also requires the constant NAMED in `blocking`). Free text
+is refused as a FAIL, so "blocked" cannot quietly come to mean "skip this". A measured field run found
 that citing a requirement in the code predicts runtime correctness barely at all (0.67 vs 0.62), while
 having a check for it predicts it clearly (0.85 vs 0.53) — so a package buys fidelity by carrying
 checkable contracts, not by explaining itself at greater length.

@@ -3,10 +3,14 @@
  * The dispatcher's contract, on throwaway fixtures. No browser, no game, no network.
  *
  * The rule with teeth is that a BLOCKING obligation with no result is a FAIL, never a skip — silence
- * used to read as success. These fixtures pin that, plus the two verdicts that are deliberately NOT
+ * used to read as success. These fixtures pin that, plus the verdicts that are deliberately NOT
  * failures: `advisory` (it rests on an assumption, so turning it into a law is the error) and
- * `pose` without a predicate (the primitive exposes a counter and no rendered transform, so it is a
- * missing capability, not a broken build).
+ * BLOCKED (a capability this pipeline does not have yet — a gap in the tooling is not a defect in
+ * the build, and rejecting for it would make those obligations unshippable).
+ *
+ * Everything from `PREDICATES ARE DATA` down was written against a Codex review that found the
+ * dispatcher executing compiler-authored JavaScript with `new Function`. Those cases assert the
+ * refusal, so the vulnerable path cannot come back quietly.
  *
  *   node test/obligations.test.mjs
  */
@@ -24,33 +28,53 @@ const check = (name, ok, detail = '') => {
   if (!ok) failures++;
 };
 
-/** Build a throwaway gameDir, run `score`, return {results, exitCode}. */
-function run(obligations, { sources = {}, evidence = [], collected = null } = {}) {
+/** Build a throwaway gameDir. Returns the dir; caller removes it. */
+function makeDir({ obligations, sources = {}, evidence = [], ref = [], assets = [], collected = null }) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'obl-'));
   fs.mkdirSync(path.join(dir, 'docs'), { recursive: true });
   fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
-  fs.mkdirSync(path.join(dir, 'evidence'), { recursive: true });
+  if (evidence.length) fs.mkdirSync(path.join(dir, 'evidence'), { recursive: true });
+  if (ref.length) fs.mkdirSync(path.join(dir, '.ref'), { recursive: true });
   for (const name of evidence) fs.writeFileSync(path.join(dir, 'evidence', name), '');
-  for (const [name, body] of Object.entries(sources)) fs.writeFileSync(path.join(dir, 'src', name), body);
-  fs.writeFileSync(path.join(dir, 'docs/obligations.json'), JSON.stringify(obligations));
-  const args = [DISPATCH, 'score', dir];
-  if (collected) {
-    fs.writeFileSync(path.join(dir, 'collected.json'), JSON.stringify(collected));
-    args.push(path.join(dir, 'collected.json'));
+  for (const name of ref) fs.writeFileSync(path.join(dir, '.ref', name), '');
+  for (const a of assets) {
+    fs.mkdirSync(path.join(dir, 'assets', path.dirname(a)), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'assets', a), '');
   }
-  let exitCode = 0;
-  try { execFileSync('node', args, { stdio: 'pipe' }); }
-  catch (e) { exitCode = e.status ?? 1; }
-  const out = JSON.parse(fs.readFileSync(path.join(dir, 'docs/obligations.result.json'), 'utf8'));
-  fs.rmSync(dir, { recursive: true, force: true });
-  return { results: out.results, exitCode };
+  for (const [name, body] of Object.entries(sources)) fs.writeFileSync(path.join(dir, 'src', name), body);
+  fs.writeFileSync(path.join(dir, 'docs/obligations.json'),
+    typeof obligations === 'string' ? obligations : JSON.stringify(obligations));
+  if (collected) fs.writeFileSync(path.join(dir, 'collected.json'), JSON.stringify(collected));
+  return dir;
 }
-const verdictOf = (r, id) => (r.find((x) => x.id === id) || {}).verdict;
 
-// PROV-01: a MEASURED claim citing a generated artefact is the failure this lock exists for.
+function dispatch(cmd, dir, extra = []) {
+  let exitCode = 0, stdout = '';
+  try { stdout = execFileSync('node', [DISPATCH, cmd, dir, ...extra], { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }); }
+  catch (e) { exitCode = e.status ?? 1; stdout = String(e.stdout ?? ''); }
+  return { exitCode, stdout };
+}
+
+/** Run `score` on a throwaway gameDir and return {results, exitCode, dir kept? no}. */
+function run(obligations, opts = {}) {
+  const dir = makeDir({ obligations, ...opts });
+  const { exitCode, stdout } = dispatch('score', dir, opts.collected ? [path.join(dir, 'collected.json')] : []);
+  const resPath = path.join(dir, 'docs/obligations.result.json');
+  const out = fs.existsSync(resPath) ? JSON.parse(fs.readFileSync(resPath, 'utf8')) : null;
+  const sideEffect = fs.existsSync(path.join(dir, 'PWNED'));
+  fs.rmSync(dir, { recursive: true, force: true });
+  return { results: out?.results ?? null, out, exitCode, stdout, sideEffect };
+}
+const of_ = (r, id) => (r || []).find((x) => x.id === id) || {};
+const verdictOf = (r, id) => of_(r, id).verdict;
+
+/* ────────────────────────── PROVENANCE (PROV-01) ────────────────────────── */
+
 const DIRTY = `/** MEASURED, from the reference frame (assets/concept/05_pour.png, 768 px wide). */
 export const TILT_DEG = 142;`;
 const CLEAN = `/** MEASURED off shot_04_gameplay.png at 924x1999. */
+export const TILT_DEG = 63;`;
+const GHOST = `/** MEASURED from does_not_exist.png, frame 12. */
 export const TILT_DEG = 63;`;
 const PROV = [{ id: 'PROV-01', primitive: 'prov', enforcement: 'blocking' }];
 
@@ -63,47 +87,265 @@ check('PROV-01 PASSes when the cited basename resolves in the evidence root',
   verdictOf(r.results, 'PROV-01') === 'PASS' && r.exitCode === 0,
   'a bare basename must count — real code writes shot_04.png, not evidence/shot_04.png');
 
-// The teeth: no result is a FAIL, and it rejects the build.
+// [Codex P1] the skill documents raw evidence under `.ref/`; the checker only looked in `evidence/`.
+r = run(PROV, { sources: { 'a.ts': CLEAN }, ref: ['shot_04_gameplay.png'] });
+check('PROV-01 resolves evidence under .ref/, which is where the skill says raw evidence lives',
+  verdictOf(r.results, 'PROV-01') === 'PASS' && r.exitCode === 0,
+  of_(r.results, 'PROV-01').evidence);
+
+// [Codex P1] a MEASURED claim citing a path that resolves NOWHERE used to pass, because only
+// denylisted generated paths were flagged. The documented rule is "must resolve in the evidence root".
+r = run(PROV, { sources: { 'a.ts': GHOST }, evidence: ['shot_04_gameplay.png'] });
+check('PROV-01 FAILs on a MEASURED claim whose cited file resolves nowhere',
+  verdictOf(r.results, 'PROV-01') === 'FAIL' && r.exitCode === 1,
+  of_(r.results, 'PROV-01').evidence);
+
+// Measuring your OWN shipped sprite is not a provenance violation — it is not reference authority,
+// but it does resolve, and flagging it would make the lock unusable.
+const SELF = `/** MEASURED off assets/sprites/bottle.png (the sprite we ship). */\nexport const W = 60;`;
+r = run(PROV, { sources: { 'a.ts': SELF }, evidence: ['shot_04.png'], assets: ['sprites/bottle.png'] });
+check('PROV-01 tolerates a constant measured off the build\'s own shipped asset',
+  verdictOf(r.results, 'PROV-01') === 'PASS' && /1 measured off the build/.test(of_(r.results, 'PROV-01').evidence || ''),
+  of_(r.results, 'PROV-01').evidence);
+
+// ...but the exemption is "it resolves", not "it starts with assets/" — an asset that is not there
+// is an unresolvable citation like any other.
+r = run(PROV, { sources: { 'a.ts': SELF }, evidence: ['shot_04.png'] });
+check('PROV-01 does not let a non-existent assets/ path claim the self-measurement exemption',
+  verdictOf(r.results, 'PROV-01') === 'FAIL', of_(r.results, 'PROV-01').evidence);
+
+// [Codex P1] the doc/code contract: SKILL.md's PROV-01 example must name the primitive the
+// dispatcher actually routes to provenance. The old skill said `model` and the dispatcher said `prov`,
+// so a compliant package would have failed for a missing model binding.
+const SKILL = fs.readFileSync(path.join(ROOT, 'skills/reference/SKILL.md'), 'utf8');
+const provPrimitive = (SKILL.match(/PROV-01[\s\S]{0,400}?primitive:\s*`?([a-z]+)`?/) || [])[1];
+check('SKILL.md declares PROV-01 with the primitive the dispatcher routes to provenance',
+  provPrimitive === 'prov', `SKILL.md says ${provPrimitive ?? '(not found)'}`);
+const enumLine = (SKILL.match(/^\s*primitive:\s*[a-z|]+$/m) || ['(enum line not found)'])[0];
+check('SKILL.md lists `prov` among the primitives an obligation may name',
+  /\bprov\b/.test(enumLine), enumLine.trim());
+
+// Drift guard: an obligation named PROV-01 that carries some other primitive is a package bug.
+r = run([{ id: 'PROV-01', primitive: 'model', enforcement: 'blocking' }], { sources: { 'a.ts': CLEAN }, evidence: ['shot_04.png'] });
+check('an obligation named PROV-01 with a non-prov primitive FAILs loudly',
+  verdictOf(r.results, 'PROV-01') === 'FAIL' && /prov/.test(of_(r.results, 'PROV-01').evidence || ''),
+  of_(r.results, 'PROV-01').evidence);
+
+/* ────────────────────────── THE TEETH ────────────────────────── */
+
 r = run([{ id: 'R-01', primitive: 'model', enforcement: 'blocking' }]);
 check('a blocking obligation with no binding FAILs and rejects',
   verdictOf(r.results, 'R-01') === 'FAIL' && r.exitCode === 1);
 
-// advisory is reported and must NOT reject — a guess may not become a law.
 r = run([{ id: 'R-02', primitive: 'model', enforcement: 'advisory' }]);
 check('an advisory obligation with no binding does not reject',
   verdictOf(r.results, 'R-02') === 'FAIL' && r.exitCode === 0);
 
-// pose without a predicate is a missing capability, not a broken build.
-r = run([{ id: 'R-03', primitive: 'pose', enforcement: 'blocking' }]);
-check('pose without a predicate reports BLOCKED, not FAIL',
-  verdictOf(r.results, 'R-03') === 'BLOCKED');
+/* ────────────────────────── PREDICATES ARE DATA [Codex P1] ────────────────────────── */
 
-// every other primitive still owes a predicate.
+// The finding: `predicate` was a JavaScript string, evaluated with `new Function`. The compiler
+// ingests external reference material and obligations.json lives in gameDir, so that is arbitrary
+// Node execution as the workflow user. A refused string must not run — proven by side effect.
+const EXPLOIT = "require('node:fs').writeFileSync(process.cwd() + '/PWNED','x') || true";
+r = run([{ id: 'R-JS', primitive: 'state', enforcement: 'blocking', state: 'any', predicate: EXPLOIT }],
+  { collected: { any: { W: 1, H: 1 } } });
+check('a string predicate is REFUSED, not executed',
+  verdictOf(r.results, 'R-JS') === 'FAIL' && !r.sideEffect && /declarative|not executed|string/i.test(of_(r.results, 'R-JS').evidence || ''),
+  of_(r.results, 'R-JS').evidence);
+
+// The `evidence` field was the second injection vector — same treatment.
+r = run([{ id: 'R-EV', primitive: 'state', enforcement: 'blocking', state: 'any',
+  predicate: { cmp: [{ path: 'state.score' }, 'eq', 3] }, evidence: EXPLOIT }],
+  { collected: { any: { W: 1, H: 1, state: { score: 3 } } } });
+check('a string `evidence` expression is not executed either',
+  verdictOf(r.results, 'R-EV') === 'PASS' && !r.sideEffect,
+  of_(r.results, 'R-EV').evidence);
+
+const CTX = { any: { W: 430, H: 932, hitAreas: [
+  { id: 'bottle-0', x: 42.6, y: 379.9, width: 60, height: 183 },
+  { id: 'bottle-1', x: 113.8, y: 379.9, width: 60, height: 183 },
+  { id: 'bottle-2', x: 185.0, y: 379.9, width: 60, height: 183 }] } };
+
+// Every one of these shapes is transcribed from a predicate a real build actually shipped
+// (~/src/msort-ab/T and ~/src/yarn-ab/T), so the schema is sized to observed need, not to a guess.
+
+// R-SP-01: each bottle's width / viewport width, within a band.  (was: pick(...).every(b => Math.abs(...)))
+r = run([{ id: 'D-01', primitive: 'hitArea', enforcement: 'blocking', state: 'any',
+  predicate: { every: { hitAreas: 'bottle-*' },
+    satisfies: { near: [{ div: [{ item: 'width' }, { path: 'W' }] }, 0.1396, 0.0014] } } }], { collected: CTX });
+check('declarative: a per-item ratio within a tolerance band',
+  verdictOf(r.results, 'D-01') === 'PASS', of_(r.results, 'D-01').evidence);
+
+// R-SP-02: the row's total gap budget.  (was: an IIFE with a for-loop)
+r = run([{ id: 'D-02', primitive: 'hitArea', enforcement: 'blocking', state: 'any',
+  predicate: { near: [{ div: [{ gaps: { hitAreas: 'bottle-*' }, axis: 'x' }, { path: 'W' }], }, 0.0521, 0.004] } }],
+  { collected: CTX });
+check('declarative: a summed inter-item gap budget, no loop and no code',
+  verdictOf(r.results, 'D-02') === 'PASS', of_(r.results, 'D-02').evidence);
+
+// R-07: two selections compared by count, plus a floor on each rect.
+r = run([{ id: 'D-03', primitive: 'hitArea', enforcement: 'blocking', state: 'any',
+  predicate: { all: [
+    { cmp: [{ count: { hitAreas: 'bottle-*' } }, 'gte', 3] },
+    { every: { hitAreas: 'bottle-*' }, satisfies: { cmp: [{ item: 'height' }, 'gte', { mul: [0.05, { path: 'H' }] }] } }] } }],
+  { collected: CTX });
+check('declarative: count comparison + a floor expressed against H',
+  verdictOf(r.results, 'D-03') === 'PASS', of_(r.results, 'D-03').evidence);
+
+// R-04: an implication — the invariant only binds in the win state.  (was: a ternary)
+const WINCTX = { any: { W: 1, H: 1, state: { screen: 'play' }, board: [{ color: 'r' }, null] } };
+r = run([{ id: 'D-04', primitive: 'state', enforcement: 'blocking', state: 'any',
+  predicate: { when: { cmp: [{ path: 'state.screen' }, 'eq', 'win'] },
+    then: { cmp: [{ count: { path: 'board', where: { truthy: { item: 'color' } } } }, 'eq', 0] } } }],
+  { collected: WINCTX });
+check('declarative: an implication holds vacuously outside its state',
+  verdictOf(r.results, 'D-04') === 'PASS', of_(r.results, 'D-04').evidence);
+
+// R-06: cross-reference — each ball's target cell must carry that ball's colour.
+const XCTX = { any: { W: 1, H: 1, board: [{ color: 'cyan' }, { color: 'red' }],
+  state: { belt: { balls: [{ color: 'cyan', target: 0 }, { color: 'red', target: 1 }, { color: 'red', target: null }] } } } };
+r = run([{ id: 'D-05', primitive: 'state', enforcement: 'blocking', state: 'any',
+  predicate: { every: { path: 'state.belt.balls', where: { not: { cmp: [{ item: 'target' }, 'eq', null] } } },
+    satisfies: { cmp: [{ lookup: { path: 'board' }, at: { item: 'target' }, of: 'color' }, 'eq', { item: 'color' }] } } }],
+  { collected: XCTX });
+check('declarative: a filtered cross-reference between two collections',
+  verdictOf(r.results, 'D-05') === 'PASS', of_(r.results, 'D-05').evidence);
+
+// A false predicate must FAIL with the ACTUAL numbers in evidence — the trace is the whole point of
+// giving up the JS `evidence` expression.
+r = run([{ id: 'D-06', primitive: 'hitArea', enforcement: 'blocking', state: 'any',
+  predicate: { every: { hitAreas: 'bottle-*' },
+    satisfies: { near: [{ div: [{ item: 'width' }, { path: 'W' }] }, 0.30, 0.001] } } }], { collected: CTX });
+check('a failing declarative predicate reports the measured value, not just "false"',
+  verdictOf(r.results, 'D-06') === 'FAIL' && /0\.139/.test(of_(r.results, 'D-06').evidence || ''),
+  of_(r.results, 'D-06').evidence);
+
+// A malformed predicate is a package bug and must be named as one, not silently pass.
+r = run([{ id: 'D-07', primitive: 'state', enforcement: 'blocking', state: 'any',
+  predicate: { cmp: [{ path: 'state.x' }, 'spaceship', 1] } }], { collected: { any: { W: 1, H: 1, state: { x: 1 } } } });
+check('an unknown operator FAILs with the offending token named',
+  verdictOf(r.results, 'D-07') === 'FAIL' && /spaceship/.test(of_(r.results, 'D-07').evidence || ''),
+  of_(r.results, 'D-07').evidence);
+
+r = run([{ id: 'D-08', primitive: 'state', enforcement: 'blocking', state: 'any',
+  predicate: { cmp: [{ path: 'state.__proto__.constructor' }, 'ne', null] } }],
+  { collected: { any: { W: 1, H: 1, state: { x: 1 } } } });
+check('a path may not walk into prototype internals',
+  verdictOf(r.results, 'D-08') === 'FAIL' && /__proto__|prototype|forbidden/i.test(of_(r.results, 'D-08').evidence || ''),
+  of_(r.results, 'D-08').evidence);
+
+/* ────────────────────────── BLOCKED IS NOT A REJECTION [Codex P1] ────────────────────────── */
+
+// The finding: `pose` was advertised as one of six primitives but special-cased to BLOCKED, and any
+// blocking non-PASS rejected — so a blocking pose obligation could never be released. A capability
+// this file does not have is a gap in the tooling, not a defect in the build.
+r = run([{ id: 'R-03', primitive: 'pose', enforcement: 'blocking' }]);
+check('pose without a predicate reports BLOCKED', verdictOf(r.results, 'R-03') === 'BLOCKED');
+check('a blocking BLOCKED obligation does NOT reject the build', r.exitCode === 0,
+  `exit ${r.exitCode}`);
+check('BLOCKED stays visible in the summary line', /BLOCKED/.test(r.stdout));
+check('the result file carries the blocked ids so they cannot be lost',
+  Array.isArray(r.out?.blocked) && r.out.blocked.includes('R-03'),
+  JSON.stringify(r.out?.blocked));
+
+// ...but BLOCKED must be earned. An obligation may only be BLOCKED for a capability this file
+// declares missing; otherwise "blocked" becomes a way to opt out of every check.
+r = run([{ id: 'R-09', primitive: 'state', enforcement: 'blocking', blocked_on: 'a thing I made up' }]);
+check('BLOCKED is refused for a capability the dispatcher does not recognise',
+  verdictOf(r.results, 'R-09') === 'FAIL' && r.exitCode === 1,
+  of_(r.results, 'R-09').evidence);
+
+// The third gap is not in this file but in the evidence: the primitive can read the build, and the
+// reference has no number to compare against. A real shipped package surfaced this one.
+r = run([{ id: 'R-10', primitive: 'pose', enforcement: 'blocking',
+  blocked_on: 'reference.resolution — the evidence samples at 2 s and cannot resolve a 300 ms easing' }]);
+check('reference.resolution is a recognised gap: BLOCKED, and it does not reject',
+  verdictOf(r.results, 'R-10') === 'BLOCKED' && r.exitCode === 0, of_(r.results, 'R-10').evidence);
+
 r = run([{ id: 'R-04', primitive: 'state', enforcement: 'blocking' }]);
 check('a non-pose primitive without a predicate still FAILs',
   verdictOf(r.results, 'R-04') === 'FAIL');
 
-// hitArea predicates evaluate against the collected payload, with pick() and W.
-const CTX = { any: { W: 430, H: 932, hitAreas: [
-  { id: 'bottle-0', x: 42.6, y: 379.9, width: 60, height: 183 },
-  { id: 'bottle-1', x: 113.8, y: 379.9, width: 60, height: 183 }] } };
-r = run([{ id: 'R-05', primitive: 'hitArea', enforcement: 'blocking', state: 'any',
-  predicate: "pick('bottle-*').every(b => Math.abs(b.width/W - 0.1396) <= 0.0014)",
-  evidence: "pick('bottle-*').map(b => (b.width/W).toFixed(4)).join(',')" }], { collected: CTX });
-check('a hitArea predicate evaluates over pick() and W',
-  verdictOf(r.results, 'R-05') === 'PASS',
-  (r.results.find((x) => x.id === 'R-05') || {}).evidence);
+/* ────────────────────────── PIXEL: probe → score, end to end [Codex P1] ────────────────────────── */
 
-// px is a FUNCTION over collected samples, and says so when the sample is missing.
-r = run([{ id: 'R-06', primitive: 'pixel', enforcement: 'blocking', state: 'any',
-  predicate: "px('yellow')[0] === 252" }], { collected: { any: { W: 1, H: 1, px: { yellow: [252, 192, 6] } } } });
-check('px(key) resolves a collected sample', verdictOf(r.results, 'R-06') === 'PASS');
+// The finding: pixel obligations were advertised, but the probe collected no samples and there was
+// no sample-key contract, so the only passing test was one that injected `px` by hand. This runs the
+// REAL emitted snippet against a stub page and feeds its REAL output to `score`.
+const PIXOBL = [{ id: 'P-01', primitive: 'pixel', enforcement: 'blocking', state: 'any',
+  samples: { 'cap-fill': { hitArea: 'bottle-0', at: [0.5, 0.15] } },
+  predicate: { cmp: [{ px: 'cap-fill', channel: 'r' }, 'eq', 145] } }];
+let dir = makeDir({ obligations: PIXOBL });
+const probe = dispatch('probe', dir);
+const snippet = (probe.stdout.split('// ---8<--- BEGIN PAGE SNIPPET')[1] || '').split('// ---8<--- END PAGE SNIPPET')[0];
+check('probe emits the page snippet between stable markers', snippet.trim().length > 0);
+check('probe declares the pixel sample keys it needs', /cap-fill/.test(probe.stdout));
 
-r = run([{ id: 'R-07', primitive: 'pixel', enforcement: 'blocking', state: 'any',
-  predicate: "px('missing')[0] === 1" }], { collected: { any: { W: 1, H: 1, px: {} } } });
-const ev = (r.results.find((x) => x.id === 'R-07') || {}).evidence || '';
-check('px(key) names the missing sample instead of throwing undefined',
-  verdictOf(r.results, 'R-07') === 'FAIL' && /no pixel sample collected for "missing"/.test(ev));
+let collectedFromPage = null, snippetError = null;
+try {
+  // A stub page: the 2d context answers with the coordinates it was asked for, so the assertion
+  // below pins the snippet's viewport-px -> canvas-px mapping, not just that it returned something.
+  const canvas = {
+    width: 860, height: 1864,
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 430, height: 932 }),
+    getContext: (k) => (k === '2d'
+      ? { getImageData: (x, y) => ({ data: [Math.round(x), Math.round(y), 6, 255] }) }
+      : null),
+  };
+  const stub = {
+    window: { __game: { state: { screen: 'play' }, board: null,
+      diagnostics: { hitAreas: [{ id: 'bottle-0', x: 42.6, y: 379.9, width: 60, height: 183 }] } } },
+    document: { querySelector: (s) => (s === 'canvas' ? canvas : null), body: canvas },
+  };
+  const fn = new Function('window', 'document', `return (${snippet.trim()});`);
+  collectedFromPage = fn(stub.window, stub.document);
+} catch (e) { snippetError = e.message; }
+
+check('the emitted snippet runs in a page and returns px samples',
+  collectedFromPage && collectedFromPage.px && 'cap-fill' in collectedFromPage.px,
+  snippetError || JSON.stringify(collectedFromPage?.px));
+check('the snippet maps the hitArea fraction to canvas pixels correctly',
+  collectedFromPage?.px?.['cap-fill']?.[0] === 145 && collectedFromPage?.px?.['cap-fill']?.[1] === 815,
+  `got ${JSON.stringify(collectedFromPage?.px?.['cap-fill'])} — expected [145,815,6]`);
+
+if (collectedFromPage) {
+  fs.writeFileSync(path.join(dir, 'page.json'), JSON.stringify({ any: collectedFromPage }));
+  const scored = dispatch('score', dir, [path.join(dir, 'page.json')]);
+  const res = JSON.parse(fs.readFileSync(path.join(dir, 'docs/obligations.result.json'), 'utf8')).results;
+  check('score consumes the px the probe\'s own snippet collected',
+    verdictOf(res, 'P-01') === 'PASS' && scored.exitCode === 0, of_(res, 'P-01').evidence);
+}
+fs.rmSync(dir, { recursive: true, force: true });
+
+// A page that cannot give up pixels (WebGL, a tainted canvas) is a capability gap: BLOCKED, not FAIL.
+r = run(PIXOBL, { collected: { any: { W: 430, H: 932, px: {}, pxUnavailable: { 'cap-fill': 'no 2d context' } } } });
+check('an unavailable pixel sample is BLOCKED, not a build rejection',
+  verdictOf(r.results, 'P-01') === 'BLOCKED' && r.exitCode === 0, of_(r.results, 'P-01').evidence);
+
+// A pixel obligation that declares no samples is a package bug.
+r = run([{ id: 'P-02', primitive: 'pixel', enforcement: 'blocking', state: 'any',
+  predicate: { cmp: [{ px: 'nope', channel: 'r' }, 'eq', 1] } }], { collected: { any: { W: 1, H: 1 } } });
+check('a pixel obligation with no declared samples FAILs and says so',
+  verdictOf(r.results, 'P-02') === 'FAIL' && /sample/.test(of_(r.results, 'P-02').evidence || ''),
+  of_(r.results, 'P-02').evidence);
+
+/* ────────────────────────── MALFORMED INPUT IS A VERDICT [Codex P2] ────────────────────────── */
+
+// The finding: bad JSON threw before obligations.result.json was written, so the caller got a Node
+// stack instead of the machine verdict the whole file exists to produce.
+r = run('{ this is not json ');
+check('malformed obligations.json still writes a typed FAIL result file',
+  r.results && verdictOf(r.results, '__file__') === 'FAIL' && r.exitCode === 1,
+  of_(r.results, '__file__').evidence);
+
+r = run({ id: 'not-an-array' });
+check('a non-array obligations.json is a typed FAIL, not a crash',
+  r.results && verdictOf(r.results, '__file__') === 'FAIL' && r.exitCode === 1,
+  of_(r.results, '__file__').evidence);
+
+r = run([{ primitive: 'state', enforcement: 'blocking' }, { id: 'R-OK', primitive: 'nonsense' }]);
+check('an obligation with no id gets a typed FAIL and does not sink its siblings',
+  r.results?.length === 2 && r.results.every((x) => x.verdict === 'FAIL') && r.exitCode === 1,
+  r.results?.map((x) => `${x.id}:${x.evidence}`).join(' | '));
 
 console.log(`\n  ${failures ? `${failures} FAILURE(S)` : 'the dispatcher contract holds'}`);
 process.exit(failures ? 1 : 0);
