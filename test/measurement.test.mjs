@@ -359,6 +359,70 @@ const put = (name, buf) => { const f = path.join(DIR, name); fs.writeFileSync(f,
   check('...and does not present fully transparent RGB as exact visual truth',
     /alpha/i.test(r.claimable || ''), r.claimable);
 }
+/* ── ALPHA: the contract must ABSTAIN, not infer geometry from an RGB canvas ───────────────────────
+   Real generated game assets are transparent PNGs whose SHAPE is carried by alpha. This decoder
+   discards alpha by design, so "differs from the page background" is undefined on them — and it was
+   measured returning VALID with n=3 and a width of 0.315 W on a real shipped asset, plus #000000 for
+   the RGB of fully transparent pixels. Both are the bad path: alpha discarded, RGB canvas measured,
+   content geometry inferred, reported VALID. V1 does not promise alpha-aware geometry, so it says so. */
+{
+  const w = 16, h = 16, stride = w * 4;
+  const rows = Array.from({ length: h }, (_, y) => {
+    const line = Buffer.alloc(stride);
+    for (let x = 0; x < w; x++) {
+      const inside = x > 3 && x < 12 && y > 3 && y < 12;         // an opaque square in a clear field
+      line[x * 4] = 200; line[x * 4 + 1] = 30; line[x * 4 + 2] = 40;
+      line[x * 4 + 3] = inside ? 255 : 0;
+    }
+    return Buffer.concat([Buffer.from([0]), line]);
+  });
+  const f = put('shape-in-alpha.png', png([['IHDR', ihdr(w, h, 8, 6)], ['IDAT', zlib.deflateSync(Buffer.concat(rows))], ['IEND', Buffer.alloc(0)]]));
+  const g = M.runs(f, { band: [0.3, 0.7], base: 'W' });
+  check('runs ABSTAINS on an alpha-bearing source instead of measuring the RGB canvas',
+    g.validity === M.UNRESOLVED && /alpha/i.test(g.note || ''), `${g.validity}: ${(g.note || '').slice(0, 80)}`);
+  const pt = M.pitch(f, { rect: [0.0, 1.0, 0.0, 1.0], axis: 'x', base: 'W' });
+  check('pitch abstains too', pt.validity === M.UNRESOLVED && /alpha/i.test(pt.note || ''), pt.validity);
+  const cl = M.colour(f, { rect: [0.0, 1.0, 0.0, 1.0] });
+  check('colour abstains rather than returning the RGB of transparent pixels',
+    cl.validity === M.UNRESOLVED && /alpha/i.test(cl.note || ''), `${cl.validity} ${cl.hex ?? ''}`);
+  const cf = M.countFills(f, { rect: [0.0, 1.0, 0.0, 1.0] });
+  check('countFills abstains as well', cf.validity === M.UNRESOLVED, cf.validity);
+  // `source` is ABOUT the file, not its pixels, so it still answers — and it names the loss.
+  const sc = M.source(f);
+  check('source still answers, and names the alpha loss',
+    sc.validity === M.VALID && sc.decode.alpha_discarded === true && /alpha/i.test(sc.claimable),
+    `${sc.validity} ${sc.claimable?.slice(-60)}`);
+  // and the abstention must not spread to opaque sources
+  const opaque = M.runs(TRAY, { band: [0.30, 0.50], key: SLOT, base: 'W' });
+  check('an opaque source is unaffected by the alpha rule', opaque.validity === M.VALID && opaque.n === 5);
+}
+// The real thing this protects: a shipped transparent asset used to return a geometry number.
+{
+  const real = path.join(os.homedir(), 'src/msort-ab/T/public/assets/bottle-glass.png');
+  if (fs.existsSync(real)) {
+    const g = M.runs(real, { band: [0.4, 0.5], base: 'W' });
+    check('the shipped transparent asset no longer yields a geometry number',
+      g.validity === M.UNRESOLVED, `${g.validity} width_mean=${g.normalized?.width_mean}`);
+  } else console.log('  SKIP  the shipped-asset case needs the corpus');
+}
+
+/* ── measurement never carries an EXPECTATION ──────────────────────────────────────────────────────
+   Two numbers being deterministically measurable does not make them the same observable. A real
+   corpus showed it: comparing an asset manifest's design-intent aspect against the PNG canvas ratio
+   FAILS 12 of 31 accepted assets, and against a content bbox 11 of 31. Proving that two observables
+   are the same thing is the comparison layer's job, so nothing in this API may look like an expected
+   value waiting to be compared. */
+{
+  const recs = [M.source(TRAY), M.colour(TRAY, { rect: [0.1, 0.2, 0.1, 0.2] }),
+                M.runs(TRAY, { band: [0.30, 0.50], key: SLOT, base: 'W' }),
+                M.pitch(PLAIN, { rect: [0.0, 1.0, 0.30, 0.50], axis: 'x', base: 'W', expect: [0.15, 0.25] })];
+  const forbidden = /expected|declared|target|intent|manifest|pass|fail|verdict|matches/i;
+  const bad = [];
+  for (const r of recs) for (const k of Object.keys(r)) if (forbidden.test(k)) bad.push(`${r.primitive}.${k}`);
+  check('no primitive exposes a field that reads as an expectation or a verdict',
+    bad.length === 0, bad.join(', ') || 'none');
+}
+
 // countFills must clamp its rect like the other primitives do
 {
   const r = M.countFills(TRAY, { rect: [-0.5, 1.9, -0.4, 1.7] });

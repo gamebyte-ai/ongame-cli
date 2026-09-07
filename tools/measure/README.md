@@ -58,6 +58,32 @@ None of those fields is decoration. Each one exists because a measurement went w
   same flat region on a 4:2:0 JPEG moved 5–9 per channel *while its variance fell*. Compression makes
   a wrong colour look more certain, so `exactness` says `FAMILY_ONLY` there.
 
+## who owns what
+
+```
+Reference Compiler   WHAT SHOULD BE TRUE
+this layer           WHAT CAN BE MEASURED FROM THIS EVIDENCE
+a comparison layer   DOES THE MEASUREMENT MATCH THE EXPECTATION
+```
+
+This layer does not pass or fail a claim, does not declare a package wrong, does not reject an asset,
+does not invent an expected value, and does not invent an object's identity. It produces a value, a
+normalized value, a validity, the evidence that the selection was sound, the source and decode facts,
+a derived tolerance, and a provenance record. Nothing else.
+
+**Two numbers being deterministically measurable does not make them the same observable.** This is not
+a philosophical caveat, it is a measured one: comparing an asset manifest's design-intent aspect ratio
+against the PNG canvas ratio fails 12 of 31 accepted, shipped assets, and against a content bounding
+box 11 of 31. So
+
+```
+design-intent aspect  !=  PNG canvas aspect  !=  alpha/content bbox aspect
+```
+
+unless a producer contract explicitly binds them — and proving that binding is the comparison layer's
+job, never this one's. Nothing in this API carries an expected value, and a test asserts that no
+primitive ever exposes a field that reads like one.
+
 ## validity — and there is no FAIL
 
 | value | meaning |
@@ -96,16 +122,30 @@ SOLID region.** Keys sampled off a shaded ball and a glossy button came back `ki
 median of a shaded thing is a blend that matches almost nothing (match_fraction 0.006 and 0.07). Since
 `colour` already reports `kind`, whether a key is usable at all is decidable before it is used.
 
+**Alpha-bearing sources are declined for measurement.** Alpha is discarded here by design — every
+primitive reads what is drawn and no caller composites — but a real generated game asset is a
+transparent PNG whose SHAPE is carried by alpha. On one of those, "differs from the page background"
+is not a question with an answer. Measured before this was closed: a shipped transparent asset
+returned VALID with three runs and a width of 0.315 W, and its colour came back `#000000` from fully
+transparent pixels. `colour`, `runs`, `pitch` and `countFills` now return `UNRESOLVED` there and say
+why; `source` still answers, because it describes the file rather than its pixels, and it is where the
+loss is announced. Cost on the reference corpus this was built for: none — 0 of 157 evidence files
+carry alpha.
+
 Also standing: `count_fills` disagreed with the package on all three census claims tried (off by one
 each way), which is why it is marked optional rather than shipped as a peer of the other four.
 
 ## explicitly out of scope
 
-standalone `bbox` · OCR / digit reading · temporal / frame differencing · automatic region discovery ·
-grid census · corner radius · stroke width · gradient endpoints · any screen/region taxonomy.
+semantic region discovery · `contained_in` · OCR / digit reading · temporal / frame differencing ·
+standalone `bbox` and content bbox · alpha-aware subject segmentation · grid census · corner radius ·
+stroke width · gradient endpoints · any screen/region taxonomy · **any automatic verdict on a
+generated asset's fidelity** · **any semantic binding between a design intent and a rendered
+observable**.
 
-Each was either measured to be unnecessary (real claim incidence 0-1) or measured to fail (`bbox` 1/5,
-temporal 0/2) in the lab replay that set this scope.
+Each was either measured to be unnecessary (real claim incidence 0-1) or measured to fail: `bbox` 1/5
+and temporal 0/2 in the lab replay that set this scope, and the design-intent binding 12/31 and 11/31
+false positives on a real shipped asset set. These are capability boundaries, not a to-do list.
 
 ## running it
 

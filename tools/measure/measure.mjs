@@ -94,6 +94,27 @@ function open(file, primitive, opts) {
   }
 }
 
+/**
+ * ABSTAIN on an alpha-bearing source. This decoder discards alpha by design — every primitive here
+ * reads what is DRAWN and no caller composites — but a real generated game asset is a transparent PNG
+ * whose SHAPE is carried by alpha, and on one of those "differs from the page background" is not a
+ * question with an answer. Measured before this guard: a shipped transparent asset returned VALID with
+ * three runs and a width of 0.315 W, and its colour came back #000000 from fully transparent pixels.
+ * That is the whole failure this file exists to prevent, arriving through the decoder instead of
+ * through a keying rule. V1 does not promise alpha-aware geometry, so it declines rather than infer.
+ *
+ * `source` is exempt: it describes the FILE, not its pixels, and it is where the loss is announced.
+ * Cost on the reference corpus this was built for: none — 0 of 157 evidence files carry alpha.
+ */
+function alphaGuard(primitive, img, opts) {
+  if (!img.decode?.alpha_discarded) return null;
+  return bad(primitive, UNRESOLVED,
+    'this source carries ALPHA and its alpha is discarded here, so the shape may be carried by ' +
+    'transparency rather than by colour — alpha-aware geometry and subject segmentation are out of ' +
+    'scope for V1, and inferring them from the RGB canvas would be a measurement of the canvas, not ' +
+    'of the subject. Use `source` for the file-level facts.', img, opts);
+}
+
 /* ─────────────────────────────── source ─────────────────────────────── */
 export function source(file) {
   const o = open(file, 'source', {});
@@ -121,6 +142,7 @@ export function colour(file, { rect, key = null, keyTol = 22, base = 'ratio' } =
   const [fx0, fx1, fy0, fy1] = rect;
   const x0 = Math.max(0, Math.floor(fx0 * img.w)), x1 = Math.min(img.w, Math.ceil(fx1 * img.w));
   const y0 = Math.max(0, Math.floor(fy0 * img.h)), y1 = Math.min(img.h, Math.ceil(fy1 * img.h));
+  const ag = alphaGuard('colour', img, opts); if (ag) return ag;
   if (x1 - x0 < 3 || y1 - y0 < 3)
     return bad('colour', UNRESOLVED, `region is ${x1 - x0}x${y1 - y0} px — too small to take a median`, img, opts);
   const R = [], G = [], B = [];
@@ -198,6 +220,7 @@ export function runs(file, { band, axis = 'x', key = null, keyTol = 22, minFrac 
   const o = open(file, 'runs', opts);
   if (o.err) return o.err;
   const img = o.img;
+  const ag = alphaGuard('runs', img, opts); if (ag) return ag;
   let span, other;
   try { span = baseSpan(img, base, axis); } catch (e) { return bad('runs', INVALID_SELECTION, e.message, img, opts); }
   const along = axis === 'x' ? img.w : img.h;
@@ -310,6 +333,7 @@ export function pitch(file, { rect, axis = 'x', key = null, keyTol = 30, base, e
   const o = open(file, 'pitch', opts);
   if (o.err) return o.err;
   const img = o.img;
+  const ag = alphaGuard('pitch', img, opts); if (ag) return ag;
   let span;
   try { span = baseSpan(img, base, axis); } catch (e) { return bad('pitch', INVALID_SELECTION, e.message, img, opts); }
   const [fx0, fx1, fy0, fy1] = rect;
@@ -417,6 +441,7 @@ export function countFills(file, { rect, minSat = 60, minShare = 0.02, merge = 7
   const o = open(file, 'count_fills', opts);
   if (o.err) return o.err;
   const img = o.img;
+  const ag = alphaGuard('count_fills', img, opts); if (ag) return ag;
   const [fx0, fx1, fy0, fy1] = rect;
   // clamped like every other primitive: an out-of-bounds rect otherwise reads `undefined` pixels and
   // can classify them as saturated, returning VALID over numbers that were never in the image.
