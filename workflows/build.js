@@ -69,16 +69,22 @@ const refList = (xs, maxItems, maxChars = 400) => {
 const refItem = (x) => `  - "${String(x).replace(/"/g, '\u201d')}"`;
 const OBLIGATION_BUDGET = 48000;
 function refBudget(xs) {
+  // Blocking obligations are laid out first. Dropping from the tail meant a package could push its
+  // most important checks out of every prompt just by ordering the list; relative order inside each
+  // group is preserved so the anchor still leads.
+  const isAdvisory = (x) => /\(advisory\)/i.test(x);
+  const ordered = [...xs.filter((x) => !isAdvisory(x)), ...xs.filter(isAdvisory)];
   const kept = [];
   let used = 0;
-  for (const x of xs) {
+  for (const x of ordered) {
     const line = refItem(x);
     if (used + line.length > OBLIGATION_BUDGET) break;
     kept.push(line); used += line.length + 1;
   }
-  const dropped = xs.length - kept.length;
+  const dropped = ordered.length - kept.length;
   return kept.join('\n') + (dropped
-    ? `\n  !! ${dropped} of ${xs.length} obligations did not fit this prompt and are NOT listed here. ` +
+    ? `\n  !! ${dropped} of ${ordered.length} obligations did not fit this prompt and are NOT listed here ` +
+      `(blocking ones were laid out first, so what fell off the end is the advisory tail). ` +
       `They are NOT waived: the machine-readable copy in docs/obligations.json carries all of them and ` +
       `the dispatcher enforces every one. Read that file, and treat a package this large as a signal ` +
       `the reference was over-compiled.`
@@ -153,7 +159,7 @@ function referenceBlock() {
       : '') +
     (notObserved.length
       ? `\nNEVER OBSERVED in the evidence — so nothing here is known. Do not fabricate it and do not quietly assume ` +
-        `a genre convention in its place: ${notObserved.join(', ')}.\n`
+        `a genre convention in its place:\n` + notObserved.map(refItem).join('\n') + `\n`
       : '') +
     (overrides.length
       ? `\nUSER OVERRIDES — these are NOT reference truth. On these axes ONLY, the user outranks the reference; ` +

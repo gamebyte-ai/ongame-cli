@@ -62,6 +62,11 @@ const RUNTIME = new Set(['hitArea', 'state', 'pixel', 'pose']);
  * of these: otherwise `blocked_on: "reasons"` becomes a way to opt out of every check, which is the
  * same silence-reads-as-success failure in a new costume.
  */
+/** Which primitives each gap may legitimately hold open. A recognised id was previously accepted on
+ * ANY obligation, so `pixel.sample` could waive a `state` check. `reference.resolution` is not about a
+ * surface at all — it says the REFERENCE has no number — and an obligation in that position was never
+ * a blocking one: it is an open assumption, which §4 wants NAMED in `blocking` instead. */
+const GAP_SCOPE = { 'pose.transform': ['pose'], 'pixel.sample': ['pixel'], 'reference.resolution': 'advisory-only' };
 const KNOWN_GAPS = {
   'pose.transform': 'diagnostics.subjects exposes poseChanges (a counter) and no rendered rect or rotation, ' +
     'so where a moving subject actually landed cannot be expressed yet',
@@ -92,6 +97,13 @@ try { obligations = JSON.parse(fs.readFileSync(OBL, 'utf8')); }
 catch (e) { bail(`docs/obligations.json is not valid JSON: ${e.message}`); }
 if (!Array.isArray(obligations)) {
   bail(`docs/obligations.json must be an ARRAY of obligations, got ${obligations === null ? 'null' : typeof obligations}`);
+}
+// An empty array used to score as zero results, zero blocking failures, decision ACCEPT. A reference
+// package owes at least the standing provenance lock, so emptiness is the vacuous pass this file exists
+// to remove — not a build with nothing to check.
+if (cmd === 'score' && !obligations.length) {
+  bail('docs/obligations.json is empty — a reference package must carry at least the standing PROV-01 ' +
+    'provenance obligation, so an empty list is a compiler failure, not a build with nothing to check');
 }
 
 /* ---------- probe: sample keys + one snippet, evaluated in the page by the caller's browser tool ---------- */
@@ -168,9 +180,11 @@ function checkProvenance(dir) {
       }
     })(root);
   }
-  const GENERATED = [/assets\/concept\//, /docs\/concept\//, /\.ongame\/screenshots\//, /runtime_[a-z_]*\.(png|jpg)/];
+  const GENERATED = [/assets\/concept\//, /docs\/concept\//, /\.ongame\/screenshots\//, /(^|\/)runtime[-_][\w-]*\.(png|jpg)/];
   const CLAIM = /\b(MEASURED|measured from|measured, from|observed from)\b/i;
-  const PATHRE = /[\w./-]+\.(png|jpg|jpeg|mp4|webm)/g;
+  // Backslashes are captured, then normalised: excluding them meant a Windows-style citation was
+  // captured as its bare basename and laundered straight through the evidence lookup.
+  const PATHRE = /[\w.\\/-]+\.(png|jpg|jpeg|mp4|webm)/g;
   const files = [];
   (function walk(d) {
     if (!fs.existsSync(d)) return;
@@ -191,7 +205,7 @@ function checkProvenance(dir) {
     const lines = fs.readFileSync(f, 'utf8').split('\n');
     for (let i = 0; i < lines.length; i++) {
       if (!CLAIM.test(lines[i])) continue;
-      const cited = [...lines.slice(i, i + 4).join(' ').matchAll(PATHRE)].map((m) => m[0]);
+      const cited = [...lines.slice(i, i + 4).join(' ').matchAll(PATHRE)].map((m) => m[0].replace(/\\/g, '/'));
       if (!cited.length) continue;
       claims++;
       for (const c of cited) {
@@ -291,11 +305,18 @@ function evalTerm(t, env) {
     if (hit == null) return undefined;
     return t.of === undefined ? hit : walkPath(t.of, hit);
   }
-  if ('abs' in t) return Math.abs(Number(evalTerm(t.abs, env)));
+  // Arithmetic PROPAGATES absence rather than coercing it. `Number(undefined)` is NaN and
+  // `NaN !== null` is true, so one layer of {add:[...,0]} used to turn a missing path back into a PASS.
+  const num = (x, label) => {
+    const v = evalTerm(x, env);
+    if (v === undefined) throw new Refuse(`${label} resolves to nothing in the collected payload — absence is not a value to compute with`);
+    return Number(v);
+  };
+  if ('abs' in t) return Math.abs(num(t.abs, termLabel(t.abs)));
   for (const [k, f] of [['div', (a, b) => a / b], ['mul', (a, b) => a * b], ['add', (a, b) => a + b], ['sub', (a, b) => a - b]]) {
     if (k in t) {
       if (!Array.isArray(t[k]) || t[k].length !== 2) throw new Refuse(`{${k}} needs exactly two terms`);
-      return f(Number(evalTerm(t[k][0], env)), Number(evalTerm(t[k][1], env)));
+      return f(num(t[k][0], termLabel(t[k][0])), num(t[k][1], termLabel(t[k][1])));
     }
   }
   throw new Refuse(`unknown term keys [${Object.keys(t)}]`);
@@ -322,12 +343,28 @@ function termLabel(t) {
  * never looks at X, and `{when:false, then:X}` never looks at X either — so a malformed X used to
  * ride along inside a PASS. Shape is checkable without any data, so it is checked without any data.
  */
-const TERM_KEYS = ['path', 'item', 'count', 'sum', 'gaps', 'px', 'lookup', 'abs', 'div', 'mul', 'add', 'sub'];
+// operator -> the companion keys that operator is allowed to carry. Validation demands EXACTLY one
+// operator and no key outside its companions: taking the first recognised key and ignoring the rest
+// let a malformed check hide behind a well-formed sibling in the same object, and let a typo'd
+// companion (`satisfy`, `tolerence`) become a silent no-op.
+const TERM_COMPANIONS = { path: [], item: [], count: [], sum: ['of'], gaps: ['axis'], px: ['channel'],
+  lookup: ['at', 'of'], abs: [], div: [], mul: [], add: [], sub: [] };
+const PRED_COMPANIONS = { all: [], any: [], not: [], when: ['then'], truthy: [], cmp: [], near: [],
+  every: ['satisfies'], some: ['satisfies'], none: ['satisfies'] };
+const TERM_KEYS = Object.keys(TERM_COMPANIONS);
+function soleOperator(obj, companions, what) {
+  const ops = Object.keys(companions).filter((k) => k in obj);
+  if (!ops.length) throw new Refuse(`unknown ${what} keys [${Object.keys(obj)}]`);
+  if (ops.length > 1) throw new Refuse(`a ${what} must carry exactly one operator, got [${ops}]`);
+  const allowed = new Set([ops[0], ...companions[ops[0]]]);
+  const extra = Object.keys(obj).filter((k) => !allowed.has(k));
+  if (extra.length) throw new Refuse(`${what} {${ops[0]}} carries unknown key(s) [${extra}] — allowed here: [${[...allowed]}]`);
+  return ops[0];
+}
 function validateTerm(t) {
   if (t === null || typeof t === 'number' || typeof t === 'string' || typeof t === 'boolean') return;
   if (Array.isArray(t) || typeof t !== 'object') throw new Refuse(`unsupported term: ${JSON.stringify(t)}`);
-  const key = TERM_KEYS.find((k) => k in t);
-  if (!key) throw new Refuse(`unknown term keys [${Object.keys(t)}]`);
+  const key = soleOperator(t, TERM_COMPANIONS, 'term');
   if (key === 'path' || key === 'item') {
     if (typeof t[key] !== 'string' || !t[key].trim()) throw new Refuse(`{${key}} needs a non-empty string`);
     for (const seg of t[key].split('.')) {
@@ -364,10 +401,14 @@ function validateSel(sel) {
   } else if ('path' in sel) {
     if (typeof sel.path !== 'string' || !sel.path.trim()) throw new Refuse('a selector path must be a non-empty string');
   } else throw new Refuse(`a selector needs "hitAreas" or "path", got keys [${Object.keys(sel)}]`);
+  const allowed = new Set(['hitAreas', 'path', 'where']);
+  const extra = Object.keys(sel).filter((k) => !allowed.has(k));
+  if (extra.length) throw new Refuse(`selector carries unknown key(s) [${extra}]`);
   if (sel.where !== undefined) validatePred(sel.where);
 }
 function validatePred(p) {
   if (!p || typeof p !== 'object' || Array.isArray(p)) throw new Refuse(`a predicate must be an object, got ${JSON.stringify(p)}`);
+  soleOperator(p, PRED_COMPANIONS, 'predicate');
   for (const k of ['all', 'any']) {
     if (!(k in p)) continue;
     if (!Array.isArray(p[k])) throw new Refuse(`{${k}} needs an array`);
@@ -512,6 +553,16 @@ const results = obligations.map((o, idx) => {
         `recognises — one of: ${Object.keys(KNOWN_GAPS).join(', ')} (a free note may follow). Otherwise ` +
         `"blocked" is a way to opt out of the check.`);
     }
+    const scope = GAP_SCOPE[gap];
+    if (scope === 'advisory-only') {
+      if (base.enforcement !== 'advisory') {
+        return FAIL(`${gap} says the REFERENCE has no measured target, so this was never a blocking ` +
+          `obligation — mark it advisory and name the constant in the package's \`blocking\` list (§4)`);
+      }
+    } else if (!scope.includes(o.primitive)) {
+      return FAIL(`${gap} is a gap in the ${scope.join('/')} surface and cannot hold a ${o.primitive} ` +
+        `obligation open — a gap belongs to the surface it describes`);
+    }
     return { ...base, verdict: 'BLOCKED', evidence: `${gap}: ${KNOWN_GAPS[gap]}` };
   }
 
@@ -561,6 +612,14 @@ const results = obligations.map((o, idx) => {
     return FAIL(`predicate could not be evaluated: ${e.message}`);
   }
 });
+
+// Same rule one level up: a package that emitted no provenance obligation has not been checked for
+// the failure PROV-01 exists for, and that absence must be a row, not a silence.
+if (!obligations.some((o) => o && o.primitive === 'prov')) {
+  results.push({ id: 'PROV-01', primitive: 'prov', enforcement: 'blocking', verdict: 'FAIL',
+    evidence: 'the package emitted no provenance obligation, so nothing checked whether its MEASURED ' +
+      'constants cite evidence that resolves — SKILL.md requires at least this one with every package' });
+}
 
 const blocked = results.filter((r) => r.verdict === 'BLOCKED').map((r) => r.id);
 const blockingFails = results.filter((r) => r.enforcement !== 'advisory' && r.verdict === 'FAIL');

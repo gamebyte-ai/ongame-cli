@@ -57,11 +57,23 @@ function dispatch(cmd, dir, extra = []) {
 
 /** Run `score` on a throwaway gameDir and return {results, exitCode, dir kept? no}. */
 function run(obligations, opts = {}) {
+  // A real reference package always carries PROV-01, and the dispatcher now says so. Fixtures get it
+  // by default (their empty src/ makes it a clean PASS) so that each case tests the ONE behaviour it
+  // names; `prov: false` opts out for the cases that are about its absence.
+  if (opts.prov !== false && Array.isArray(obligations) && !obligations.some((x) => x && x.primitive === 'prov')) {
+    obligations = [...obligations, { id: 'PROV-01', primitive: 'prov', enforcement: 'blocking' }];
+  }
   const dir = makeDir({ obligations, ...opts });
   const { exitCode, stdout } = dispatch('score', dir, opts.collected ? [path.join(dir, 'collected.json')] : []);
   const resPath = path.join(dir, 'docs/obligations.result.json');
   const out = fs.existsSync(resPath) ? JSON.parse(fs.readFileSync(resPath, 'utf8')) : null;
-  const sideEffect = fs.existsSync(path.join(dir, 'PWNED'));
+  // The exploit string writes to process.cwd(), which for the child is the REPO root, not gameDir.
+  // Checking only gameDir made this probe vacuous — it would have missed the very regression it exists
+  // for. Both locations are checked, and a stray file is removed so a real regression is visible once.
+  const spots = [path.join(dir, 'PWNED'), path.join(ROOT, 'PWNED'), path.join(process.cwd(), 'PWNED')];
+  const hit = spots.filter((f) => fs.existsSync(f));
+  for (const f of hit) fs.rmSync(f, { force: true });
+  const sideEffect = hit.length > 0;
   fs.rmSync(dir, { recursive: true, force: true });
   return { results: out?.results ?? null, out, exitCode, stdout, sideEffect };
 }
@@ -140,6 +152,22 @@ r = run(PROV, {
 });
 check('PROV-01 is not fooled by a basename collision with a generated path',
   verdictOf(r.results, 'PROV-01') === 'FAIL' && r.exitCode === 1, of_(r.results, 'PROV-01').evidence);
+
+// [Codex 3rd pass P1] the path regex excluded backslashes, so a Windows-style citation was captured
+// as its bare basename and laundered through the evidence lookup.
+r = run(PROV, {
+  sources: { 'a.ts': '/** MEASURED from assets\\concept\\shot.png. */\nexport const T = 1;' },
+  evidence: ['shot.png'],
+});
+check('a backslash-spelled generated path is still caught',
+  verdictOf(r.results, 'PROV-01') === 'FAIL', of_(r.results, 'PROV-01').evidence);
+
+r = run(PROV, {
+  sources: { 'a.ts': '/** MEASURED from runtime_01.png. */\nexport const T = 1;' },
+  evidence: ['runtime_01.png'],
+});
+check('a numbered runtime screenshot is recognised as generated',
+  verdictOf(r.results, 'PROV-01') === 'FAIL', of_(r.results, 'PROV-01').evidence);
 
 /* ────────────────────────── THE TEETH ────────────────────────── */
 
@@ -246,6 +274,45 @@ check('a path may not walk into prototype internals',
 
 /* ─────── ABSENCE IS NOT A VALUE, AND A MALFORMED BRANCH IS NOT A PASS [Codex re-review P1] ─────── */
 
+// [Codex 3rd pass P1] absence survived one layer of arithmetic: Number(undefined) is NaN, and
+// `NaN !== null` is true, so wrapping the missing path in {add:[...,0]} restored the PASS.
+r = run([{ id: 'C-01', primitive: 'state', enforcement: 'blocking', state: 'any',
+  predicate: { cmp: [{ add: [{ path: 'state.mispelled' }, 0] }, 'ne', null] } }],
+  { collected: { any: { W: 1, H: 1, state: { spelled: 1 } } } });
+check('absence does not survive arithmetic coercion',
+  verdictOf(r.results, 'C-01') === 'FAIL' && /mispelled|nothing/.test(of_(r.results, 'C-01').evidence || ''),
+  of_(r.results, 'C-01').evidence);
+
+r = run([{ id: 'C-02', primitive: 'hitArea', enforcement: 'blocking', state: 'any',
+  predicate: { near: [{ div: [{ path: 'state.gone' }, { path: 'W' }] }, 0.5, 1] } }],
+  { collected: { any: { W: 430, H: 1, state: {} } } });
+check('absence does not survive a division inside near()',
+  verdictOf(r.results, 'C-02') === 'FAIL', of_(r.results, 'C-02').evidence);
+
+// [Codex 3rd pass P1] both validation and evaluation took the FIRST recognised key and ignored the
+// rest, so a malformed check could hide behind a well-formed sibling key in the same object.
+r = run([{ id: 'C-03', primitive: 'state', enforcement: 'blocking', state: 'any',
+  predicate: { truthy: true, cmp: [{ path: 'state.x' }, 'spaceship', 1] } }],
+  { collected: { any: { W: 1, H: 1, state: { x: 1 } } } });
+check('a predicate object carrying two operators is refused, not resolved by key order',
+  verdictOf(r.results, 'C-03') === 'FAIL' && /one operator|two|extra key/i.test(of_(r.results, 'C-03').evidence || ''),
+  of_(r.results, 'C-03').evidence);
+
+r = run([{ id: 'C-04', primitive: 'state', enforcement: 'blocking', state: 'any',
+  predicate: { cmp: [{ path: 'state.x', count: { hitAreas: '*' } }, 'eq', 1] } }],
+  { collected: { any: { W: 1, H: 1, state: { x: 1 } } } });
+check('a TERM carrying two operators is refused too',
+  verdictOf(r.results, 'C-04') === 'FAIL', of_(r.results, 'C-04').evidence);
+
+// A stray unknown key is a package bug as well — silently ignoring it is how a typo'd companion
+// (`satisfy` for `satisfies`, `tolerance` for a tol term) becomes an unnoticed no-op.
+r = run([{ id: 'C-05', primitive: 'state', enforcement: 'blocking', state: 'any',
+  predicate: { cmp: [{ path: 'state.x' }, 'eq', 1], tolerence: 0.5 } }],
+  { collected: { any: { W: 1, H: 1, state: { x: 1 } } } });
+check('an unknown companion key is refused rather than ignored',
+  verdictOf(r.results, 'C-05') === 'FAIL' && /tolerence/.test(of_(r.results, 'C-05').evidence || ''),
+  of_(r.results, 'C-05').evidence);
+
 // A path that resolves to NOTHING used to compare as an ordinary `undefined`, so a typo in an
 // observable satisfied a blocking predicate: `undefined !== null` is true.
 r = run([{ id: 'A-01', primitive: 'state', enforcement: 'blocking', state: 'any',
@@ -333,10 +400,27 @@ check('a gap id buried mid-sentence does not earn BLOCKED',
 
 // The third gap is not in this file but in the evidence: the primitive can read the build, and the
 // reference has no number to compare against. A real shipped package surfaced this one.
-r = run([{ id: 'R-10', primitive: 'pose', enforcement: 'blocking',
+r = run([{ id: 'R-10', primitive: 'pose', enforcement: 'advisory',
   blocked_on: 'reference.resolution — the evidence samples at 2 s and cannot resolve a 300 ms easing' }]);
 check('reference.resolution is a recognised gap: BLOCKED, and it does not reject',
   verdictOf(r.results, 'R-10') === 'BLOCKED' && r.exitCode === 0, of_(r.results, 'R-10').evidence);
+
+// [Codex 3rd pass P1] a recognised gap id was accepted on ANY obligation, so `pixel.sample` waived a
+// `state` check. A gap belongs to the surface it describes.
+r = run([{ id: 'G-01', primitive: 'state', enforcement: 'blocking', blocked_on: 'pixel.sample' }]);
+check('a gap id does not transfer to a primitive it has nothing to do with',
+  verdictOf(r.results, 'G-01') === 'FAIL' && r.exitCode === 1, of_(r.results, 'G-01').evidence);
+
+// `reference.resolution` is not about a surface — it says the REFERENCE has no number. Then the
+// obligation was never a blocking one: it is an open assumption, and §4 wants the constant named.
+r = run([{ id: 'G-02', primitive: 'state', enforcement: 'blocking', blocked_on: 'reference.resolution — 2 s sampling' }]);
+check('reference.resolution cannot hold a BLOCKING obligation open',
+  verdictOf(r.results, 'G-02') === 'FAIL' && /advisory/.test(of_(r.results, 'G-02').evidence || ''),
+  of_(r.results, 'G-02').evidence);
+
+r = run([{ id: 'G-03', primitive: 'state', enforcement: 'advisory', blocked_on: 'reference.resolution — 2 s sampling' }]);
+check('reference.resolution is legitimate on an advisory obligation',
+  verdictOf(r.results, 'G-03') === 'BLOCKED' && r.exitCode === 0, of_(r.results, 'G-03').evidence);
 
 r = run([{ id: 'R-04', primitive: 'state', enforcement: 'blocking' }]);
 check('a non-pose primitive without a predicate still FAILs',
@@ -349,7 +433,9 @@ check('a non-pose primitive without a predicate still FAILs',
 // REAL emitted snippet against a stub page and feeds its REAL output to `score`.
 const PIXOBL = [{ id: 'P-01', primitive: 'pixel', enforcement: 'blocking', state: 'any',
   samples: { 'cap-fill': { hitArea: 'bottle-0', at: [0.5, 0.15] } },
-  predicate: { cmp: [{ px: 'cap-fill', channel: 'r' }, 'eq', 145] } }];
+  predicate: { cmp: [{ px: 'cap-fill', channel: 'r' }, 'eq', 145] } },
+  // carried like a real package would, so this case is not also testing PROV-01's absence
+  { id: 'PROV-01', primitive: 'prov', enforcement: 'blocking' }];
 let dir = makeDir({ obligations: PIXOBL });
 const probe = dispatch('probe', dir);
 const snippet = (probe.stdout.split('// ---8<--- BEGIN PAGE SNIPPET')[1] || '').split('// ---8<--- END PAGE SNIPPET')[0];
@@ -427,6 +513,20 @@ check('a pixel obligation with no declared samples FAILs and says so',
 
 // The finding: bad JSON threw before obligations.result.json was written, so the caller got a Node
 // stack instead of the machine verdict the whole file exists to produce.
+// [Codex 3rd pass P1] an EMPTY obligations array accepted vacuously: zero results, zero blocking
+// failures, decision ACCEPT. A reference package owes at least the standing provenance lock.
+r = run([], { prov: false });
+check('an empty obligations.json is not a passing build',
+  r.results && r.exitCode === 1 && /at least|PROV/.test(JSON.stringify(r.results)),
+  JSON.stringify(r.results));
+
+r = run([{ id: 'R-01', primitive: 'state', enforcement: 'blocking', state: 'any',
+  predicate: { cmp: [{ path: 'state.x' }, 'eq', 1] } }],
+  { prov: false, collected: { any: { W: 1, H: 1, state: { x: 1 } } } });
+check('a package with no provenance obligation is reported as missing it',
+  r.exitCode === 1 && verdictOf(r.results, 'PROV-01') === 'FAIL',
+  (of_(r.results, 'PROV-01').evidence || '(no PROV row)').slice(0, 120));
+
 r = run('{ this is not json ');
 check('malformed obligations.json still writes a typed FAIL result file',
   r.results && verdictOf(r.results, '__file__') === 'FAIL' && r.exitCode === 1,
@@ -438,9 +538,10 @@ check('a non-array obligations.json is a typed FAIL, not a crash',
   of_(r.results, '__file__').evidence);
 
 r = run([{ primitive: 'state', enforcement: 'blocking' }, { id: 'R-OK', primitive: 'nonsense' }]);
+const named = (r.results || []).filter((x) => x.id !== 'PROV-01');
 check('an obligation with no id gets a typed FAIL and does not sink its siblings',
-  r.results?.length === 2 && r.results.every((x) => x.verdict === 'FAIL') && r.exitCode === 1,
-  r.results?.map((x) => `${x.id}:${x.evidence}`).join(' | '));
+  named.length === 2 && named.every((x) => x.verdict === 'FAIL') && r.exitCode === 1,
+  named.map((x) => `${x.id}:${x.evidence}`).join(' | '));
 
 console.log(`\n  ${failures ? `${failures} FAILURE(S)` : 'the dispatcher contract holds'}`);
 process.exit(failures ? 1 : 0);
