@@ -325,7 +325,7 @@ concept; B = the remaining docs/code/[levels/polish/deploy]).
 > - **Report the user-correction DELTA — NOT a self-summary of what you built.** The agent already knows what it wrote;
 >   the learning comes only from "agent assumed X → user actually wanted Y". Do not restate your own output as a "lesson";
 >   if the user did not correct you, do not call it. One report per distinct correction (don't spam the same delta).
-> - The backend (brain) decides agentically whether the delta generalizes into a stored lesson and at what scope — the
+> - The backend decides agentically whether the delta generalizes into a stored lesson and at what scope — the
 >   client only reports the raw delta; it does not pre-judge the lesson.
 
 ### Run Segment A
@@ -398,7 +398,7 @@ local tools with `gameDir`. (This slash-command instruction counts as a Workflow
 > outputs (concept/docs excerpts; the preview URL at gate 2), generated images INLINE, and the concrete
 > approval questions. **Categorized asset review — when the gate shows MULTIPLE generated assets, group them
 > under clear section headings by kind** (e.g. "2D Art" / "Sprite Sheets" / "3D Models" / "Characters" / "Sound")
-> instead of one flat list — the sections are the forge `AssetResult.kind` values (`2d-static`/`sprite`/
+> instead of one flat list — the sections are the `AssetResult.kind` values (`2d-static`/`sprite`/
 > `3d-static`/`3d-char`) plus `sound` for anything from `sound_request`. A single-kind gate (e.g. the concept
 > anchor alone) needs no sections — group only once there is more than one kind to tell apart. Mechanics: Write
 > `${gameDir}/.ongame/gates/gate-<n>.html` (self-contained, no external refs; plain relative
@@ -411,7 +411,7 @@ local tools with `gameDir`. (This slash-command instruction counts as a Workflow
 
 ### GATE 1 — after concept (always)
 Read the state with `state_get(buildId)` (`ongame`). Present the concept output (`docs/CONCEPT.md`) +
-the forge placeholder image per the **GATE PRESENTATION** block, with a **natural question**. Ask for
+the placeholder image per the **GATE PRESENTATION** block, with a **natural question**. Ask for
 approval/changes.
 
 - **If they request changes → re-run only the changed phase(s):** call `record_iteration(buildId, phase)` —
@@ -446,7 +446,7 @@ approval/changes.
 > span** (the hierarchical tree; core resolves the span from the build doc — YOU do not read any local file). YOU
 > judge the `value`: approval on the first try ≈ **1.0**, **lower it** on each revision iteration, and ≈ **0.2** if it
 > struggled a lot / was rejected. This way "which phase's recall context produced good output" is measured on that
-> span; future builds learn from it. If there is no active span it falls back to flat automatically. If brain is
+> span; future builds learn from it. If there is no active span it falls back to flat automatically. If memory is
 > missing it is a no-op.
 
 ### Run Segment B
@@ -553,7 +553,7 @@ the defaults below. Never block on it.
    question only when there is nothing to look at (concept-only, or no runnable build).
    **If `knowledge_get` returns `gated: true`:** do NOT improvise or reconstruct the loop from general
    knowledge — the value is the specific proven recipe, and a half-version yields worse assets than doing
-   nothing while still spending the user's forge budget. Then read WHICH gate fired: `rateLimited: true`
+   nothing while still spending the user's generation budget. Then read WHICH gate fired: `rateLimited: true`
    (no `upgrade` payload) is a *paying* tenant who hit the crown-jewel read limiter — never pitch an upgrade
    at them; say the recipe is momentarily unavailable and retryable. An `upgrade` payload present means free
    tier — say plainly that the guided pass is a paid capability and relay those doors. The question is shown

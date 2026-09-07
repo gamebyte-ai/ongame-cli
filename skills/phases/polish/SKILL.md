@@ -121,7 +121,7 @@ hand-built path below, that is not a fault (same handling as Sub-phase 9.5).
 - New `SplashScreenView extends ScreenView`. Center the logo (`ImageComponent`/`PIXI.Sprite`),
   reposition it in `onResize`. In `onEnter`, with gsap, the logo **scale 0.8→1 + alpha 0→1**
   (`ease: 'back.out'`), a short hold, then `UIEvents.createScreen(MainMenu, {type: FADE_IN})`.
-- If `forge` is available, generate the logo asset; otherwise the game name with `LabelComponent` (gray-box).
+- If asset generation is available, generate the logo asset; otherwise the game name with `LabelComponent` (gray-box).
 - Start asset preload here. **`template:shell-splash` already solves the hard half** — a bar driven by the
   REAL asset count and eased toward it (a fixed-duration fake bar lies in both directions), cover-fit that never
   letterboxes, a code-drawn scene that adopts each texture the frame it lands, and the tap-to-start beat that
@@ -219,7 +219,7 @@ improvise a half-version), and continue.
   `PIXI.Graphics` at the very bottom of `HudLayer.Content`, scaled to full-stage in `onResize`.
 - Parallax: 2–3 `ImageComponent` layers at different speeds; in `onStep`, shift `x` according to the
   derivative of the camera/score (far layer slow). For a slight continuous motion, gsap `repeat:-1 yoyo`.
-- If `forge` is available, generate the background asset; otherwise gradient (gray-box fallback). Performance: the
+- If asset generation is available, generate the background asset; otherwise gradient (gray-box fallback). Performance: the
   background is a single sprite/single draw, do not draw a new `Graphics` every frame.
 
 ## Sub-phase 8 — Game-over screen + frame + confetti
@@ -262,7 +262,7 @@ below): the fetch is a paid crown-jewel read, and pulling it for a user who then
 rate-limited read and can surface an upgrade prompt nobody asked for.
 
 **ALWAYS ASK FIRST — never auto-run, in any mode.** This loop is *extra* polish on top of a game that is
-already built, and it costs several forge generations plus a few minutes. Extra spend on an already-done game
+already built, and it costs several asset generations plus a few minutes. Extra spend on an already-done game
 is the user's call every time, not a mode default. Ask once, politely, via `AskUserQuestion`: describe the
 game's state **honestly** — if the build was runtime-verified (the visual-evidence step below ran with a
 working browser tool), *"the game is complete and playable"*; if it was **not** verified (no/unusable browser
@@ -277,7 +277,7 @@ STOP and report the before/after. Never silently start a second pass — offer i
 
 **If `knowledge_get` comes back `gated: true`, do NOT improvise** — do not reconstruct the loop from memory,
 general art-pipeline knowledge, or this file. The value here is the specific proven recipe; a half-version
-produces worse assets than doing nothing while still spending the user's forge budget. **Then read WHICH
+produces worse assets than doing nothing while still spending the user's generation budget. **Then read WHICH
 kind of gate it was — they are different situations and must not be conflated:**
 - **`rateLimited: true` (no `upgrade` payload)** → this is a *paying* tenant who hit the crown-jewel read
   limiter. Do **not** pitch an upgrade at a customer who already paid. Say the recipe is momentarily

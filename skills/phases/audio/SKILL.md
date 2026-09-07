@@ -5,7 +5,7 @@ description: Audio phase — extract the sound manifest from GAME_DESIGN, genera
 # Audio Phase (vision phase 6 — production)
 
 Goal: complete the game's **feel** with sound. UI clicks, match/cascade pops, win/lose
-stingers, and looped music. Sound is an **optional layer**: if forge is absent or a piece
+stingers, and looped music. Sound is an **optional layer**: if sound generation is unavailable or a piece
 cannot be generated, the game stays **silent but fully playable** (gray-box parity — the same
 discipline as the assets phase). The sound toggle in Settings controls only the audio output,
 not the gameplay.
@@ -29,7 +29,7 @@ not the gameplay.
 Read `docs/GAME_DESIGN.md`, generate the **sound manifest** based on the game's core loop. Manifest =
 an array of `{ id, role, kind, text, durationSeconds?, loop }` (write to `audio/manifest.json` — the anchor for the
 code phase and tests). Each row carries an `id` (kebab-case, becomes the file name) and a `text`
-(the English sound-description prompt that goes to forge).
+(the English sound-description prompt sent to sound generation).
 
 Canonical roles — skip if not in the design, add if present (this list is a baseline; extend based on the design genre):
 

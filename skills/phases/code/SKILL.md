@@ -133,7 +133,7 @@ zombie report. This lock guards WRITES only — reading/analysis needs no lock.
 6. Fetch the matched/selected `pattern:*`s (at minimum: app-setup, game-loop, input).
 7. **Call `brain_recall`** (the DYNAMIC sibling of knowledge — compose static knowledge + LEARNED lessons):
    `brain_recall(phase="code", gameId=<game slug>, mechanic=<mechanic>, genre=<type>, query=<specific need>, buildId=<buildId>)`
-   → returns curated lesson texts (if empty, no brain / no lessons → static knowledge only, that's fine). Use these
+   → returns curated lesson texts (if empty — memory unavailable or no lessons yet → static knowledge only, that's fine). Use these
    together with the knowledge as **context** for the code; **YOU decide which to apply** (no keyword-if).
    Passing `buildId` automatically binds the recall **under the active phase span** (at the gate, `brain_score` scores that span —
    hierarchical eval). `buildId` is optional; if omitted the recall is flat (backward-compatible).
@@ -156,7 +156,7 @@ zombie report. This lock guards WRITES only — reading/analysis needs no lock.
 > `scope:"game"` (gameId); a preference specific to this user → `scope:"user"`. The tenant is resolved server-side from the
 > verified OAuth identity (do NOT self-assert a tenantId). `category` is free-form
 > (e.g. `"pattern"`, `"bug-fix"`). Pass `buildId` (capture automatically nests under the active phase span).
-> Do not fabricate lessons — write down what was genuinely learned. If brain is absent it's a no-op (pipeline is unaffected).
+> Do not fabricate lessons — write down what was genuinely learned. If the memory tools are unavailable it's a no-op (pipeline is unaffected).
 
 ## 4. Architecture — separation of responsibility (mandatory)
 When composing gamelabs.js Lego, do NOT MIX the layers. Every game keeps these units separate:
@@ -326,7 +326,7 @@ ground yourself in the ACTUAL installed surface — do not assume a method name/
     a `0` claims the code objectively failed to compile and is indistinguishable from a real compile error, which
     poisons the quality signal. Say plainly that the build is *not compile-verified* here and what compiles it instead. A
     `0` is only for a check you actually ran that actually failed.
-  - Fail-soft: a failed `brain_score` NEVER blocks the build; no-op if `buildId`/brain is absent.
+  - Fail-soft: a failed `brain_score` NEVER blocks the build; no-op if `buildId` is absent or memory is unavailable.
 
 ## 11.1 Sub-agent verify gate — never trust a "done" claim (mandatory whenever this phase delegates)
 If any part of this phase's implementation or repair work is dispatched to an implementer/fixer sub-agent (the Agent
@@ -362,7 +362,7 @@ missed → user steered to X" delta is the most valuable signal we get.
 - **Report the user-correction DELTA — NEVER restate what you built as a "lesson".** The agent already knows its own
   output; the learning comes only from "agent assumed X → user actually wanted Y". If the user did not correct you, do not
   call it. One report per distinct correction.
-- The backend (brain) decides agentically whether the delta generalizes into a stored lesson + at what scope — you only
+- The backend decides agentically whether the delta generalizes into a stored lesson + at what scope — you only
   report the raw delta. Fail-soft: if `friction_report` is unavailable/errors, never block the build.
 
 ## 12. Finish
@@ -427,7 +427,7 @@ missed → user steered to X" delta is the most valuable signal we get.
     MCP), and never call an unlooked-at build "playable"/"working". **Degrade, never hard-block** — a missing/broken
     browser tool must not stop the build; only a defect you actually observed is a `0` to fix.
   - Judge-independent (`compiles` + `playable`). Fail-soft: a failed/unavailable `brain_score` write NEVER blocks the
-    build; no-op if `buildId`/brain is absent. (Looking is not optional when a browser tool works; the score *write* and
+    build; no-op if `buildId` is absent or memory is unavailable. (Looking is not optional when a browser tool works; the score *write* and
     the tool's availability are.)
 - **Independent quality check (advisory):** call `phase_review({ phase:'code', buildId, gameId, artifact:<the core architecture: the Board/View/Controller source + the FEEL wiring — the main game files, not every line>, context:{ genre:<mechanic>, gddSummary:<1-line GDD>, recalledSignal:<the brain_recall engine/genre lesson you applied, if any> } })` (bare name `phase_review` via ToolSearch) → `{ verdict, score, feedback:[{issue, confidence}] }`. **ADVISORY — you decide:** on `verdict:'revise'`, weigh each `feedback.issue` (architecture separation, 60fps discipline, **FEEL-WIRING — is the core verb juicy**, applied know-how); where you agree it improves the code, refactor (your judgment, keep it tsc-clean + playable), then you MAY re-review (a cap bounds re-runs). On `'pass'`/`'skip'` (or free/unavailable) proceed. **But a `'skip'` is not an approval — check `reason`, and treat ONLY `gated` as benign.** `gated` means the user isn't entitled to the review; that is expected and needs no remark. EVERY other reason means the review did not actually run on this artifact — `no-providers` (all providers failed), `unavailable` (reviewer unreachable), `rate-limited`, `cap` (re-review budget spent), `unknown-build`, `no-images` — and so does any reason you don't recognise, because a new one will be added before this line is updated. In all of those the phase went UNREVIEWED: the quality gate did not open, it was never closed. Still proceed (fail-soft is the rule), but do NOT carry it forward as if it had been checked, and tell the user plainly in your own voice that you had no second opinion on this one and it rests on your judgment alone. **And a verdict is only as strong as the panel behind it — read `perProvider` as `k of N`:** N is its length (the panel that was meant to answer), k the entries whose `score` is not null (the ones that actually did). `k = N` is the ordinary case. `k < N` but `k >= 2` is a PARTIAL panel: more than one provider contributed, which is all the number proves — it does NOT establish that any single rubric dimension was scored twice, since two providers can answer on disjoint dimensions and leave every one of them singly-scored. So note the reduced panel in passing rather than presenting full-jury health. `k = 1` is thinner still: with no second scorer there is no cross-check at all, which is the entire point of a panel, so that one model's bias goes unchallenged — a single-scorer `pass` is not WRONG, it is one opinion, and you disclose it the way you would a review that did not run. Never block on any of this; fail-soft holds throughout — the duty is accuracy about what was checked, not refusal. Relay any change in YOUR OWN voice — never mention an external check or how it works. Fail-soft: never block.
 - `state_advance(buildId)` + `trace_emit(buildId, name="phase.code.done")`. (`/make-game` then does `preview_start`.)
