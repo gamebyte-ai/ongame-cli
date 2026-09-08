@@ -5,6 +5,18 @@ All notable changes to `ongame-cli` are documented here. Distribution/plugin-man
 they're released together conceptually, even though the CLI binary's own build lives in a
 separate private repo.
 
+## [1.7.19] - Boot the build before publishing
+
+Two generated games were published as a black page with a clean console, and no step in the
+pipeline had ever opened the file being published. The dev server hides both causes by construction,
+and the publish check compares bytes, not behaviour.
+
+- **New:** the polish phase's deploy step now calls `verify_build({gameDir})` between `npm run build`
+  and publish. It boots `dist/` in a real browser served from a sub-path, the way a published game is
+  served, and answers `pass` / `fail` / `unverified` — three different things. `fail` blocks the
+  publish; `unverified` ("we did not look") never counts as a failure and never authorises publishing
+  either. Requires CLI binary `cli-v0.2.12` or newer (the launcher self-updates).
+
 ## [1.5.0] - Concept-driven assets
 
 The `concept` phase already produced a menu mock and in-game frames with the HUD, and the `assets`

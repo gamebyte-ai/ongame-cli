@@ -322,6 +322,22 @@ did not clearly improve, keep its old assets.
 ## Sub-phase 11 — Build + publish to public static hosting (deploy)
 - Ship the game to a **public URL** so real player browsers load it and the telemetry SDK (Sub-phase 10) reports real play. Telemetry is injected into the SOURCE `index.html` FIRST (Sub-phase 10) so `vite build` bundles it; THEN:
   1. **Build:** `Bash`: `cd {gameDir} && npm run build` → produces `dist/`. Fix until the build is clean.
+  1b. **Boot the artifact you are about to publish — `verify_build({gameDir})`.** A clean build is
+     not a working game: it boots `dist/` in a real browser served from a SUB-PATH, the way step 3 publishes it
+     (`games/{tenantId}/{gameId}/`). This is the only step that catches the two failure classes that are invisible
+     everywhere else — a top-level `await` that deadlocks the production bundle only, and a root-absolute asset URL
+     that resolves to the host root — both of which render a black page with a clean console, pass `preview_start`
+     (dev server), and pass step 6 (which compares BYTES, not behaviour). Read `status`, and treat the three
+     outcomes as three different things:
+     - **`"pass"`** → the artifact booted. Continue to step 2.
+     - **`"fail"`** → this build is broken (`failures` says how). **Do not publish.** Fix and rebuild.
+     - **`"unverified"`** → the verifier could not run (`no_dist` — build first; or
+       `browser_unavailable`). This says NOTHING about the build, so **never report or score it as a failure**
+       (same rule as the code phase's `playable`). **It does not authorise publishing either: "we did not look"
+       is not "it works".** Do the one-line step in `fix` and verify again. If it still cannot run, say plainly
+       that the build is NOT boot-verified and ask the user whether to publish anyway — publishing unverified is
+       the user's call to make, never yours.
+     Scope is boot only — it says nothing about look or feel.
   2. **Enumerate the built files:** `Bash`: list every file under `dist/` as `dist`-relative paths with their byte
      size, e.g. `cd {gameDir}/dist && find . -type f` → strip the leading `./`, and pair each with `stat`'s size.
      **Do NOT send a content type** — it is derived from the file itself, and anything you assert is ignored.
