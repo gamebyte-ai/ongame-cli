@@ -125,7 +125,9 @@ function referenceBlock() {
         `defensible default for, but say which default you chose; do NOT present the choice as observed fact. Some ` +
         `of these block the RULE and some block only how it READS or FEELS (response latency, animation duration ` +
         `and shape, palette where colour carries meaning) — both are listed here, and both want a NAMED, ` +
-        `single-sourced default rather than an unsourced constant no test asserts:\n` +
+        `single-sourced default rather than an unsourced constant no test asserts. A line carrying a ` +
+        `\`refuted:\` clause names a model the reference evidence RULES OUT — it is not one of the options, ` +
+        `and choosing it is a fidelity failure even when you name it:\n` +
         blocking.map(refItem).join('\n') + `\n`
       : '') +
     (levels.length

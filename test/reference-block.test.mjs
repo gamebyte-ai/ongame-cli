@@ -190,5 +190,25 @@ for (const rel of ['match_reference', 'inspired_by_reference']) {
   check(`the real relation "${rel}" still renders`, ok.every((c) => c.prompt.includes(`=== REFERENCE PACKAGE (${rel}) ===`)));
 }
 
+// A refuted candidate offered as an equal peer steers a disciplined builder into it — a field run's
+// `STITCH_SELECTION_RULE` listed three "indistinguishable" models, the builder picked one and NAMED it
+// as asked, and blind scoring returned CONTRADICTED/HIGH. Two constraints follow, and BOTH are needed:
+// the digest is a list of STRINGS, so a refutation kept in the package file reaches no builder and must
+// ride inside the line; and the clause needs the header to define it, because `refuted:` on its own
+// reads as one more candidate name.
+const REFUTED_LINE = 'A-01 STITCH_SELECTION_RULE -> NAMED (evidence leaves it open) ' +
+  'refuted: nearest-boundary (E4 shows the pattern melting mid-board, not from an end)';
+const refuted = await capture({ ...BASE, reference: { ...REFERENCE, blocking: [REFUTED_LINE] } });
+check('a blocking line\'s refuted: clause survives to every role intact',
+  refuted.length > 0 && refuted.every((c) => c.prompt.includes('refuted: nearest-boundary')),
+  `${refuted.filter((c) => c.prompt.includes('refuted: nearest-boundary')).length}/${refuted.length} roles`);
+check('the blocking header tells the builder a refuted: clause is EXCLUDED, not an option',
+  refuted.every((c) => /`refuted:` clause names a model the reference evidence RULES OUT/.test(c.prompt)),
+  'without this the clause reads as one more candidate');
+// The header must not appear when there is nothing blocking to explain it against.
+const noBlock = await capture({ ...BASE, reference: { ...REFERENCE, blocking: [] } });
+check('no blocking list => no refuted wording in any prompt',
+  noBlock.every((c) => !/refuted:/.test(c.prompt)));
+
 console.log(`\n  ${failures ? `${failures} FAILURE(S)` : 'all invariants hold'}`);
 process.exit(failures ? 1 : 0);

@@ -169,6 +169,11 @@ row of pips) · `asset_family`. Flag anything you are UNSURE of; those are the d
   epistemic: ASSUMED
   reason: "<why the evidence cannot answer it>"
   named_constant: GATE_REJECT_MODE
+  candidates:                             # models the evidence leaves GENUINELY open, and nothing else
+    - "<a name a builder could implement>"
+  refuted:                                # models the evidence RULES OUT — NEVER also in `candidates`
+    - model: "<the name>"
+      by: "<the evidence that rules it out — from `counter_evidence_checked`, §3>"
   recommended_evidence: "<the specific evidence that would settle it>"
   importance: critical|major|minor
   blocks_build: true|false                # can a builder write the rule and ship a solvable game?
@@ -191,6 +196,21 @@ the duration AND shape of a state-change animation, palette where colour carries
 `blocks_fidelity: true`. **A `blocks_fidelity: true` item rides in the digest's `blocking` list
 exactly like a build-blocker**; a flag the builder never sees changes nothing. What the builder does
 with it is the same as any other blocking item: pick a defensible default and NAME it.
+
+**A refuted candidate is not a candidate. `[V1.1, n=1]`** Listing the models the evidence leaves open
+is the useful half of an open question; listing one the evidence RULES OUT as an equal peer is how a
+disciplined builder gets steered into it. A field run wrote `STITCH_SELECTION_RULE` as three
+"indistinguishable" candidates, the builder picked one and NAMED it exactly as asked, and blind
+scoring returned `CONTRADICTED / HIGH` — because the reference record's own wording excluded part of
+that pool. The builder did not err; **the package handed it the wrong menu.** This class passes both
+gates above and no other rule in this recipe catches it.
+
+So: a model you stepped on and found contradicted goes in `refuted` with the evidence that killed it,
+never in `candidates`. You already did this work — the refutation round (§3) records it in
+`resolution.counter_evidence_checked` — and until now it stopped there instead of reaching the open
+question. **Carry it across.** An empty `candidates` after refutation is a legitimate result and a
+strong signal: say that the evidence excludes the obvious models without settling on one, rather than
+padding the pool back to three.
 
 **Abstention is a correct result.** `ASSUMED` costs nothing; a `MEASURED` that was never measured,
 or a genre convention presented as observation, is the most expensive thing you can produce.
@@ -249,8 +269,10 @@ Keep the raw evidence under `{gameDir}/.ref/`.
 Then hand the orchestrator the **digest** it passes to the phase runner (a package that only exists
 on disk is the weakest channel there is): `relation`, `title`, `version`, `packagePath`, the
 reconstruction-critical `truth` lines, the `blocking` assumptions (**build- AND fidelity-blocking**
-— §4), `levels` (the buildable `instances` from §6, one line each), `obligations`, `notObserved`, and
-`overrides`.
+— §4; a `blocking` line whose question has a `refuted` entry states it inline as
+`refuted: <model> (<by>)`, because the digest is a list of strings and a refutation that stays in
+the package file reaches no builder), `levels` (the buildable `instances` from §6, one line each),
+`obligations`, `notObserved`, and `overrides`.
 
 Also write **`{gameDir}/docs/obligations.json`** — the same `verification` blocks as a machine-readable
 array, one object per obligation: `id`, `primitive`, `enforcement`, `state`, `observable`,
