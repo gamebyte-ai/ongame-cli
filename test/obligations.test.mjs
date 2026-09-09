@@ -518,9 +518,34 @@ check('a gap id buried mid-sentence does not earn BLOCKED',
 // The third gap is not in this file but in the evidence: the primitive can read the build, and the
 // reference has no number to compare against. A real shipped package surfaced this one.
 r = run([{ id: 'R-10', primitive: 'pose', enforcement: 'advisory',
+  attempted: { evidence: '.ref/V1.webm', region: [0.41, 0.47, 0.12, 0.18], feature_px: 34 },
   blocked_on: 'reference.resolution — the evidence samples at 2 s and cannot resolve a 300 ms easing' }]);
 check('reference.resolution is a recognised gap: BLOCKED, and it does not reject',
   verdictOf(r.results, 'R-10') === 'BLOCKED' && r.exitCode === 0, of_(r.results, 'R-10').evidence);
+check('the BLOCKED record carries the attempt, so a later pass can see what was tried',
+  /attempted on \.ref\/V1\.webm/.test(of_(r.results, 'R-10').evidence || '') &&
+  /feature 34 px/.test(of_(r.results, 'R-10').evidence || ''), of_(r.results, 'R-10').evidence);
+
+// The claim "the reference cannot resolve this" is a claim ABOUT THE EVIDENCE, and it can be wrong.
+// A real package said an anchor pin's diameter "could not be keyed out of a 34x31 px box" and left it
+// advisory; at a resolving scale the pin keys cleanly as a 73 px ring around a 36 px disc — and the
+// prose had the SHAPE wrong too, because a claim nobody could measure was never corrected. So the
+// attempt is required: unresolvable and never-looked-at must not read the same.
+r = run([{ id: 'R-10c', primitive: 'pose', enforcement: 'advisory',
+  blocked_on: 'reference.resolution — cannot be keyed out of a 34x31 px box' }]);
+// The verdict is what this asserts, not the exit code: only a BLOCKING obligation's FAIL rejects,
+// and `reference.resolution` lives on advisory ones by construction.
+check('reference.resolution without the attempt recorded is a FAIL, not a BLOCKED',
+  verdictOf(r.results, 'R-10c') === 'FAIL' &&
+  /attempted/.test(of_(r.results, 'R-10c').evidence || ''), of_(r.results, 'R-10c').evidence);
+
+// and a half-filled attempt does not count: the feature size is the part that says whether the
+// scale could ever have resolved it.
+r = run([{ id: 'R-10d', primitive: 'pose', enforcement: 'advisory',
+  attempted: { evidence: '.ref/E3.png', region: [0, 1, 0, 1] },
+  blocked_on: 'reference.resolution — too small' }]);
+check('an attempt missing feature_px is not an attempt',
+  verdictOf(r.results, 'R-10d') === 'FAIL', of_(r.results, 'R-10d').evidence);
 
 // [Codex 3rd pass P1] a recognised gap id was accepted on ANY obligation, so `pixel.sample` waived a
 // `state` check. A gap belongs to the surface it describes.
@@ -535,7 +560,9 @@ check('reference.resolution cannot hold a BLOCKING obligation open',
   verdictOf(r.results, 'G-02') === 'FAIL' && /advisory/.test(of_(r.results, 'G-02').evidence || ''),
   of_(r.results, 'G-02').evidence);
 
-r = run([{ id: 'G-03', primitive: 'state', enforcement: 'advisory', blocked_on: 'reference.resolution — 2 s sampling' }]);
+r = run([{ id: 'G-03', primitive: 'state', enforcement: 'advisory',
+  attempted: { evidence: '.ref/V1.webm', region: [0.41, 0.47, 0.12, 0.18], feature_px: 34 },
+  blocked_on: 'reference.resolution — 2 s sampling' }]);
 check('reference.resolution is legitimate on an advisory obligation',
   verdictOf(r.results, 'G-03') === 'BLOCKED' && r.exitCode === 0, of_(r.results, 'G-03').evidence);
 

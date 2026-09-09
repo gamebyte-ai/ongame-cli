@@ -30,11 +30,38 @@ a text description, or any mix. **A name is a seed, not evidence.** From the see
 evidence you could have fetched.
 
 Record per evidence item: `source_type`, `source_url`, **measured** dimensions and frame rate,
-`orientation`, and `reliability_by_class`. Two rules that were paid for:
+`orientation`, `device_class`, `observed_version`, `variant`, and `reliability_by_class`. The rules
+that were paid for:
 - **Never trust a container's claim.** Measure the effective content rate — a file declaring 60 fps
   was found delivering ~30 fps of distinct frames, with 30% of consecutive pairs identical.
 - **Reliability is per requirement class, not per source.** A store screenshot can be HIGH for
   layout fractions and LOW for exact RGB at the same time.
+- **Take EVERY screenshot array the listing carries. `[V1.2, n=1]`** A store lookup returns several,
+  one per device class, and pulling only the default one silently discards half the evidence. A real
+  listing carried 7 `screenshotUrls` (portrait) **and** 7 `ipadScreenshotUrls` at 2732x2048
+  (LANDSCAPE, same version) — and only the portrait set was fetched. The build then had a landscape
+  recording it could not trust and no version-matched landscape frames to check it against, so three
+  separate decisions rested on "the landscape evidence is not version-matched" while a version-matched
+  landscape set sat unfetched in the lookup JSON. Enumerate the arrays; record `device_class` per item.
+- **`variant` is per EVIDENCE ITEM, not per package. `[V1.2, n=1]`** `identity.observed_version` is
+  one value; evidence is often not. A package held portrait store frames of v3.79.0 **and** a
+  landscape web build with a different HUD (a MENU pill where the store frames have a pause button),
+  under one version label. A design doc then described one of those landscape frames as the game's
+  end-of-level screen — it is that build's ordinary in-play HUD with a tutorial note up, nothing had
+  ended in it — and the code went on to imitate the layout of a screen that never existed. Give each
+  item its own `variant` + `observed_version`, and treat an obligation whose evidence spans more than
+  one `variant` as `CONFLICTING` by construction: it is not one measurement.
+- **A recording carries frames that are not the game. `[V1.2, n=1]`** Ad and interstitial frames are
+  EXCLUDED and the exclusion is recorded, the same way any other excluded region is. A 170 s
+  recording held two ("The game will be back in 15s" over a banner, and a full-screen cross-promo for
+  another title), and a state survey that mines frames without this rule will file them as screens of
+  the game. Nothing from an ad frame may reach the package or the build.
+- **Count DISTINCT frames. `[V1.2, n=1]`** Content-hash every extracted frame, keep one per hash and
+  declare the duplicate set; any `n=` over frames counts distinct images. A package presented six
+  frames of which four were byte-identical (one md5, four filenames), so every claim resting on
+  "n=6 frames" was inflated to 6 from 3. The hand-written note that grouped them named the WRONG
+  member, and a later doc had to correct it — which is the argument for computing the grouping rather
+  than eyeballing it.
 
 ## 2. Entities BEFORE requirements
 Wrong entity classification corrupts every requirement downstream, so do this first. Classify each
@@ -70,7 +97,20 @@ row of pips) · `asset_family`. Flag anything you are UNSURE of; those are the d
     blocked_on: null                      # `pose.transform`, `pixel.sample` or `reference.resolution`
                                           # — the ONLY three the dispatcher recognises; free text is
                                           # refused as a FAIL, so "blocked" cannot mean "skip this"
+    attempted:                            # REQUIRED with `reference.resolution`, refused as a FAIL
+      evidence: "<the file it was tried on>"      # without it — see below
+      region: [x0, x1, y0, y1]
+      feature_px: 34                      # the size of the feature it failed on
 ```
+
+**`reference.resolution` must record the ATTEMPT. `[V1.2, n=1]`** That gap is a claim about the
+EVIDENCE — *"the reference cannot resolve this"* — and unlike the other two it can simply be wrong.
+A package said an anchor pin's diameter *"could not be keyed out of a 34x31 px box"* and left the
+obligation advisory. At a resolving scale the same pin keys cleanly as a 73 px ring around a 36 px
+disc, so the quantity was always available; and because nobody could measure it, the prose had the
+pin's SHAPE wrong too (it called it a ring; it is a ring AND a disc) and that error was never
+corrected. *Tested and unresolvable* and *never tested at a scale that could resolve it* must not
+read the same, so the region and the feature size are recorded and appear in the BLOCKED evidence.
 
 ### The rules that carry the most weight
 - **Existence is not value.** *"a fire-rate parameter exists"* is observable; *"fire rate = 5/s"* is
@@ -251,6 +291,23 @@ tutorial · reward · UI interaction`. **NOT-FOUND is a first-class result** —
 have shown it. Public gameplay footage is selection-biased toward correct play, so the negative half
 of a state machine is often structurally unavailable; record that rather than filling it in.
 
+**Write it as a `screens:` block, one row per state in that list. `[V1.2, n=1]`** Prose here is how
+the enumeration goes missing: a package's list was written as a paragraph, `win` and `transition`
+never got rows, and in their place a design doc asserted that a particular frame WAS the end-of-level
+screen. It was not, and the code imitated the layout of a screen that never existed. A row per state
+makes the hole visible instead of fillable:
+
+```yaml
+screens:
+  - state: win
+    status: FOUND | NOT_FOUND
+    evidence_locator: "<file + frame/region, or null>"
+    would_have_shown_it: "<what evidence would settle it — REQUIRED when NOT_FOUND>"
+```
+
+A `NOT_FOUND` row is a complete answer and blocks nothing. An absent row is not: the state was never
+asked about, and the builder will invent the screen rather than notice it is missing.
+
 **Feel is a state you go looking for too. `[V1.1, n=1]`** Report what you measured of response and
 motion: input-to-response latency, the duration and the shape (accelerating? settling?) of each
 state-change animation, the beat between a completing action and its payoff panel, and the pace of a
@@ -261,8 +318,9 @@ will fill the gap with unsourced constants that no test asserts.
 
 ## 9. Output
 Write `{gameDir}/docs/reference_package.yaml` containing: `identity` (with `reference_relation`,
-`observed_version`, `measurement_viewport`), `reference_seeds`, `evidence`, `entities`,
-`requirements`, `assumptions`, `conflicts`, `anchor_instance`, `instances`, `overrides`,
+`observed_version`, `measurement_viewport`), `reference_seeds`, `evidence` (each item with its own
+`device_class`, `variant` and `observed_version` — see §1), `screens` (one row per state, §8),
+`entities`, `requirements`, `assumptions`, `conflicts`, `anchor_instance`, `instances`, `overrides`,
 `coverage_report`.
 Keep the raw evidence under `{gameDir}/.ref/`.
 

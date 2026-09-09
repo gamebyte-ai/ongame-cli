@@ -616,11 +616,30 @@ const results = obligations.map((o, idx) => {
         return FAIL(`${gap} says the REFERENCE has no measured target, so this was never a blocking ` +
           `obligation — mark it advisory and name the constant in the package's \`blocking\` list (§4)`);
       }
+      // `reference.resolution` is a claim ABOUT the evidence, and it can be wrong. A real package
+      // said an anchor pin's diameter "could not be keyed out of a 34x31 px box" and left the
+      // obligation advisory; at a resolving scale the same pin keys cleanly as a 73 px ring around a
+      // 36 px disc — and the prose had the SHAPE wrong too, because a claim nobody could measure was
+      // never corrected. The difference between "tested and unresolvable" and "never tested at a
+      // scale that could resolve it" is the whole value of the label, so the attempt is recorded.
+      const at = o.attempted;
+      const missing = !at || typeof at !== 'object' || Array.isArray(at) ||
+        !at.evidence || !at.region || !(typeof at.feature_px === 'number' && at.feature_px > 0);
+      if (missing) {
+        return FAIL(`${gap} needs \`attempted: { evidence, region, feature_px }\` — the evidence file, the ` +
+          `region and the size in px of the feature it failed on. Without it "the reference cannot ` +
+          `resolve this" cannot be told apart from "nobody looked at a scale where it would resolve", ` +
+          `and a wrong claim in that position never gets corrected`);
+      }
     } else if (!scope.includes(o.primitive)) {
       return FAIL(`${gap} is a gap in the ${scope.join('/')} surface and cannot hold a ${o.primitive} ` +
         `obligation open — a gap belongs to the surface it describes`);
     }
-    return { ...base, verdict: 'BLOCKED', evidence: `${gap}: ${KNOWN_GAPS[gap]}` };
+    const attemptNote = gap === 'reference.resolution' && o.attempted
+      ? ` — attempted on ${o.attempted.evidence} at ${JSON.stringify(o.attempted.region)}, ` +
+        `feature ${o.attempted.feature_px} px`
+      : '';
+    return { ...base, verdict: 'BLOCKED', evidence: `${gap}: ${KNOWN_GAPS[gap]}${attemptNote}` };
   }
 
   if (o.primitive === 'model' || o.primitive === 'geometry') {
