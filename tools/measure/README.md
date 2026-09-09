@@ -26,8 +26,54 @@ source(file)                                        // dimensions, codec, and th
 colour(file, { rect, key?, keyTol? })               // representative RGB + SOLID|GRADIENT|TEXTURED
 runs(file,   { band, axis?, key?, base })           // objects along a band: widths, gaps, pitch, count
 pitch(file,  { rect, axis?, key?, base, expect? })  // the period of a repeat
-countFills(file, { rect })                          // how many distinct saturated fills (optional)
+countFills(file, { rect, expectAt? })               // distinct saturated fills, each WITH its position
+scale(file,  { rect, key, knownDesignPx, crossCheck })   // design px per image px, cross-checked
+track(files, { rect, key, fps? })                   // where one object is, frame by frame
+rate(trackResult, { axis?, order? })                // fit a rate to a series, and report the residual
 ```
+
+### crossing frames: `scale`
+
+Every other primitive answers in fractions of the image it read, which is right while all the evidence
+shares one frame. It stops being right the moment a package holds a **landscape recording and a
+portrait store frame of the same game**: a rate measured in the recording has no fraction-of-width
+that means anything in the portrait design box. A real package concluded from this that *"the
+reference's distances are not recoverable"* and the builder DERIVED gravity from a beat window
+instead — out by about 4x.
+
+Any object whose design size is already measured in the matching frames converts the two. The anchor
+that worked was a rope pin: 73 design px across in the portrait frames, 13.0 px in the recording.
+
+`crossCheck` is **required**, not optional. A scale built from one object is unfalsifiable: a mis-keyed
+anchor rescales everything downstream and nothing in the output says so. So the primitive measures a
+SECOND object of known size that it did not use to build the scale, and reports the disagreement — on
+the run this was written for, a creature came out 249 design px wide through a pin-built scale against
+238 and 242 measured directly, and that 4% is what made the scale usable.
+
+### motion: `track` + `rate`
+
+The reference skill asks for the duration and the **shape** of every state-change animation
+("accelerating? settling?") and for the beat between an action and its payoff. Nothing here could
+answer that — every primitive read one still — so those numbers were hand-read off frames, which is
+the exact failure this layer exists to prevent arriving through the one question it had no primitive
+for.
+
+`track` reports per frame **and reports the frames it could not resolve** rather than closing the
+gaps: a series with holes is a fact about the evidence, and interpolating them is how a fitted rate
+starts describing the interpolation.
+
+`rate` is pure — it reads a `track` result, never a file, so the fit and the citation cannot drift
+apart. **The residual is the point.** A parabola fits a swing, a roll and a fall equally happily and
+returns a confident second coefficient for all three; only the residual says which one the caller was
+looking at. A fit whose residual is large next to the travel comes back `UNRESOLVED`.
+
+### the axis a rotation eats
+
+A rotating object keeps its extent along the rotation axis and loses the other one to the phase, so
+**one still cannot tell a size from a phase.** Three stills of one spinning star measured heights
+82, 82, 83 and widths 31, 40, 56; the width was read as the star's size and drew it at 54% of the real
+one. `track` puts the two coefficients of variation side by side (`axis_stability`) so the unstable
+axis is visible instead of being averaged into a number.
 
 `base` is **declared**, never inferred from the axis. A y-axis pitch divided by `H` when the claim is
 a fraction of `W` is how a correct 73 px reading came to look like a 2× package error, twice.
@@ -36,6 +82,31 @@ a fraction of `W` is how a correct 73 px reading came to look like a 2× package
 scales at once: asked for the pitch of four settings buttons, autocorrelation answered 4 px at a
 respectable strength — a real texture, and the wrong question. With the band it answers 142 px, which
 is what the package says. Without it, an ambiguous field is refused rather than picked from.
+
+### where, not just how much
+
+`countFills` used to order candidates by share and return no position, which left the caller exactly
+one inference available — *the biggest fill is the object* — and it is wrong often enough to matter.
+Twice in one session: the largest light region on one frame was a creature's **pair of eyes** read as
+its mouth, and the largest green region on another was the level's **green wall** read as the
+creature. Both were caught by eye afterwards, which is not a method.
+
+Every fill now carries `at` (centroid) and `extent`. `expectAt: [cx, cy]` is the same contract
+`pitch`'s `expect` already has: the caller knows roughly where the thing it means sits, so an
+ambiguous field is refused rather than resolved by size.
+
+### a key that matches the background
+
+The old guards catch a key that matches **nothing** (`colour`: under 9 px) and one that fills a
+**band** edge to edge (`runs`). Neither catches the case that cost the most: a key which, inside the
+caller's small rect, looks perfectly selective while matching most of the **image**. On one reference
+frame the cardboard wall itself sat at R−B 123 — above the threshold that isolated the candy on other
+frames of the same recording — and the resulting "candy" measured 1.0 of frame width.
+
+A key covering more than 30% of the frame is now `INVALID_SELECTION`, and the record carries the
+coverage it measured. The threshold is placed where it discriminates: on the corpus frame where the
+wood **is** the ground it fires; on the unit fixture where the same wood is only a decoration it stays
+quiet, so the `width_cv` trap that separates a wrong key from a right one is still exercised.
 
 ## every measurement carries the value AND evidence the ruler was placed correctly
 

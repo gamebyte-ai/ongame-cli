@@ -81,7 +81,21 @@ const flood = M.runs(GROUND, { band: [0.30, 0.50], key: BAR, base: 'W' });
 check('a non-selective key is INVALID_SELECTION, not a measurement',
   flood.validity === M.INVALID_SELECTION,
   `${flood.validity} sel=${JSON.stringify(flood.selectivity)}`);
-check('the record says WHY it was rejected', /not selective/.test(flood.note || ''), flood.note);
+// Two guards can both be right about this fixture, and the frame-level one fires first because it is
+// the more fundamental statement: a key that covers the WHOLE image was never going to isolate
+// anything inside it. Either explanation is a real one; what the contract owes is that the record
+// says which.
+check('the record says WHY it was rejected',
+  /not selective|background/.test(flood.note || ''), flood.note);
+
+// The band-level path must stay reachable, or the guard above would have quietly replaced it. This
+// is the lab's actual shape: the key matches the object AND the ground behind it in this band, while
+// covering only a quarter of the frame — under the frame-coverage limit, so the band guard decides.
+const BANDY = mk('bandy.png', 300, 200, (x, y) => (y >= 60 && y <= 100 ? BAR : BG));
+const bandFlood = M.runs(BANDY, { band: [0.32, 0.48], key: BAR, base: 'W' });
+check('a key that floods only the BAND is still caught by the band guard',
+  bandFlood.validity === M.INVALID_SELECTION && /not selective/.test(bandFlood.note || ''),
+  `${bandFlood.validity}: ${bandFlood.note?.slice(0, 48)}`);
 
 /* ── 4. The normalization base is declared, never inferred from the axis ──────────────────────────
    Lab: a y-axis pitch divided by H when the claim was a fraction of W made a correct 73 px reading
@@ -502,6 +516,173 @@ if (jpg) {
   check('countFills clamps an out-of-bounds rect instead of reading undefined pixels',
     r.validity !== M.VALID || (Number.isFinite(r.value) && r.colours.every((c) => c.rgb.every(Number.isFinite))),
     `${r.validity} value=${r.value}`);
+}
+
+
+/* ── the key that matches the BACKGROUND ──────────────────────────────────────────────────────────
+   Field failure: a reference frame's cardboard wall itself sat at R-B 123, above the threshold that
+   isolated the candy on other frames of the same recording. Inside the caller's small rect that key
+   looks perfectly selective; over the frame it matches almost everything, and the "candy" measured
+   1.0 of frame width. The existing guards see a key that matches NOTHING and a key that fills a
+   BAND; neither sees this. */
+{
+  // 92% wall, one small patch of the thing the caller actually means
+  const WALL = mk('wall.png', 300, 200, (x, y) =>
+    (x >= 130 && x < 160 && y >= 90 && y < 120) ? FILL : WOOD);
+  const onWall = M.colour(WALL, { rect: [0.3, 0.7, 0.3, 0.7], key: WOOD });
+  check('colour refuses a key that matches most of the frame',
+    onWall.validity === M.INVALID_SELECTION && /background/i.test(onWall.note),
+    `${onWall.validity}: ${onWall.note?.slice(0, 60)}`);
+  check('the refusal reports the coverage it measured, not just an opinion',
+    onWall.selectivity?.frame_coverage > 0.3 && onWall.selectivity?.limit === 0.3,
+    JSON.stringify(onWall.selectivity));
+  const onPatch = M.colour(WALL, { rect: [0.3, 0.7, 0.3, 0.7], key: FILL });
+  check('a selective key on the same frame still measures',
+    onPatch.validity === M.VALID && Math.abs(onPatch.value[0] - FILL[0]) <= 10,
+    `${onPatch.validity} ${onPatch.hex}`);
+  const runsOnWall = M.runs(WALL, { band: [0.4, 0.6], key: WOOD, base: 'W' });
+  check('runs refuses the same background key',
+    runsOnWall.validity === M.INVALID_SELECTION && /background/i.test(runsOnWall.note),
+    `${runsOnWall.validity}`);
+}
+
+/* ── scale: design px out of image px, and it must be falsifiable ─────────────────────────────────
+   Field failure: a package concluded that a landscape recording's px "cannot be converted to a
+   portrait width fraction" and the builder DERIVED gravity from a beat window instead — out by ~4x.
+   An object of known design size converts it. A scale from ONE object cannot be shown to be wrong,
+   so the primitive requires a second one and reports the disagreement. */
+{
+  // anchor: 20 px wide. cross-check object: 40 px wide. Same frame, different colours.
+  const ANCH = [40, 90, 200], OTHER = [200, 60, 40];
+  const SC = mk('scale.png', 300, 200, (x, y) => {
+    if (x >= 40 && x < 60 && y >= 40 && y < 60) return ANCH;
+    if (x >= 150 && x < 190 && y >= 120 && y < 160) return OTHER;
+    return BG;
+  });
+  const anchorRect = [0.05, 0.30, 0.10, 0.40];
+  const otherRect = [0.40, 0.75, 0.50, 0.90];
+
+  const noCross = M.scale(SC, { rect: anchorRect, key: ANCH, knownDesignPx: 73 });
+  check('scale refuses to answer without a cross-check',
+    noCross.validity === M.INVALID_SELECTION && /crossCheck/.test(noCross.note),
+    `${noCross.validity}`);
+
+  // 73 design px over 20 image px = 3.65; the 40 px object is then 146 design px.
+  const ok = M.scale(SC, { rect: anchorRect, key: ANCH, knownDesignPx: 73,
+                           crossCheck: { rect: otherRect, key: OTHER, knownDesignPx: 146 } });
+  check('scale recovers design px per image px from a known anchor',
+    ok.validity === M.VALID && Math.abs(ok.design_per_px - 3.65) < 0.05,
+    `${ok.validity} design_per_px=${ok.design_per_px}`);
+  check('the cross-check is reported as a number, not as a claim of success',
+    ok.cross_check && ok.cross_check.disagreement < 0.02 &&
+    ok.cross_check.predicted_design_px > 0 && ok.cross_check.known_design_px === 146,
+    JSON.stringify(ok.cross_check));
+
+  // the whole point: a wrong anchor size is CAUGHT by the second object rather than propagating
+  const wrong = M.scale(SC, { rect: anchorRect, key: ANCH, knownDesignPx: 146,
+                              crossCheck: { rect: otherRect, key: OTHER, knownDesignPx: 146 } });
+  check('a mis-sized anchor is caught by the cross-check instead of rescaling everything downstream',
+    wrong.validity === M.UNRESOLVED && /cross-check disagrees/.test(wrong.note),
+    `${wrong.validity}: ${wrong.note?.slice(0, 50)}`);
+}
+
+/* ── track + rate: the primitives the skill's `motion:` field had no way to answer ────────────────
+   Field failure: gravity, animation shape and the payoff beat were being hand-read off frames —
+   the exact failure this layer exists to prevent, arriving through the one question it could not
+   answer. */
+{
+  const MOVER = [220, 40, 40];
+  const A_PX = 400;                      // px/s^2, the acceleration these frames encode
+  const FPS = 30, N = 25;
+  const fall = [];
+  for (let i = 0; i < N; i++) {
+    const t = i / FPS;
+    const cy = Math.round(30 + 0.5 * A_PX * t * t);
+    fall.push(mk(`fall${String(i).padStart(2, '0')}.png`, 200, 300, (x, y) =>
+      (Math.abs(x - 100) < 6 && Math.abs(y - cy) < 6) ? MOVER : BG));
+  }
+  const tr = M.track(fall, { rect: [0.0, 1.0, 0.0, 1.0], key: MOVER, fps: FPS });
+  check('track resolves a moving object frame by frame',
+    tr.validity === M.VALID && tr.resolved === N && tr.series.length === N,
+    `${tr.validity} resolved=${tr.resolved}/${tr.frames}`);
+  const rt = M.rate(tr, { axis: 'y', order: 2 });
+  check('rate recovers the acceleration the frames encode',
+    rt.validity === M.VALID && Math.abs(rt.fit.acceleration - A_PX) / A_PX < 0.05,
+    `${rt.validity} a=${rt.fit?.acceleration} (frames encode ${A_PX})`);
+  check('rate reports the residual it fitted against',
+    rt.fit.residual_rms >= 0 && rt.fit.residual_frac < rt.fit.tolerated_residual_frac,
+    `residual=${rt.fit?.residual_rms} frac=${rt.fit?.residual_frac}`);
+
+  // A parabola fits a swing just as confidently. Only the residual separates them.
+  const swing = [];
+  for (let i = 0; i < N; i++) {
+    const t = i / FPS;
+    const cy = Math.round(150 + 90 * Math.sin((2 * Math.PI * t) / 0.8));
+    swing.push(mk(`swing${String(i).padStart(2, '0')}.png`, 200, 300, (x, y) =>
+      (Math.abs(x - 100) < 6 && Math.abs(y - cy) < 6) ? MOVER : BG));
+  }
+  const trS = M.track(swing, { rect: [0.0, 1.0, 0.0, 1.0], key: MOVER, fps: FPS });
+  const rtS = M.rate(trS, { axis: 'y', order: 2 });
+  check('rate refuses a segment that is not the shape it was asked to fit',
+    rtS.validity === M.UNRESOLVED && /residual/.test(rtS.note),
+    `${rtS.validity} a=${rtS.fit?.acceleration} frac=${rtS.fit?.residual_frac}`);
+
+  const noFps = M.rate(M.track(fall, { rect: [0, 1, 0, 1], key: MOVER }), { order: 2 });
+  check('rate will not state a per-second figure without a frame rate',
+    noFps.validity === M.INVALID_SELECTION && /fps/.test(noFps.note), `${noFps.validity}`);
+
+  // A rotating object keeps one axis and loses the other. One still cannot tell a size from a phase.
+  const spinW = [8, 12, 20, 12, 8, 12, 20];
+  const spin = spinW.map((w, i) => mk(`spin${i}.png`, 200, 200, (x, y) =>
+    (Math.abs(x - 100) < w / 2 && Math.abs(y - 100) < 10) ? MOVER : BG));
+  const trR = M.track(spin, { rect: [0, 1, 0, 1], key: MOVER, fps: FPS });
+  check('track exposes which axis a rotation is eating',
+    trR.validity === M.VALID && trR.axis_stability.height_cv < 0.02 &&
+    trR.axis_stability.width_cv > 0.2,
+    `width_cv=${trR.axis_stability?.width_cv} height_cv=${trR.axis_stability?.height_cv}`);
+
+  // frames of mixed size cannot share one rect
+  const odd = mk('odd.png', 240, 300, () => BG);
+  const mixed = M.track([fall[0], odd], { rect: [0, 1, 0, 1], key: MOVER, fps: FPS });
+  check('track refuses a series of mixed frame sizes',
+    mixed.validity === M.INVALID_SELECTION && /mixed/.test(mixed.note), `${mixed.validity}`);
+
+  // a frame the key cannot resolve is REPORTED, not interpolated away
+  const blank = mk('blank.png', 200, 300, () => BG);
+  const holed = M.track([fall[0], blank, fall[2]], { rect: [0, 1, 0, 1], key: MOVER, fps: FPS });
+  check('track records the frames it could not resolve instead of closing the gap',
+    holed.validity === M.VALID && holed.resolved === 2 && holed.missing.length === 1 &&
+    holed.missing[0].why === 'key_matched_nothing',
+    `resolved=${holed.resolved} missing=${JSON.stringify(holed.missing)}`);
+}
+
+/* ── countFills: WHERE, not just how much ─────────────────────────────────────────────────────────
+   Field failure, twice in one session: ordering candidates by share and returning no position left
+   "the biggest fill is the object" as the only available inference. The largest light region on one
+   frame was a creature's PAIR OF EYES, read as its mouth; the largest green region on another was
+   the level's green WALL, read as the creature. Both were caught by eye, which is not a method. */
+{
+  const BIG = [30, 200, 90], SMALL = [220, 40, 200];
+  const TWO = mk('two.png', 300, 200, (x, y) => {
+    if (x >= 20 && x < 140 && y >= 20 && y < 140) return BIG;     // large, top-left
+    if (x >= 200 && x < 240 && y >= 140 && y < 180) return SMALL; // small, bottom-right
+    return BG;
+  });
+  const r = M.countFills(TWO, { rect: [0, 1, 0, 1] });
+  check('every fill carries its position and extent',
+    r.validity === M.VALID && r.colours.length >= 2 &&
+    r.colours.every((c) => c.at && Number.isFinite(c.at.cx) && c.extent && c.box_px),
+    JSON.stringify(r.colours?.map((c) => c.at)));
+  // the caller means the SMALL one, and says where it is
+  const picked = M.countFills(TWO, { rect: [0, 1, 0, 1], expectAt: [0.73, 0.80] });
+  check('expectAt picks the fill the caller meant, not the biggest one',
+    picked.validity === M.VALID && picked.picked &&
+    Math.max(...picked.picked.rgb.map((v, i) => Math.abs(v - SMALL[i]))) <= 40,
+    `${picked.validity} picked=${JSON.stringify(picked.picked?.rgb)}`);
+  const nowhere = M.countFills(TWO, { rect: [0, 1, 0, 1], expectAt: [0.05, 0.95] });
+  check('expectAt refuses when nothing the caller meant is there',
+    nowhere.validity === M.INVALID_SELECTION && /nothing the caller meant/.test(nowhere.note),
+    `${nowhere.validity}`);
 }
 
 fs.rmSync(DIR, { recursive: true, force: true });

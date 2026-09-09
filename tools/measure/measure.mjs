@@ -98,9 +98,63 @@ function bad(primitive, validity, note, img, opts, extra = {}) {
   return { ...base, ...extra, validity, value: null, normalized: null, note };
 }
 
+/**
+ * A key that matches THIS MUCH of the whole frame is describing the ground, not the object.
+ *
+ * The existing guards catch a key that matches nothing (`colour`: fewer than 9 px) and a key that
+ * fills a band edge to edge (`runs`). Neither catches the case that cost the most: a key which,
+ * inside the caller's small rect, looks perfectly selective while matching most of the IMAGE. On one
+ * reference frame the cardboard wall itself sat at R-B 123, above the threshold that isolated the
+ * candy on other frames, and the resulting "candy" measured 1.0 of frame width. The rect cannot see
+ * that; only the frame can.
+ */
+const BACKGROUND_KEY_SHARE = 0.30;
+
 const px = (img, x, y) => { const q = (y * img.w + x) * 3; return [img.rgb[q], img.rgb[q + 1], img.rgb[q + 2]]; };
 const hex = (c) => '#' + c.map((v) => Math.round(v).toString(16).padStart(2, '0')).join('').toUpperCase();
 const near = (c, k, tol) => Math.abs(c[0] - k[0]) <= tol && Math.abs(c[1] - k[1]) <= tol && Math.abs(c[2] - k[2]) <= tol;
+
+/** What share of the WHOLE frame this key matches. Sampled on a grid: exactness is not the point. */
+function keyCoverage(img, key, keyTol) {
+  let hit = 0, n = 0;
+  const step = Math.max(1, Math.round(Math.min(img.w, img.h) / 160));
+  for (let y = 0; y < img.h; y += step) for (let x = 0; x < img.w; x += step) {
+    n++; if (near(px(img, x, y), key, keyTol)) hit++;
+  }
+  return n ? hit / n : 0;
+}
+
+/** See BACKGROUND_KEY_SHARE. Returns a bad() record, or null when the key is selective enough. */
+function backgroundKeyGuard(primitive, img, opts, key, keyTol) {
+  if (!key) return null;
+  const share = keyCoverage(img, key, keyTol);
+  if (share <= BACKGROUND_KEY_SHARE) return null;
+  return bad(primitive, INVALID_SELECTION,
+    `the keying rule matches ${(share * 100).toFixed(0)}% of the whole frame — at that coverage it ` +
+    'describes the background, and a region drawn inside it will look selective while measuring the ground',
+    img, opts, { selectivity: { frame_coverage: round(share, 4), limit: BACKGROUND_KEY_SHARE } });
+}
+
+/** The keyed pixels' bounding box and centroid inside a clamped rect. Shared by scale and track. */
+function keyedExtent(img, rect, key, keyTol) {
+  const [fx0, fx1, fy0, fy1] = rect;
+  const x0 = Math.max(0, Math.floor(fx0 * img.w)), x1 = Math.min(img.w, Math.ceil(fx1 * img.w));
+  const y0 = Math.max(0, Math.floor(fy0 * img.h)), y1 = Math.min(img.h, Math.ceil(fy1 * img.h));
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  let sx = 0, sy = 0, hit = 0, total = 0;
+  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+    total++;
+    if (!near(px(img, x, y), key, keyTol)) continue;
+    hit++; sx += x; sy += y;
+    if (x < minX) minX = x; if (x > maxX) maxX = x;
+    if (y < minY) minY = y; if (y > maxY) maxY = y;
+  }
+  if (!hit) return null;
+  return { hit, total, match_fraction: round(hit / Math.max(1, total), 4),
+           x0: minX, x1: maxX, y0: minY, y1: maxY,
+           w_px: maxX - minX + 1, h_px: maxY - minY + 1,
+           cx_px: sx / hit, cy_px: sy / hit };
+}
 
 function open(file, primitive, opts) {
   try { return { img: decode(file) }; }
@@ -161,6 +215,7 @@ export function colour(file, { rect, key = null, keyTol = 22, base = 'ratio' } =
   const x0 = Math.max(0, Math.floor(fx0 * img.w)), x1 = Math.min(img.w, Math.ceil(fx1 * img.w));
   const y0 = Math.max(0, Math.floor(fy0 * img.h)), y1 = Math.min(img.h, Math.ceil(fy1 * img.h));
   const ag = alphaGuard('colour', img, opts); if (ag) return ag;
+  const bg0 = backgroundKeyGuard('colour', img, opts, key, keyTol); if (bg0) return bg0;
   if (x1 - x0 < 3 || y1 - y0 < 3)
     return bad('colour', UNRESOLVED, `region is ${x1 - x0}x${y1 - y0} px — too small to take a median`, img, opts);
   const R = [], G = [], B = [];
@@ -241,6 +296,7 @@ export function runs(file, { band, axis = 'x', key = null, keyTol = 22, minFrac 
   if (o.err) return o.err;
   const img = o.img;
   const ag = alphaGuard('runs', img, opts); if (ag) return ag;
+  const bgk = backgroundKeyGuard('runs', img, opts, key, keyTol); if (bgk) return bgk;
   let span, other;
   try { span = baseSpan(img, base, axis); } catch (e) { return bad('runs', INVALID_SELECTION, e.message, img, opts); }
   const along = axis === 'x' ? img.w : img.h;
@@ -356,6 +412,7 @@ export function pitch(file, { rect, axis = 'x', key = null, keyTol = 30, base, e
   if (o.err) return o.err;
   const img = o.img;
   const ag = alphaGuard('pitch', img, opts); if (ag) return ag;
+  const bgp = backgroundKeyGuard('pitch', img, opts, key, keyTol); if (bgp) return bgp;
   let span;
   try { span = baseSpan(img, base, axis); } catch (e) { return bad('pitch', INVALID_SELECTION, e.message, img, opts); }
   const [fx0, fx1, fy0, fy1] = rect;
@@ -458,7 +515,8 @@ export function pitch(file, { rect, axis = 'x', key = null, keyTol = 30, base, e
 }
 
 /* ─────────────────── count_fills (optional in V1) ─────────────────── */
-export function countFills(file, { rect, minSat = 60, minShare = 0.02, merge = 70, base = 'ratio' } = {}) {
+export function countFills(file, { rect, minSat = 60, minShare = 0.02, merge = 70, base = 'ratio',
+                                   expectAt = null, expectTol = 0.12 } = {}) {
   const opts = { region: rect, base };
   const rb = badRegion(rect);
   if (rb) return bad('count_fills', INVALID_SELECTION, rb, null, { ...opts, file });
@@ -479,8 +537,12 @@ export function countFills(file, { rect, minSat = 60, minShare = 0.02, merge = 7
     if (Math.max(...c) - Math.min(...c) <= minSat) continue;
     sat++;
     const k = ((c[0] >> 5) << 10) | ((c[1] >> 5) << 5) | (c[2] >> 5);
-    let e = bins.get(k); if (!e) bins.set(k, e = { n: 0, R: [], G: [], B: [] });
-    e.n++; if (e.R.length < 4000) { e.R.push(c[0]); e.G.push(c[1]); e.B.push(c[2]); }
+    let e = bins.get(k);
+    if (!e) bins.set(k, e = { n: 0, R: [], G: [], B: [], minX: x, maxX: x, minY: y, maxY: y, sx: 0, sy: 0 });
+    e.n++; e.sx += x; e.sy += y;
+    if (x < e.minX) e.minX = x; if (x > e.maxX) e.maxX = x;
+    if (y < e.minY) e.minY = y; if (y > e.maxY) e.maxY = y;
+    if (e.R.length < 4000) { e.R.push(c[0]); e.G.push(c[1]); e.B.push(c[2]); }
   }
   if (sat < 50)
     return bad('count_fills', UNRESOLVED, `only ${sat} saturated px in the region`, img, opts,
@@ -489,12 +551,315 @@ export function countFills(file, { rect, minSat = 60, minShare = 0.02, merge = 7
   for (const e of [...bins.values()].sort((a, b) => b.n - a.n)) {
     if (e.n / sat < minShare) continue;
     const m = [median(e.R), median(e.G), median(e.B)].map(Math.round);
-    if (cols.every((p) => Math.max(...m.map((v, i) => Math.abs(v - p.rgb[i]))) > merge))
-      cols.push({ rgb: m, hex: hex(m), share: round(e.n / sat, 4) });
+    if (cols.every((p) => Math.max(...m.map((v, i) => Math.abs(v - p.rgb[i]))) > merge)) {
+      // WHERE, not just how much. Ordering by share and returning no position left the caller only
+      // one inference available -- "the biggest fill is the object" -- and it is wrong often enough
+      // to matter: on one frame the largest light region was a creature's PAIR OF EYES read as its
+      // mouth, and on another the largest green region was the level's green WALL read as the
+      // creature. Both were caught by eye afterwards, which is not a method.
+      cols.push({ rgb: m, hex: hex(m), share: round(e.n / sat, 4),
+                  at: { cx: round((e.sx / e.n) / img.w), cy: round((e.sy / e.n) / img.h) },
+                  extent: { w: round((e.maxX - e.minX + 1) / img.w), h: round((e.maxY - e.minY + 1) / img.h) },
+                  box_px: { x0: e.minX, x1: e.maxX, y0: e.minY, y1: e.maxY } });
+    }
+  }
+  // `expectAt` is the same contract `pitch`'s `expect` already has: the caller knows roughly WHERE
+  // the thing it means sits, so an ambiguous field is refused rather than resolved by size.
+  let picked = null;
+  if (expectAt) {
+    if (!Array.isArray(expectAt) || expectAt.length !== 2 ||
+        !expectAt.every((v) => typeof v === 'number' && Number.isFinite(v))) {
+      return bad('count_fills', INVALID_SELECTION,
+        'expectAt must be [cx, cy] as fractions of the image', img, opts);
+    }
+    const hits = cols.filter((c) => Math.abs(c.at.cx - expectAt[0]) <= expectTol &&
+                                     Math.abs(c.at.cy - expectAt[1]) <= expectTol);
+    if (hits.length !== 1) {
+      return bad('count_fills', INVALID_SELECTION,
+        `expectAt [${expectAt.join(', ')}] matches ${hits.length} of the ${cols.length} fills within ` +
+        `${expectTol} — ${hits.length ? 'the field is ambiguous there' : 'nothing the caller meant is there'}, ` +
+        'and picking by size is how the wrong region gets measured',
+        img, opts, { colours: cols, expect_at: expectAt, expect_tol: expectTol });
+    }
+    picked = hits[0];
   }
   return record('count_fills', img, {
     value: cols.length, normalized: null, base_name: base, colours: cols,
+    picked, expect_at: expectAt, expect_tol: expectAt ? expectTol : null,
     tolerance: 0, match_fraction: round(sat / total, 4),
     dispersion: { saturated_share: round(sat / total, 4) },
   }, opts);
+}
+
+/* ─────────────────────────────── scale ─────────────────────────────── */
+/**
+ * scale — how many DESIGN px one image px is worth, recovered from an object of known design size.
+ *
+ * WHY THIS EXISTS. Every other primitive answers in fractions of the image it read, which is the
+ * right answer while all the evidence shares one frame. It stops being the right answer the moment a
+ * package holds a LANDSCAPE recording and a PORTRAIT store frame of the same game: a rate measured
+ * in the recording (px/s) has no fraction-of-width that means anything in the portrait design box.
+ * A real package concluded from this that "the reference's distances are not recoverable", and the
+ * builder then DERIVED gravity from a beat window instead. The derived value was out by about 4x.
+ *
+ * It is recoverable. Any object whose design size is already MEASURED in the matching frames turns
+ * image px into design px. The anchor that worked was the rope pin: 73 design px across in the
+ * portrait frames, 13.0 px across in the recording, so one recording px is 5.6 design px.
+ *
+ * WHY `crossCheck` IS REQUIRED, not optional. A scale taken from one object is unfalsifiable: if the
+ * anchor was mis-keyed, every number downstream is wrong by that factor and nothing in the output
+ * says so. So this primitive refuses to answer without a SECOND object of known design size that it
+ * did not use to build the scale, and it reports the disagreement. On the run this was written for,
+ * the creature came out 249 design px wide through a pin-built scale against 238 and 242 measured
+ * directly — 4% apart, which is what made the scale usable.
+ */
+export function scale(file, { rect, key, keyTol = 22, knownDesignPx, axis = 'x',
+                              crossCheck = null, tolerateFrac = 0.10 } = {}) {
+  const opts = { region: rect, key, keyTol, base: 'design_px', axis };
+  const rb = badRegion(rect) || badAxis(axis);
+  if (rb) return bad('scale', INVALID_SELECTION, rb, null, { ...opts, file });
+  if (!Array.isArray(key) || key.length !== 3) {
+    return bad('scale', INVALID_SELECTION, 'scale needs an explicit key: the anchor is identified by colour, never by being the biggest thing in the rect', null, { ...opts, file });
+  }
+  if (!(typeof knownDesignPx === 'number' && knownDesignPx > 0)) {
+    return bad('scale', INVALID_SELECTION, 'knownDesignPx must be the anchor size already MEASURED in the matching frames', null, { ...opts, file });
+  }
+  if (!crossCheck) {
+    return bad('scale', INVALID_SELECTION,
+      'scale refuses to answer without `crossCheck`: a scale built from one object cannot be shown ' +
+      'to be wrong, and a mis-keyed anchor silently rescales every number that depends on it',
+      null, { ...opts, file });
+  }
+  const o = open(file, 'scale', opts);
+  if (o.err) return o.err;
+  const img = o.img;
+  const ag = alphaGuard('scale', img, opts); if (ag) return ag;
+  const bgs = backgroundKeyGuard('scale', img, opts, key, keyTol); if (bgs) return bgs;
+
+  const ext = keyedExtent(img, rect, key, keyTol);
+  if (!ext) return bad('scale', INVALID_SELECTION, 'the anchor key matched nothing in this rect', img, opts);
+  const anchorPx = axis === 'x' ? ext.w_px : ext.h_px;
+  const t = tolerancesFor(img);
+  if (anchorPx <= 2 * t.geom_px) {
+    return bad('scale', UNRESOLVED,
+      `the anchor measures ${anchorPx} px along ${axis}, within ${t.geom_px} px of the source tolerance — ` +
+      'a scale divided out of a feature this small carries its own error into everything downstream',
+      img, opts, { match_fraction: ext.match_fraction });
+  }
+  const designPerPx = knownDesignPx / anchorPx;
+
+  // The cross-check: measure a DIFFERENT object, predict its design size through this scale, and
+  // report the disagreement against what the matching frames say it is.
+  const ccRb = badRegion(crossCheck.rect);
+  if (ccRb) return bad('scale', INVALID_SELECTION, `crossCheck.rect: ${ccRb}`, img, opts);
+  if (!Array.isArray(crossCheck.key) || crossCheck.key.length !== 3 ||
+      !(typeof crossCheck.knownDesignPx === 'number' && crossCheck.knownDesignPx > 0)) {
+    return bad('scale', INVALID_SELECTION, 'crossCheck needs its own key and knownDesignPx', img, opts);
+  }
+  const ccTol = crossCheck.keyTol ?? keyTol;
+  const ccAxis = crossCheck.axis ?? axis;
+  if (badAxis(ccAxis)) return bad('scale', INVALID_SELECTION, `crossCheck.axis: ${badAxis(ccAxis)}`, img, opts);
+  const ccBg = backgroundKeyGuard('scale', img, opts, crossCheck.key, ccTol); if (ccBg) return ccBg;
+  const ccExt = keyedExtent(img, crossCheck.rect, crossCheck.key, ccTol);
+  if (!ccExt) return bad('scale', INVALID_SELECTION, 'the crossCheck key matched nothing in its rect', img, opts);
+  const ccPx = ccAxis === 'x' ? ccExt.w_px : ccExt.h_px;
+  const predicted = ccPx * designPerPx;
+  const disagreement = Math.abs(predicted - crossCheck.knownDesignPx) / crossCheck.knownDesignPx;
+  const cross = { predicted_design_px: round(predicted, 2), known_design_px: crossCheck.knownDesignPx,
+                  measured_px: ccPx, disagreement: round(disagreement, 4), tolerated: tolerateFrac,
+                  match_fraction: ccExt.match_fraction };
+  if (disagreement > tolerateFrac) {
+    return bad('scale', UNRESOLVED,
+      `the cross-check disagrees by ${(disagreement * 100).toFixed(1)}%: a second object of known size ` +
+      `predicts ${predicted.toFixed(0)} design px against ${crossCheck.knownDesignPx}. One of the two ` +
+      'keys is on the wrong object, and the scale is not usable until that is settled',
+      img, opts, { cross_check: cross, match_fraction: ext.match_fraction });
+  }
+  return record('scale', img, {
+    value: round(designPerPx, 5), normalized: null, base_name: 'design_px',
+    design_per_px: round(designPerPx, 5), anchor_px: anchorPx, anchor_design_px: knownDesignPx,
+    cross_check: cross, tolerance: round(designPerPx * t.geom_px / anchorPx, 5),
+    match_fraction: ext.match_fraction,
+    selectivity: { frame_coverage: round(keyCoverage(img, key, keyTol), 4), limit: BACKGROUND_KEY_SHARE },
+    debug_px: { anchor: { x0: ext.x0, x1: ext.x1, y0: ext.y0, y1: ext.y1 },
+                cross: { x0: ccExt.x0, x1: ccExt.x1, y0: ccExt.y0, y1: ccExt.y1 } },
+  }, opts);
+}
+
+/* ─────────────────────────────── track ─────────────────────────────── */
+/**
+ * track — where one keyed object is, frame by frame.
+ *
+ * WHY THIS EXISTS. The reference skill asks for the duration and the SHAPE of every state-change
+ * animation ("accelerating? settling?"), and for the beat between an action and its payoff. Nothing
+ * in this layer could answer that: every primitive reads one still, so those numbers were being
+ * hand-read off frames — which is the exact failure this whole layer exists to prevent, arriving
+ * through the one question it had no primitive for.
+ *
+ * It reports per frame, and reports the frames it could NOT resolve rather than closing the gaps:
+ * a series with holes is a fact about the evidence, and interpolating them is how a fitted rate
+ * starts describing the interpolation instead of the motion.
+ *
+ * `axis_stability` is the other reason this is a multi-frame primitive. A rotating object's extent
+ * along the rotation axis is constant while the other axis is foreshortened by the phase, so a
+ * single still cannot tell a SIZE from a PHASE. Measured off three stills of one spinning star,
+ * the heights were 82, 82, 83 and the widths were 31, 40, 56 — and the width was read as the
+ * star's size, which drew it at 54% of its real one. Here the two coefficients of variation sit
+ * side by side, so the unstable axis is visible instead of being averaged into a number.
+ */
+export function track(files, { rect, key, keyTol = 22, fps = null, minMatch = 0.0002 } = {}) {
+  const opts = { region: rect, key, keyTol, base: 'ratio' };
+  if (!Array.isArray(files) || !files.length) {
+    return bad('track', INVALID_SELECTION, 'track needs an ordered array of frame files', null, opts);
+  }
+  const rb = badRegion(rect);
+  if (rb) return bad('track', INVALID_SELECTION, rb, null, { ...opts, file: files[0] });
+  if (!Array.isArray(key) || key.length !== 3) {
+    return bad('track', INVALID_SELECTION, 'track needs an explicit key', null, { ...opts, file: files[0] });
+  }
+  const series = [];
+  const missing = [];
+  let img0 = null;
+  for (let i = 0; i < files.length; i++) {
+    const o = open(files[i], 'track', opts);
+    if (o.err) { missing.push({ i, file: path.basename(files[i]), why: 'unsupported_evidence' }); continue; }
+    const img = o.img;
+    if (alphaGuard('track', img, opts)) { missing.push({ i, file: path.basename(files[i]), why: 'alpha_source' }); continue; }
+    if (!img0) img0 = img;
+    if (img.w !== img0.w || img.h !== img0.h) {
+      return bad('track', INVALID_SELECTION,
+        `frame ${i} is ${img.w}x${img.h} against ${img0.w}x${img0.h} on the first — a series of mixed ` +
+        'sizes cannot share one rect or one scale', img, opts);
+    }
+    if (backgroundKeyGuard('track', img, opts, key, keyTol)) {
+      missing.push({ i, file: path.basename(files[i]), why: 'key_matched_background' }); continue;
+    }
+    const ext = keyedExtent(img, rect, key, keyTol);
+    if (!ext || ext.match_fraction < minMatch) {
+      missing.push({ i, file: path.basename(files[i]), why: 'key_matched_nothing' }); continue;
+    }
+    series.push({ i, t: fps ? round(i / fps, 5) : null, file: path.basename(files[i]),
+                  cx: round(ext.cx_px / img.w), cy: round(ext.cy_px / img.h),
+                  cx_px: round(ext.cx_px, 2), cy_px: round(ext.cy_px, 2),
+                  w_px: ext.w_px, h_px: ext.h_px, match_fraction: ext.match_fraction });
+  }
+  if (!img0) return bad('track', UNSUPPORTED_EVIDENCE, 'no frame in the series could be decoded', null, opts);
+  if (series.length < 2) {
+    return bad('track', INVALID_SELECTION,
+      `the key resolved in ${series.length} of ${files.length} frames — that is not a series`,
+      img0, opts, { resolved: series.length, frames: files.length, missing });
+  }
+  const ws = series.map((s) => s.w_px), hs = series.map((s) => s.h_px);
+  return record('track', img0, {
+    value: series.length, normalized: null, base_name: 'ratio',
+    frames: files.length, resolved: series.length, fps,
+    series, missing,
+    // See the note above: the axis a rotation preserves is the axis a size may be measured on.
+    axis_stability: { width_cv: cv(ws), height_cv: cv(hs),
+                      width_px: { min: Math.min(...ws), max: Math.max(...ws) },
+                      height_px: { min: Math.min(...hs), max: Math.max(...hs) } },
+    match_fraction: round(mean(series.map((s) => s.match_fraction)), 4),
+    dispersion: { resolved_share: round(series.length / files.length, 4) },
+  }, opts);
+}
+
+/* ─────────────────────────────── rate ─────────────────────────────── */
+/**
+ * rate — fit a polynomial in time to a tracked series, and say how well it fitted.
+ *
+ * This is the primitive that turns a series into "accelerating at X". It is pure: it reads a `track`
+ * result, never a file, so a caller cannot accidentally fit one thing and cite another.
+ *
+ * THE RESIDUAL IS THE POINT. A parabola fits a swing, a roll and a fall equally happily and returns
+ * a confident second coefficient for all three; only the residual says which of them the caller was
+ * actually looking at. On the run this was written for, the accepted windows had a residual under
+ * 1 px against a travel of 500+ px, and the same fit over a swinging segment sat an order of
+ * magnitude worse — same shape of number, different question answered. So a fit whose residual is
+ * large next to the travel is returned UNRESOLVED rather than as a rate.
+ */
+export function rate(trackResult, { axis = 'y', order = 2, designPerPx = 1, maxResidualFrac = 0.02 } = {}) {
+  const opts = { region: null, key: null, base: 'design_px', axis };
+  if (badAxis(axis)) return bad('rate', INVALID_SELECTION, badAxis(axis), null, opts);
+  if (!trackResult || trackResult.primitive !== 'track') {
+    return bad('rate', INVALID_SELECTION, 'rate reads a track() result, so the fit and the citation cannot drift apart', null, opts);
+  }
+  if (trackResult.validity !== VALID) {
+    return bad('rate', trackResult.validity, `the track it was given is ${trackResult.validity}: ${trackResult.note ?? 'no series'}`, null, opts);
+  }
+  if (!trackResult.fps) {
+    return bad('rate', INVALID_SELECTION, 'the track carries no fps, so a per-second rate cannot be stated', null, opts);
+  }
+  const s = trackResult.series;
+  if (!Number.isInteger(order) || order < 1 || order > 3) {
+    return bad('rate', INVALID_SELECTION, `order must be 1, 2 or 3, got ${JSON.stringify(order)}`, null, opts);
+  }
+  if (s.length < order + 2) {
+    return bad('rate', UNRESOLVED, `${s.length} resolved frames cannot support an order-${order} fit`, null, opts);
+  }
+  const t0 = s[0].t;
+  const ts = s.map((q) => q.t - t0);
+  const ys = s.map((q) => (axis === 'y' ? q.cy_px : q.cx_px) * designPerPx);
+
+  // Normal equations for a least-squares polynomial. Small and explicit beats a dependency here.
+  const m = order + 1;
+  const A = Array.from({ length: m }, () => new Array(m).fill(0));
+  const b = new Array(m).fill(0);
+  for (let k = 0; k < ts.length; k++) {
+    const pw = [];
+    for (let j = 0; j < m; j++) pw.push(ts[k] ** j);
+    for (let r = 0; r < m; r++) { for (let c = 0; c < m; c++) A[r][c] += pw[r] * pw[c]; b[r] += pw[r] * ys[k]; }
+  }
+  for (let c = 0; c < m; c++) {
+    let piv = c;
+    for (let r = c + 1; r < m; r++) if (Math.abs(A[r][c]) > Math.abs(A[piv][c])) piv = r;
+    if (Math.abs(A[piv][c]) < 1e-12) {
+      return bad('rate', UNRESOLVED, 'the time samples are degenerate for this order (duplicate or collinear)', null, opts);
+    }
+    [A[c], A[piv]] = [A[piv], A[c]]; [b[c], b[piv]] = [b[piv], b[c]];
+    for (let r = 0; r < m; r++) {
+      if (r === c) continue;
+      const f = A[r][c] / A[c][c];
+      for (let k2 = c; k2 < m; k2++) A[r][k2] -= f * A[c][k2];
+      b[r] -= f * b[c];
+    }
+  }
+  const coef = b.map((v, i) => v / A[i][i]);
+  let acc = 0;
+  for (let k = 0; k < ts.length; k++) {
+    let pred = 0;
+    for (let j = 0; j < m; j++) pred += coef[j] * ts[k] ** j;
+    acc += (pred - ys[k]) ** 2;
+  }
+  const residual = Math.sqrt(acc / ts.length);
+  const travel = Math.max(...ys) - Math.min(...ys);
+  const frac = travel > 0 ? residual / travel : Infinity;
+  const shaped = {
+    order, coefficients: coef.map((v) => round(v, 4)),
+    // For order 2 the second derivative is 2*c2, which is the acceleration the caller came for.
+    acceleration: order >= 2 ? round(2 * coef[2], 2) : null,
+    velocity_at_start: round(coef[1], 2),
+    residual_rms: round(residual, 3), travel, residual_frac: round(frac, 5),
+    tolerated_residual_frac: maxResidualFrac,
+    duration_s: round(ts[ts.length - 1], 4), n: ts.length, design_per_px: designPerPx,
+  };
+  if (!(frac <= maxResidualFrac)) {
+    return bad('rate', UNRESOLVED,
+      `the order-${order} fit leaves a residual of ${residual.toFixed(2)} against ${travel.toFixed(0)} of ` +
+      'travel: this segment is not that shape, and the coefficient it would report describes the ' +
+      'mis-fit rather than the motion', null, opts, { fit: shaped });
+  }
+  return {
+    primitive: 'rate', validity: VALID,
+    source: trackResult.source, decode: trackResult.decode,
+    provenance: { primitive: 'rate', tool_version: TOOL_VERSION, file: trackResult.provenance.file,
+                  file_path: trackResult.provenance.file_path, region: trackResult.provenance.region,
+                  key: trackResult.provenance.key, key_tol: trackResult.provenance.key_tol,
+                  base: 'design_px', axis, from_track: { frames: trackResult.frames, resolved: trackResult.resolved } },
+    value: shaped.acceleration ?? shaped.velocity_at_start,
+    normalized: null, base_name: 'design_px', fit: shaped,
+    tolerance: round(residual, 3),
+    match_fraction: trackResult.match_fraction, selectivity: null,
+    plateau: null, regularity: null,
+    dispersion: { residual_rms: shaped.residual_rms, residual_frac: shaped.residual_frac },
+  };
 }

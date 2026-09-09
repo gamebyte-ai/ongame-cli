@@ -109,7 +109,7 @@ const COUNTEREXAMPLES = [
  { id: 'CE-2-BAD/keying', what: 'the SAME band keyed on the wrong colour (the wooden ground)', prim: 'runs',
    pkg: 0.132, tol: 0.005, base: 'W', file: Y_ + 'shot_09-gameplay-full-5of5.png',
    band: [0.63, 0.70], key: K.wood, pick: 'width_mean', pair: 'keying', role: 'BAD',
-   note: 'returns five clean runs and a HIGHER match_fraction than the correct key. Only width_cv tells them apart.' },
+   note: 'returns five clean runs and a HIGHER match_fraction than the correct key. width_cv told them \n          apart; the frame-coverage guard now refuses it outright, because on THIS frame the wood is \n          the ground and covers most of the image. The unit fixture keeps the width_cv trap alive, \n          where the same wood is only a decoration and the guard correctly stays quiet.' },
  { id: 'CE-3-BAD/non-selective', what: 'canvas keyed on wood, which is also the page behind it', prim: 'runs',
    pkg: null, base: 'W', file: Y_ + 'shot_09-gameplay-full-5of5.png',
    band: [0.20, 0.50], key: K.wood, pick: 'width_mean', pair: 'selectivity', role: 'BAD',
