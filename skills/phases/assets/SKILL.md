@@ -49,8 +49,8 @@ their filesystem: copy it under `assets/reference/`, call `forge_reference` for 
 going through the upload path with an anchor you already have is wasted work, and it is the reason this flow gets
 a reputation for being heavy.
 
-One thing genuinely cannot be anchored: **sprite sheets** (§3 — the sheet always generates from the prompt). There,
-anchor the 2d-static of the character first and describe *that* image in the sheet's prompt.
+For animated characters, use **sprite clip mode** (§3) and pass the character image as `editOf`.
+Only the legacy **grid mode** is prompt-only; describe the anchored character in its grid prompt.
 
 > **GRAYBOX-FIRST — you run AFTER `code`.** By the time this phase starts, the `code`
 > phase has produced a fully-PLAYABLE graybox game (placeholder `PIXI.Graphics`/`PIXI.Text`). You are the **"dress"**
@@ -159,12 +159,9 @@ That `assetId` is the **anchor for its group**: each asset in the group is reque
 but the concept image is what the group is consistent WITH. Groups sourced from the doc keep the
 ordinary §2 anchor.
 
-**Except sprite sheets, which cannot be reference-anchored at all** (§3: sprite generates from the
-prompt only; `editOf` is ignored there). So for a concept-sourced animated character: generate the
-2d-static of that character anchored to the concept first, then write the sprite prompt to describe
-THAT result in detail — colours, silhouette, costume — so it is matched by description. Tell the user
-which assets those are and that they are style-matched rather than reference-locked; a sprite that
-drifts is then an expected, visible thing to iterate on, not a silent break of the promise you made.
+For a concept-sourced animated character, first isolate the character as an anchored 2d-static asset,
+then pass that asset as `editOf` with `spriteParams.mode: "clip"` and describe the motion separately.
+The legacy grid path remains prompt-only; it matches identity by description and needs visual review.
 
 Then call `knowledge_get({ key: 'pattern:concept-deconstruction' })` and follow it before writing those
 rows. Splitting a picture has two failure modes that cost real money and are easy to walk into: **one
@@ -305,7 +302,7 @@ return, the client writes them to disk):
 
 - **`kind`** — YOU judge which kind:
   - **`2d-static`** — flat 2D visual (UI/HUD/tile/bg/menu). Most assets are this.
-  - **`sprite`** — animated sprite-sheet (walk/attack loop). `spriteParams` + grid prompt (below).
+  - **`sprite`** — transparent character animation (idle/walk or one-shot attack). Use `spriteParams.mode: "clip"` + a character reference; legacy grid mode remains available (below).
   - **`3d-static`** — image→GLB 3D model (prop/object, ~1-3 min). Meaningful **ONLY in 3D games**
     (Three.js world3d); do not use in a pure 2D game. `threeDParams` + single-object prompt (or
     `editOf`=ready clean visual). Sync `forge_request` usually completes within the MCP client's own request
@@ -327,18 +324,21 @@ return, the client writes them to disk):
   sprite/character sits on top of something else in the scene → `transparent: true`.
   If you are generating a full-screen **background/scene** → `transparent: false`/empty (it should already be filled).
   Instead of saying "white background" in the prompt, use this parameter — it gives real transparency.
-- **`spriteParams?`** (sprite) — `{ motion, framesPerRow, rows, fps }`. In the prompt, describe an
-  **evenly-spaced NxN grid** + a **consistent character** ("4x4 sprite sheet walk cycle, 16 evenly spaced cells,
-  consistent character across all frames, side view"). Put the `framesPerRow×rows` layout here
-  (JSON frame coordinates are computed from this — no physical slice). `motion`=animation name
-  (walk/idle/attack), `fps`=playback speed hint. Sprites are usually `transparent: true`. **batch=1
-  is mandatory** (batch>1 sprites are rejected with an explicit error; if you want variants, make a separate
-  call with a separate prompt). `editOf` is **not used** in sprite — the sheet is always generated from the prompt
-  (a reference-consistent sheet is a later slice).
-  > **Transparency cleanliness:** if `transparent:true`, request a **FLAT SINGLE-COLOR background** in the prompt (e.g.
-  > "on a solid flat magenta background, no gradients"). remove-bg processes the whole sheet; a variable/gradient
-  > background leaves fringe (halo) between cells — a flat single color gives cleaner alpha. (A per-frame
-  > remove-bg pipeline is an advanced sprite-quality slice.)
+- **`spriteParams?`** (sprite) — use **`mode: "clip"`** for transparent character animation.
+  Pass the existing character image with a transparent background as `editOf`; otherwise `prompt`
+  describes the first character's appearance.
+  Required **`motionPrompt`** describes movement (1-2000 characters); **`motion`** names the animation
+  (idle/walk/attack), **`fps`** sets playback speed, **`frameCount`** selects 2-12 frames,
+  **`maxFramePx`** selects 16-256 pixels per frame, and **`seed`** is optional. Use **`loop:false`**
+  for a one-shot action and set the game player to finish it once. The output is a transparent atlas PNG
+  plus JSON; materialize both files. Inspect returned warnings and watch the animation on the actual game
+  background before accepting it. Fetch `pattern:sprite-animation` (web) or `pattern:unity-sprite-animation`
+  for import, anchoring and playback verification.
+  **Legacy compatibility:** omitted mode or **`mode: "grid"`** keeps the prompt-only grid path.
+  Describe an evenly spaced grid in `prompt` and set `framesPerRow`/`rows`; grid mode ignores `editOf`.
+  Those grid controls are invalid with clip mode. A failed clip never silently becomes a grid.
+  **`batch:1` is mandatory** for each sprite spec; request at most two clip motions together.
+  If capacity is busy, retry only the refused entries after the active requests finish.
 - **`threeDParams?`** (3d-static) — `{ resolution, decimationTarget, textureSize, remesh, seed }`.
   Web/mobile defaults are safe (decimation ~30k); increase for a hero/close-up object. The prompt should
   describe a **single object + clean/simple background** (a 2D base is generated first, then converted to GLB).
@@ -531,9 +531,9 @@ load real textures. Otherwise the game still renders line-art/placeholder.
    atlas PNG + the JSON) and `assets_materialize` writes both → its `paths` include the **JSON** and
    the sibling PNG. **Keep both in the same directory (sibling)** when you copy to `public/assets/` —
    the JSON's `meta.image` field references the PNG by file-name; if you put them in separate directories it breaks
-   (write them with the same names). Load: `await PIXI.Assets.load('/assets/<sheet>.json')` (automatically pulls the PNG)
-   → `const sheet = new PIXI.Spritesheet(tex, data); await sheet.parse();`
-   → `const anim = new PIXI.AnimatedSprite(sheet.animations['<motion>']); anim.animationSpeed = fps/60; anim.play();`.
+   (write them with the same names). Fetch `pattern:sprite-animation` for PixiJS loading and playback,
+   or `pattern:unity-sprite-animation` for Unity import. Preserve the frame canvas and pivot, honor one-shot
+   versus looping playback, and verify alpha edges, grounding and the loop boundary on the real screen.
 6. **3D (GLB) load — ONLY 3D game:** 3d-static/3d-char `path` = **`.glb`**. gamelabs `AssetManager.load(
    AssetTypes.GLTF, id, url)` → `GLTFLoader.loadAsync` → `{ scene, animations }`; `world.add(getAsset(id).scene)`
    (into the Three.js world3d scene). Do not use GLB in a pure 2D game (do not generate 3d-static/char in the first place).
