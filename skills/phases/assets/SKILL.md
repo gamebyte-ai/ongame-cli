@@ -325,7 +325,8 @@ return, the client writes them to disk):
   If you are generating a full-screen **background/scene** → `transparent: false`/empty (it should already be filled).
   Instead of saying "white background" in the prompt, use this parameter — it gives real transparency.
 - **`spriteParams?`** (sprite) — use **`mode: "clip"`** for transparent character animation.
-  Pass the existing character as `editOf`; otherwise `prompt` describes the first character's appearance.
+  Pass the existing character image with a transparent background as `editOf`; otherwise `prompt`
+  describes the first character's appearance.
   Required **`motionPrompt`** describes movement (1-2000 characters); **`motion`** names the animation
   (idle/walk/attack), **`fps`** sets playback speed, **`frameCount`** selects 2-12 frames,
   **`maxFramePx`** selects 16-256 pixels per frame, and **`seed`** is optional. Use **`loop:false`**
