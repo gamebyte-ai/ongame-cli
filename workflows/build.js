@@ -11,7 +11,7 @@ export const meta = {
 
 // args = { plan: BuildPlan, phases: PhaseKey[], buildId, gameDir, pluginRoot, completed?, notes?,
 //          models?: { <phaseKey|'split'|'critic'>: model }, criticRounds?: number, maxParallel?: number,
-//          split?: 'auto'|'off', target?: string }
+//          split?: 'auto'|'off', target?: string, referenceContext?: string }
 // R9: Segment logic moved out of build.js (lives in the mcp segments service).
 // The orchestrator filters the segment phases and passes the ALREADY-FILTERED phase list.
 // build.js does NOT do any segment filtering here — it only iterates over args.phases.
@@ -28,6 +28,16 @@ const completed = a.completed ?? [];
 // Gate re-run channel: the orchestrator passes the user's corrections verbatim (free text — the agent composed it).
 // Absent → today's behavior (first run / no feedback).
 const notes = typeof a.notes === 'string' && a.notes.trim() ? a.notes : null;
+
+// reference_context returns the context; the runner only carries it to every role.
+if (a.reference !== undefined) {
+  throw new Error('build.js: call reference_context and pass its context as referenceContext');
+}
+if (a.referenceContext !== undefined &&
+    (typeof a.referenceContext !== 'string' || a.referenceContext.length > 131072)) {
+  throw new Error('build.js: referenceContext must be a string of at most 131072 characters');
+}
+const referenceContext = a.referenceContext ?? '';
 
 if (!plan || !Array.isArray(phases)) {
   throw new Error('build.js: args.plan + args.phases required (received type: ' + typeof args + ')');
@@ -92,7 +102,8 @@ const phaseContext = (phaseKey) =>
     ? `This is a RE-RUN after user feedback (iteration). The user's corrections, verbatim: "${notes}". Existing ` +
       `artifacts for this phase are the REJECTED version — regenerate them honoring the corrections; do not ` +
       `verify-and-skip. `
-    : '');
+    : '') +
+  referenceContext;
 
 const TOOLING_RULES =
   `Use the ongame MCP tools (find them via ToolSearch by bare name). The split is by role: ` +

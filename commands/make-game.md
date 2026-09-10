@@ -224,7 +224,7 @@ into the `notes` parameter (so they don't get discarded).
 >    continuation (see `skills/phases/code/SKILL.md`); if you find yourself about to scaffold, you are in the wrong
 >    door.
 >
-> Then continue at §2.
+> Then continue at §1.7.
 
 > **WHEN THE ENGINE IS NOT THE WEB ONE, STEPS 2-3 BELOW DO NOT APPLY EITHER** — and this is a separate question
 > from `new` vs `continue`. A brand-new Unity game is still a NEW build; what changes is only where the code lives
@@ -264,6 +264,13 @@ into the `notes` parameter (so they don't get discarded).
    orchestration tools do NOT take `gameDir` — they key on the `buildId` minted in step 2.
 
 The game's own `.gitignore` (from the template) covers `node_modules/`, `dist/`.
+
+## 1.7 Reference preparation (after gameDir exists)
+
+When the request depends on an external example, apply `skills/reference/SKILL.md` before initializing
+state. Keep the returned `referenceContext` unchanged for every segment, role and re-run. If preparation
+is unavailable or gated, report reference fidelity as unverified; do not claim a successful reference check.
+For a build with no external reference, omit `referenceContext`.
 
 ## 2. Initialize state (capture the buildId)
 
@@ -335,7 +342,8 @@ is NOT an auto-registered workflow — it cannot be called by `name`, `scriptPat
 ```
 Workflow({
   scriptPath: "${CLAUDE_PLUGIN_ROOT}/workflows/build.js",
-  args: { plan: <BuildPlan>, phases: <A>, buildId: <buildId>, gameDir: <gameDir>, pluginRoot: "${CLAUDE_PLUGIN_ROOT}" }
+  args: { plan: <BuildPlan>, phases: <A>, buildId: <buildId>, gameDir: <gameDir>, pluginRoot: "${CLAUDE_PLUGIN_ROOT}",
+          referenceContext: <the prepared context, or omit when absent> }
 })
 ```
 
@@ -451,7 +459,8 @@ approval/changes.
 
 ### Run Segment B
 The same way: `Workflow({ scriptPath: "${CLAUDE_PLUGIN_ROOT}/workflows/build.js",
-args: { plan, phases: B, buildId, gameDir, pluginRoot: "${CLAUDE_PLUGIN_ROOT}" } })`.
+args: { plan, phases: B, buildId, gameDir, pluginRoot: "${CLAUDE_PLUGIN_ROOT}", referenceContext: <same prepared context> } })`.
+Pass the **same** `referenceContext` on every build.js invocation, including re-runs.
 
 ### GATE 2 — after code (playable check)
 When the `code` phase finishes, call `preview_start(gameDir=<gameDir>)` (`ongame`) → show the
