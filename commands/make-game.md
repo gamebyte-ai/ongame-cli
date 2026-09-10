@@ -210,93 +210,6 @@ into the `notes` parameter (so they don't get discarded).
 > `user.prompt`/`user.feedback` (step 2) if the user objects — continue the build without prompt
 > capture and note their objection.
 
-### 1.2 Judge the REFERENCE AXIS (agentic — no keyword matching)
-
-One more judgement alongside the intake axes, and it is **not** a keyword test. Do not look for
-"clone", "copy" or "reproduce". The question is:
-
-> Does what the user is asking for depend on preserving observable properties of an identifiable
-> EXTERNAL reference?
-
-- **`create_from_idea`** — no external reference. *"Make a simple endless runner."* / *"Design a new
-  merge game."* **Nothing else in this file changes: skip 1.7 entirely and run exactly as today.**
-- **`match_reference`** — fidelity to a named/shown thing is the point. *"Make Pixel Flow."* /
-  *"Build the game in this video."* / *"Set up the gameplay in this screenshot."*
-- **`inspired_by_reference`** — their own game, informed by one. *"A runner close to Subway Surfers'
-  core loop."* / *"Like Color Block Jam but hex grid and cyberpunk."*
-
-Then collect two lists, and keep them **apart** — this separation is the point, not bookkeeping:
-
-- **`reference_seeds`** — whatever identifies the reference, in whatever form it arrived:
-  `{ kind: name|url|store_url|video_url|image|video|text, value }`. A bare game name IS a valid
-  seed; the user is not required to supply screenshots or video. **A seed is not evidence** — 1.7
-  goes and gets the evidence.
-- **`overrides`** — everything the user asked to CHANGE about the reference, as
-  `{ axis, from, to }`. In *"like Color Block Jam but hex grid and cyberpunk"*, the reference is
-  Color Block Jam and the overrides are `grid_topology: square → hex` and
-  `visual_identity: → cyberpunk`. Your job is **not** to interpret Color Block Jam as cyberpunk.
-
-Confirm in one sentence and continue; ask only if a wrong guess would cost more than the question.
-
-
-## 1.7 Reference Compiler (ONLY when 1.2 judged a reference)
-
-Skip this section entirely on `create_from_idea`.
-
-**Ordering.** This step WRITES into `{gameDir}`, and `gameDir` is fixed in §2 step 2 — not here. So
-run identity resolution and evidence acquisition as soon as 1.2 has judged a reference, but do the
-writing (and therefore the whole of this section) once `gameDir` exists and before §2's Workflow
-call, which is where the digest is passed. Reading this section in document order and compiling
-immediately leaves the compiler with nowhere to put the package.
-
-Apply `skills/reference/SKILL.md` with the `reference_seeds` and `overrides` from 1.2. It resolves
-identity, discovers and acquires evidence, and writes
-**`{gameDir}/docs/reference_package.yaml`** (raw evidence under `{gameDir}/.ref/`).
-
-Tools it needs are ordinary session tools, not ongame MCP: `curl` (e.g. the iTunes Search API),
-`yt-dlp` (video discovery AND download — always with `--socket-timeout`), `ffprobe`/`ffmpeg` (real
-metadata and frame extraction), `python3` with PIL/numpy (pixel measurement), plus WebSearch /
-WebFetch. If a capability is missing, say which and carry on with a thinner package — **never
-fabricate the reference**, and never present a thin package as a full one.
-
-**Then build the DIGEST** and hold it for step 4 — the package must not reach the builder by disk
-alone. A document on disk sits at the BOTTOM of the measured authority order — a phase agent was
-observed naming an *"AUTHORITY — READ FIRST"* file authoritative without ever opening it. The digest:
-
-```
-reference: {
-  relation:     "match_reference" | "inspired_by_reference",
-  title:        "<reference title>",
-  version:      "<observed version, if any>",
-  packagePath:  "<gameDir>/docs/reference_package.yaml",
-  truth:        [ "<id> <reconstruction-critical requirement, one line each>" ],
-  blocking:     [ "<id> <open question> -> <NAMED_CONSTANT> (<why it blocks>)" ],
-  levels:       [ "<id> <a buildable measured instance: dimensions + what makes it distinct>" ],
-  obligations:  [ "<id> [<primitive>] <observable> @ <state> ±<tol> ← <evidence path>" ],
-  notObserved:  [ "<state never seen in the evidence>" ],
-  overrides:    [ "<axis>: <from> -> <to>" ]
-}
-```
-
-Keep `truth` to the lines a builder would get wrong without them — this rides in every phase
-prompt, so it is a cost as well as a signal.
-
-`blocking` carries BOTH kinds from the skill's §4: `blocks_build` (the rule cannot be written) and
-`blocks_fidelity` (the result will not read or feel like the reference). They reach the builder the
-same way and it answers them the same way — a defensible default, NAMED — so do not filter one out.
-
-`obligations` is the skill's §3 `verification` blocks — the checkable half of the package. Carry ALL
-of them and do not trim this list to save prompt budget: a truth line that does not arrive is a fact
-the builder may still get right on its own, but an obligation that does not arrive is a check nobody
-writes. Measured: citing a requirement in the code predicted runtime correctness barely at all
-(0.67 vs 0.62); having a check for it predicted it clearly (0.85 vs 0.53).
-
-`levels` is every `buildable: true` entry from the skill's §6 `instances`, the anchor first. It is
-the difference between a package that documents a game and a package a builder can populate: in the
-run that produced these rules, three boards were measured and one was promoted, and the build
-shipped one board on which the core mechanic could not occur. Anything not measured stays out —
-this list is promotion, never generation.
-
 ## 1.5 Set up game-dir + worktree (AFTER intake, BEFORE state)
 
 > **ON A CONTINUATION (`entry='continue'`), THIS WHOLE SECTION IS REPLACED BY THREE LINES** — the game already has a
@@ -311,7 +224,7 @@ this list is promotion, never generation.
 >    continuation (see `skills/phases/code/SKILL.md`); if you find yourself about to scaffold, you are in the wrong
 >    door.
 >
-> Then continue at §2.
+> Then continue at §1.7.
 
 > **WHEN THE ENGINE IS NOT THE WEB ONE, STEPS 2-3 BELOW DO NOT APPLY EITHER** — and this is a separate question
 > from `new` vs `continue`. A brand-new Unity game is still a NEW build; what changes is only where the code lives
@@ -351,6 +264,13 @@ this list is promotion, never generation.
    orchestration tools do NOT take `gameDir` — they key on the `buildId` minted in step 2.
 
 The game's own `.gitignore` (from the template) covers `node_modules/`, `dist/`.
+
+## 1.7 Reference preparation (after gameDir exists)
+
+When the request depends on an external example, apply `skills/reference/SKILL.md` before initializing
+state. Keep the returned `referenceContext` unchanged for every segment, role and re-run. If preparation
+is unavailable or gated, report reference fidelity as unverified; do not claim a successful reference check.
+For a build with no external reference, omit `referenceContext`.
 
 ## 2. Initialize state (capture the buildId)
 
@@ -423,7 +343,7 @@ is NOT an auto-registered workflow — it cannot be called by `name`, `scriptPat
 Workflow({
   scriptPath: "${CLAUDE_PLUGIN_ROOT}/workflows/build.js",
   args: { plan: <BuildPlan>, phases: <A>, buildId: <buildId>, gameDir: <gameDir>, pluginRoot: "${CLAUDE_PLUGIN_ROOT}",
-          reference: <the 1.7 digest, or omit entirely on create_from_idea> }
+          referenceContext: <the prepared context, or omit when absent> }
 })
 ```
 
@@ -539,9 +459,8 @@ approval/changes.
 
 ### Run Segment B
 The same way: `Workflow({ scriptPath: "${CLAUDE_PLUGIN_ROOT}/workflows/build.js",
-args: { plan, phases: B, buildId, gameDir, pluginRoot: "${CLAUDE_PLUGIN_ROOT}", reference: <same digest> } })`.
-Pass the **same** `reference` digest on every build.js invocation, including re-runs — a phase that
-runs without it is a phase building from a different truth than the ones around it.
+args: { plan, phases: B, buildId, gameDir, pluginRoot: "${CLAUDE_PLUGIN_ROOT}", referenceContext: <same prepared context> } })`.
+Pass the **same** `referenceContext` on every build.js invocation, including re-runs.
 
 ### GATE 2 — after code (playable check)
 When the `code` phase finishes, call `preview_start(gameDir=<gameDir>)` (`ongame`) → show the
