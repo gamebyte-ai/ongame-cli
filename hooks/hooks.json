@@ -23,7 +23,8 @@
       {
         "matcher": "mcp__plugin_ongame_ongame__state_init",
         "hooks": [
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/ongame-launcher", "args": ["hook", "build-marker-write"], "timeout": 10 }
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/ongame-launcher", "args": ["hook", "build-marker-write"], "timeout": 10 },
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/ongame-launcher", "args": ["hook", "skill-integrity"], "timeout": 10 }
         ]
       },
       {

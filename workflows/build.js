@@ -107,8 +107,16 @@ const phaseContext = (phaseKey) =>
 
 const TOOLING_RULES =
   `Use the ongame MCP tools (find them via ToolSearch by bare name). The split is by role: ` +
-  `orchestration/cloud tools (knowledge_get/knowledge_list/forge_request/sound_request/` +
+  `orchestration/cloud tools (knowledge_get/knowledge_list/mechanic_find/mechanic_get/mechanic_coverage/forge_request/sound_request/` +
   `trace_emit/state_advance/brain_*) key on buildId=${buildId ?? '(absent)'}; ` +
+  `BEFORE YOU WRITE A RULE THAT MAKES SOMETHING BEHAVE — a projectile that bounces, damage with ` +
+  `invulnerability, a dash, a jump with tolerance, enemies that spawn in waves or chase without ` +
+  `piling up, a board move that resolves — call \`mechanic_find\` with the need in the game's own ` +
+  `words FIRST. This holds even when the design is already specified and your task is to implement ` +
+  `it: the library is verified code with its own tests, licence and stated limits, and "the spec ` +
+  `already says what to do" is not a reason to retype it. Read each candidate's \`notFor\`/\`whenNot\` ` +
+  `before fetching; a reasoned rejection is a correct outcome and costs one call. An empty result is ` +
+  `also an answer — write it yourself and say in one line why nothing fitted. ` +
   `local file/preview tools (assets_materialize/preview_*/telemetry_inject) take gameDir=${gameDir ?? '(absent)'}. ` +
   `IF AN ONGAME TOOL THIS PHASE NEEDS IS ABSENT, ERRORING OR UNREACHABLE, STOP AND SAY SO — do not do that ` +
   `part yourself from general knowledge and do not report it as done. An answer of 'gated' is NOT this ` +

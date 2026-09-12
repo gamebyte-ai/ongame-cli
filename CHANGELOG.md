@@ -5,6 +5,14 @@ All notable changes to `ongame-cli` are documented here. Distribution/plugin-man
 they're released together conceptually, even though the CLI binary's own build lives in a
 separate private repo.
 
+## [1.7.24] - Mechanics guidance and instruction integrity
+
+- The code phase and its implementation tasks now consult the mechanics library before writing
+  gameplay rules, check each candidate's limits and evidence, and retain attribution when using it.
+- Builds check the loaded plugin's instructions against its versioned content lock and report stale
+  or incomplete installations with reinstall guidance that preserves the installation scope.
+- Requires CLI binary `cli-v0.2.16` or newer; the launcher self-updates.
+
 ## [1.7.19] - Boot the build before publishing
 
 Two generated games were published as a black page with a clean console, and no step in the
