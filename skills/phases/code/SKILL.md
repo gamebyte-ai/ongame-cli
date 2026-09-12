@@ -145,7 +145,40 @@ zombie report. This lock guards WRITES only — reading/analysis needs no lock.
    Pull one with `template_get({ key: 'template:<name>' })`. They are frames, not prescriptions — the comments say
    which parts are load-bearing and must survive your edits; the rest is yours. A `gated` answer means the account
    is not entitled to that read: proceed without it, that is not a fault.
-9. **Before building ANY shell/meta layer, read `knowledge_get({ key: 'pattern:shell-contract' })`.** The mechanic is
+9. **When the design calls for a MECHANIC — something that has to behave, not something that has
+   to be drawn — ask the mechanics library before writing it.** This fires when you are about to
+   WRITE the rule, not only when you are deciding it: in a full build the design arrives already
+   specified and the phase is cut into implementation slices, and "the spec already says what to do"
+   is not a reason to retype a rule the library holds with tests, licence and stated limits.
+   `mechanic_find({ need })`: describe
+   the need in the GAME's own words, as the thing you want to happen, not as keywords or a
+   function name. Verified mechanic code is stored there with the evidence for how far it has
+   actually been checked.
+   **Read `notFor` and `whenNot` on every candidate BEFORE fetching it.** They say what the record
+   does NOT do, and they are the only way to tell a real match from a near-miss that will cost you
+   an hour. A record whose `kind` is `helper` is a unit a larger system is built from — it answers
+   one narrow question and leaves the surrounding system to you.
+   If a candidate fits, `mechanic_get({ id })` returns the whole thing: code, executable checks,
+   the input/output contract, an integration example, its dependencies and its licence.
+   - `runtimeDeps` you cannot satisfy → DO NOT use it. Say so and move on.
+   - `integrationVerified: false` → ONLY that no real build has been shown to use it. It is not a
+     statement about the tests; their status is separate evidence, in `evidence.sourceTests` and
+     `evidence.ownChecks`. Read those if the test status is what you need to know.
+   - If you use it, the source attribution and licence note travel WITH the code into the build.
+   - An empty result is usually a real answer — but this search has been measured missing a record
+     that WAS in the library, so allow yourself ONE re-phrasing: a genuinely different way to say
+     the same need, not the same words reordered. Empty again → write it yourself and record in one
+     line why nothing fitted. Two attempts, never a search loop; re-wording past that costs more
+     than writing the thing.
+   `mechanic_coverage()` answers the prior question — which kinds of game behaviour the library
+   can support at all — grouped by family, with rule-appliers counted apart from calculators. A
+   family holding helpers and no mechanic means the calculation exists and the rule does not: you
+   will be writing that rule. Use it when a whole area of the design is unfamiliar; for a single
+   need, go straight to `mechanic_find`.
+   This step is about behaviour — movement, collision, matching, merging, spawning, targeting,
+   state transitions. It is not for shells, screens or art; those are §8 and §10.
+
+10. **Before building ANY shell/meta layer, read `knowledge_get({ key: 'pattern:shell-contract' })`.** The mechanic is
    yours to write; the shell is not. Splash, home, nav, currency chip, popups, settings, lives, shop, result screen,
    save, audio — that is the layer every build reaches last, rebuilds from nothing and half-finishes, and it is where
    most of a game's perceived polish actually lives. The contract names the drop-in module behind each rule, so read
