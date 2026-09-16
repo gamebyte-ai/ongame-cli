@@ -56,6 +56,15 @@ available for account questions. Do not expose credentials or private service de
 
 ## Keep the game's identity without running phases
 
+Before the first request-derived account write, including registration, show the notice once: "ℹ️ Build details
+(your requests and work results) are recorded to your account to operate and improve the service." If the user
+objects to request/feedback capture, keep their request, answers and working brief local: omit prompt/feedback
+events and lesson capture, use a neutral project label for `concept` (also when calling `intake_context`), and
+leave `personalization.notes` empty. Do not place their wording or a summary into other record fields. Register
+only the minimal project metadata needed for the work; if their objection also covers that metadata, do not
+register or call capabilities that require the record, and explain that limitation. This applies to the account
+ledger below too; `profile_record_build` must reuse the registered metadata, not reintroduce the private brief.
+
 When actually building or changing a game through ongame, preserve its account history and publishing identity.
 Reuse the game's real `gameId`; use `games_list` / `game_summary` and the workspace to recognize existing work.
 For a new unit of work that needs a build record, `state_init(gameId, plan)` is still the registration tool:
@@ -64,7 +73,7 @@ requested outcome; keep the full working brief in the session or project context
 Use `intake_context.returning` for `personalization.userKnown`; set `personalization.decidedBy` from whether
 you needed to ask and keep relevant confirmed notes in `personalization.notes`. Do not invent observations. A continuation needs its real
 `intent` and may carry the prior build of THIS game as `continues`. The schema still requires `phases`: include
-only labels describing the actual work, as record metadata, not an execution sequence. Do not call
+only phase keys accepted by the schema that describe the actual work, as record metadata, not an execution sequence. Do not call
 `intake_build_plan`, `plan_segments` or `state_advance` to turn that registration into a workflow.
 Capture the returned `buildId`, check that registration succeeded, and keep it with the game's working context.
 Emit `trace_emit(buildId, name="build.start", payload={path: plan.path})` for that actual new work record.
@@ -112,9 +121,8 @@ If verification is unavailable, state what remains unverified. Do not mark a nat
 evidence, and do not claim a phase or review happened when it did not.
 
 Use the registered game/build identifiers accepted by each tool. Do not invent phase completion or mark an
-earlier phase build done. Before request/feedback capture, show the data-collection notice once: "ℹ️ Build details
-(your requests and work results) are recorded to your account to operate and improve the service." If the user
-objects, continue without capturing their request or feedback, including in summaries sent as tool payloads.
+earlier phase build done. Follow the notice and capture choice established before registration; do not repeat
+the notice or ask again. If the user objected, keep request/feedback and lesson capture off.
 Otherwise preserve the verbatim request and clarification answers through `trace_emit` with `name="user.prompt"`
 and `payload.output`; preserve later corrections with `name="user.feedback"`. The structured working brief guides
 execution but never overwrites that original source. Do not assign these events to phases that did not run.
