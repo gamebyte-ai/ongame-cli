@@ -1,7 +1,75 @@
 ---
 name: intake
-description: ongame Phase 0 — personalization; JUDGE the output MODE (concept-only/prototype/production/playable-ad) + PERSONA (studio/indie) from the user's materials/prompt, gather materials for playable-ad, ask only when genuinely needed.
+description: Understand the user's game request, clarify consequential ambiguity when needed, and keep a focused working brief. Judge what needs asking; simple clear requests proceed directly.
 ---
+
+# Understand the request
+
+**Automatic workflow creation and phase routing are currently disabled.** Work directly on the user's request.
+Do not assemble a phase execution plan, launch a Workflow, advance phase state, or impose phase approval gates.
+The make-game command preserves truthful game registration separately; metadata is not a workflow.
+The phase definitions remain available; their existence is not an instruction to run them. This policy also
+applies on follow-up messages, resume and compaction: an older active-build reminder does not re-enable phases.
+Do not fetch a phase-intake override to decide how to handle a direct request.
+
+## Judge whether a question helps
+
+Read the user's words, relevant earlier instructions, references and actual project context together. YOU judge
+whether the input is long or complex enough to need clarification; there is no length threshold, punctuation
+score, keyword rule or fixed questionnaire. Length alone is not a reason to ask. A clear request, short or long,
+can proceed directly. Do not turn harmless typos or informal punctuation into an interview.
+
+When complex wording leaves materially different interpretations, first focus on meaning: punctuation, clause
+boundaries, what modifies what, and what happens in which order. Ask about the specific interpretation that
+would change the work: "I understood that <behavior> happens when <condition>. Is that right?" Do not silently
+pick one reading, and do not send a large paraphrase for blanket approval.
+
+Once the meaning is clear, check the requirements against each other and the user's earlier constraints. If a
+real inconsistency would affect technical feasibility, physical behavior or the intended fun, ask about it
+directly. State the two conflicting requirements and the consequence, then let the user resolve the trade-off.
+Distinguish an intentional game rule or stylization from a physical impossibility; your preference is not a
+contradiction. Do not manufacture questions just to cover every category.
+
+**Ask one focused question at a time and wait for its answer.** Prefer the current agent's native question UI
+when it is available; otherwise ask one short conversational question. Offer choices when they help, while
+allowing the user to correct your interpretation. Carry each answer forward and ask only about what remains
+unclear. Do not repeat an answered question or implement the part whose meaning is still unresolved. Simple
+requests need no extra clarification ritual; ask only if missing information actually prevents correct work.
+
+## Use the confirmed request as the working prompt
+
+After any needed answers, rewrite the request into a compact structured working prompt and use THAT as your
+execution brief, including when delegating or resuming. It replaces the ambiguous raw wording as your working
+instruction, not the user's original message or history. Preserve exact constraints, numbers, exclusions,
+references and corrections; never add unrequested features or silently choose between unresolved alternatives.
+The user's actual words and subsequent corrections remain authoritative over your summary.
+
+Use only the structure that helps this task, for example:
+- **Goal:** the requested outcome.
+- **Behavior:** what should happen, including confirmed interactions and order.
+- **Constraints and references:** requirements that must remain true and the supplied reference material.
+- **Acceptance:** observable evidence that the requested work is complete.
+- **Open points:** only real unresolved issues; they are not approved assumptions.
+
+For a complex request, briefly show the resulting brief so the user can see what will guide the work; do not
+require another blanket approval when they already answered the questions. For a simple request, a short goal
+and the stated constraints are enough; do not display an empty template or create another confirmation round.
+When the user changes direction, update the brief and carry the correction into subsequent work.
+
+If the current agent exposes a native goal capability and its tool contract permits it, set the goal from the
+clear request or the clarified working prompt. Use the actual available tool and its schema; do not invent a
+command, promise unsupported goal tracking, or replace an unrelated active goal. Keep the goal aligned when the
+user changes the requested outcome. If unsupported, continue with the brief. Goal tracking must not create a
+workflow, require phases, or set a task complete before its acceptance evidence exists.
+
+---
+
+## Retained phase intake reference — inactive
+
+The definitions below are preserved for the existing phase system. They are NOT the current request-handling
+instructions. Do not execute their numbered steps, fetch their live override, or generate their BuildPlan as
+part of direct work. Only consult this reference if the user explicitly asks about the phase system; that does
+not by itself enable workflow execution.
 
 # Intake — Personalization (Phase 0)
 
@@ -24,7 +92,7 @@ calibrate to it). This skill is the runtime recipe.
 
 ## Steps
 
-0. **Live prompt:** call `prompt_get({ phase: 'intake' })` (bare name via ToolSearch). Non-null `override`
+0. **Live prompt:** call `prompt_get({ phase: 'intake' })` (ongame; bare name via ToolSearch). Non-null `override`
    → follow it (the optimized live version). null/unavailable/error → the default below (fail-soft). Never block on it.
 1. **Pull context:** `intake_context(concept=<concept>)` → `{ concept, returning, decisionsCount, priorGames[],
    pathOptions[], intentOptions[] }`. This is CONTEXT for your judgment, not a decision.

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.25 — 2026-09-16
+
+- Temporarily suspend automatic workflow creation and phase routing; keep the phase definitions available.
+- Let the agent clarify consequential ambiguity and contradictions one question at a time, then work from a structured brief and use a native goal when supported.
+- Keep clear requests lightweight and preserve existing game identity and publishing.
+
 All notable changes to `ongame-cli` are documented here. Distribution/plugin-manifest changes
 (this repo) and CLI binary releases (tagged `cli-v*`) are both tracked in this one file since
 they're released together conceptually, even though the CLI binary's own build lives in a

@@ -1,11 +1,11 @@
 {
-  "pluginVersion": "1.7.24",
-  "generatedAt": "2026-09-12",
+  "pluginVersion": "1.7.25",
+  "generatedAt": "2026-09-16",
   "skills": {
     "intake": {
-      "sha256": "b30e78351b2bc4927552b16e27082431cc35760dd12ee1fd7c9ce32ac72ebdc7",
-      "bytes": 9378,
-      "lines": 110
+      "sha256": "ade0d303a692ac5dde817d4568cd52360660b7ad0f6d9425b351bc60ae5d3d4a",
+      "bytes": 14302,
+      "lines": 178
     },
     "phases/assets": {
       "sha256": "8317fb2fe7b3a7c18186706846b88520a021d666de0cd6d4ccad8c58de8289a0",
