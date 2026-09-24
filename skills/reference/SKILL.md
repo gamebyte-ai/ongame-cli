@@ -10,6 +10,11 @@ requested changes available, and use the existing absolute `gameDir`.
 2. Fetch the named teaching with `knowledge_get`; use the available reference tools when instructed.
 3. Keep the successful `reference_context` response's `context` as `referenceContext`. Pass it unchanged
    to every phase role, segment and re-run. Re-prepare it when the user changes the reference request.
+4. A compiled package settles what must be TRUE, not how the art is made. When the build has more than one
+   scene or a recurring character, carry the digest into `skills/storyboard/SKILL.md` — or
+   `knowledge_get({ key: 'pattern:storyboard' })` — and fill its tables from the package instead of inventing
+   them. A replica is the case that needs that step most, not a reason to skip it. Gathering the reference
+   evidence is not generating; generate nothing, level art included, until the storyboard has been shown.
 
 The file clients use the current `ongame-cli` login. They require CLI 0.2.14 or newer:
 `node <pluginRoot>/skills/reference/obligations.mjs probe|score <gameDir> [collected.json]`.

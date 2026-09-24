@@ -256,6 +256,8 @@ hidden, the core mechanic must still feel good to perform.*
 - **Graybox note:** the visuals here are placeholders, but the FEEL hooks (tween/particle/shake/sound) are wired NOW —
   the later `assets`/`audio` phases swap the look, they do not add the feel. Use the gamelabs particle / timeline /
   camera modules (see knowledge), not hand-rolled.
+- **Recipes and code:** before wiring a response, `knowledge_get({ key: 'pattern:game-feel' })` — it names the
+  `feel:<id>` recipe for the moment and the code to start from (`template:feel-core` and the recipe and probe templates it lists).
 
 ## 7. Input lock (during cascade / animation)
 - Keep an `inputLocked` flag (or `state === 'resolving'/'busy'`) in the Controller.

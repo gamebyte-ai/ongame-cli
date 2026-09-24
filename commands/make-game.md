@@ -108,12 +108,25 @@ When the request depends on external references, consult `skills/reference/SKILL
 `referenceContext` unchanged into the working brief, any delegated work and every re-run. If reference preparation is unavailable or
 gated, report fidelity as unverified. Do not claim to have checked a reference you could not inspect.
 
+Before generating the first visual for a game that has more than one scene or a recurring character, consult
+`skills/storyboard/SKILL.md` — or, where that file is not on disk, the same procedure as
+`knowledge_get({ key: 'pattern:storyboard' })`: it settles which scenes exist and who the cast is, in one text file, while
+disagreeing is still free. Carry the resulting `docs/STORYBOARD.md` unchanged into later work and re-runs. It is
+a working artifact, not a phase or an approval gate, but it is ORDERED: show it before the first generated asset,
+level or content art included — collecting reference evidence may come first. Skip it for single-screen or
+non-visual work.
+
 ## Work and verify
 
 Work towards the confirmed brief, choose the necessary tools and implementation approach, and keep the scope
 proportionate to the request. Diagnose the cause of bugs before editing. Preserve existing user work and make
 reversible checkpoints when useful. Fetch specialized guidance when it helps; do not turn that into a mandatory
 phase, approval ceremony or automatic extra polish pass.
+
+When the change is about how a player action responds — a tap, drag, drop, hit, refusal or reward feels
+flat, wrong or too much — read `knowledge_get({ key: 'pattern:game-feel' })` before adding or tuning the
+response. It decides whether the moment needs a response at all, names the `feel:<id>` recipe and the code
+templates to start from, and says how to check it with stepped frames.
 
 Verify the behavior the user asked for in the relevant runtime. A preview URL, clean compile or empty console
 alone is not proof that a game works. Inspect actual rendering and interaction in a browser or the engine.

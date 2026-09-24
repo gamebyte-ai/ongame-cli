@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.26 — 2026-09-24
+
+- Add a storyboard step: before the first visual of a multi-scene game or a recurring character, settle the scenes and cast in `docs/STORYBOARD.md` and show it before generating anything. A replica fills it from the reference instead of skipping it.
+- Point feel work at the game-feel guidance: which player moments need a response, the recipe for each, and how to check it frame by frame.
+- Ships with CLI 0.2.18.
+
 ## 1.7.25 — 2026-09-16
 
 - Temporarily suspend automatic workflow creation and phase routing; keep the phase definitions available.

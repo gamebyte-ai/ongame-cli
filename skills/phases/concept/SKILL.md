@@ -59,6 +59,12 @@ description: Game concept — vision, core loop, target audience + visual placeh
 
    Full procedure: `knowledge_get({ key: 'pattern:concept-art-procedure' })`.
 
+   **Decide the set before generating it.** When the game has more than one scene or a recurring character,
+   write `docs/STORYBOARD.md` first — `skills/storyboard/SKILL.md`, or
+   `knowledge_get({ key: 'pattern:storyboard' })` where that file is not on disk. The chain below makes the set share a style;
+   the storyboard is what makes it share a world, and it is what the generated frames are later checked against
+   row by row instead of by eye.
+
    **Consistency chain (mandatory — set members must speak one language):**
    1. Generate the ANCHOR first — the most representative in-game moment:
       `forge_request(kind="2d-static", prompt="<ART-direction + that moment>", aspectRatio=<game orientation>)`.

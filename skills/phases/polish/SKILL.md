@@ -170,6 +170,9 @@ hand-built path below, that is not a fault (same handling as Sub-phase 9.5).
   reports **unmeasured** unless this surface exists.
 
 ## Sub-phase 5 — JUICE (explosion on match, score pop, screenshake, glow, cascade multiplier)
+> Read `knowledge_get({ key: 'pattern:game-feel' })` first: it decides which moments need a response and names the
+> `feel:<id>` recipes and the code to start from (`template:feel-core`). If the game already has `src/feel/`, add these effects as rows and
+> recipes there — not as separate gsap tweens or shakes beside it.
 Add the modules: `addModule(new ParticlesBinding(budget?))` + `addModule(new TimelineBinding())`.
 Resolve `ParticleManager` and `TimelineManager` from DI, tick them in `onStep` in the order above.
 - **Match explosion (particle burst):** per tile type, a `HudParticleEmitter` (colored sprite +
