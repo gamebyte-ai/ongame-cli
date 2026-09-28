@@ -1,9 +1,13 @@
 # Changelog
 
-## 1.7.27 — 2026-09-28
+## 1.7.29 — 2026-09-28
 
 - Every published game now carries a "Built with onGame" credit: an animated card at launch and a small pill on the first screen that leaves on the first tap. `/publish` adds it before the build and checks the built page for it; `--badge top|off` moves the pill off a game's own UI, and `--wait ready` lets a game with a late first screen say when it is drawn.
 - Ships with CLI 0.2.18.
+
+## 1.7.28 — 2026-09-28
+
+- Before writing movement for more than one moving thing (walkers, crowds, units, traffic), point the build at the agent-space guidance: what is floor, wall or a reserved zone, who collides with whom, how routes go round what they must not cross, and how to keep a crowd apart without changing the game's pace.
 
 ## 1.7.26 — 2026-09-24
 
