@@ -177,6 +177,8 @@ zombie report. This lock guards WRITES only — reading/analysis needs no lock.
    need, go straight to `mechanic_find`.
    This step is about behaviour — movement, collision, matching, merging, spawning, targeting,
    state transitions. It is not for shells, screens or art; those are §8 and §10.
+   Before movement for more than one agent, `knowledge_get({ key: 'pattern:agent-space' })` — floor, walls,
+   reserved zones, who collides with whom, lanes and crowds; the library records do not cover those.
 
 10. **Before building ANY shell/meta layer, read `knowledge_get({ key: 'pattern:shell-contract' })`.** The mechanic is
    yours to write; the shell is not. Splash, home, nav, currency chip, popups, settings, lives, shop, result screen,

@@ -128,6 +128,10 @@ flat, wrong or too much — read `knowledge_get({ key: 'pattern:game-feel' })` b
 response. It decides whether the moment needs a response at all, names the `feel:<id>` recipe and the code
 templates to start from, and says how to check it with stepped frames.
 
+Before writing movement for more than one moving thing — walkers, crowds, units, traffic — read
+`knowledge_get({ key: 'pattern:agent-space' })`: what is floor, wall or a reserved zone, who collides with whom,
+how routes go round what they must not cross, and how to keep a crowd apart without changing the game's pace.
+
 Verify the behavior the user asked for in the relevant runtime. A preview URL, clean compile or empty console
 alone is not proof that a game works. Inspect actual rendering and interaction in a browser or the engine.
 If verification is unavailable, state what remains unverified. Do not mark a native goal complete without that

@@ -1,6 +1,6 @@
 {
-  "pluginVersion": "1.7.26",
-  "generatedAt": "2026-09-24",
+  "pluginVersion": "1.7.28",
+  "generatedAt": "2026-09-28",
   "skills": {
     "intake": {
       "sha256": "ade0d303a692ac5dde817d4568cd52360660b7ad0f6d9425b351bc60ae5d3d4a",
@@ -18,9 +18,9 @@
       "lines": 155
     },
     "phases/code": {
-      "sha256": "9c5c932ab2036b7b670f35fd2348bc2d89e6f3ba6c02d048fffa9de575898483",
-      "bytes": 45307,
-      "lines": 469
+      "sha256": "32868159fed3c2088a45c25329a2b1f183964d0939704f8be0f425d1fd2a5689",
+      "bytes": 45518,
+      "lines": 471
     },
     "phases/concept": {
       "sha256": "e640e552d8a454e8f78098bbfc3bb9ade95d3a7b155e510a74662bbe741b7ddf",
