@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.28 — 2026-09-28
+
+- Before writing movement for more than one moving thing (walkers, crowds, units, traffic), point the build at the agent-space guidance: what is floor, wall or a reserved zone, who collides with whom, how routes go round what they must not cross, and how to keep a crowd apart without changing the game's pace.
+
 ## 1.7.26 — 2026-09-24
 
 - Add a storyboard step: before the first visual of a multi-scene game or a recurring character, settle the scenes and cast in `docs/STORYBOARD.md` and show it before generating anything. A replica fills it from the reference instead of skipping it.
