@@ -26,8 +26,14 @@ offer `/make-game` instead. Do not try to route around it.
 
 ## 1. Build it
 
-`Bash`: `cd {gameDir} && npm run build` → produces `dist/`. **Fix until the build is clean** — a broken build is
-not something to publish around.
+Every published game carries the "Built with onGame" credit. First
+`Bash`: `node <pluginRoot>/skills/credit/apply.mjs {gameDir}` — it adds or updates the credit in `index.html`;
+`skills/credit/SKILL.md` covers moving it off the game's own UI.
+
+Then `Bash`: `cd {gameDir} && npm run build` → produces `dist/`. **Fix until the build is clean** — a broken build is
+not something to publish around. Finish with
+`node <pluginRoot>/skills/credit/apply.mjs --check {gameDir}/dist/index.html`: a non-zero exit means the
+build lost the credit, which is a build to fix, not one to publish.
 
 If the project has no web build (a Unity or native project), stop here and say so: this command ships web builds;
 that engine ships through its own toolchain.

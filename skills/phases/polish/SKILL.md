@@ -324,7 +324,11 @@ did not clearly improve, keep its old assets.
 
 ## Sub-phase 11 — Build + publish to public static hosting (deploy)
 - Ship the game to a **public URL** so real player browsers load it and the telemetry SDK (Sub-phase 10) reports real play. Telemetry is injected into the SOURCE `index.html` FIRST (Sub-phase 10) so `vite build` bundles it; THEN:
-  1. **Build:** `Bash`: `cd {gameDir} && npm run build` → produces `dist/`. Fix until the build is clean.
+  0. **"Built with onGame" credit:** run the `credit` skill's `apply.mjs` (beside its `SKILL.md`) on `{gameDir}` — it
+     adds or updates the credit in the SOURCE `index.html`. Every published game carries it.
+  1. **Build:** `Bash`: `cd {gameDir} && npm run build` → produces `dist/`. Fix until the build is clean. Then
+     `apply.mjs --check {gameDir}/dist/index.html`: a non-zero exit means the build lost the credit — fix the build,
+     do not publish it.
   1b. **Boot the artifact you are about to publish — `verify_build({gameDir})`.** A clean build is
      not a working game: it boots `dist/` in a real browser served from a SUB-PATH, the way step 3 publishes it
      (`games/{tenantId}/{gameId}/`). This is the only step that catches the two failure classes that are invisible
