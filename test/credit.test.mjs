@@ -34,6 +34,8 @@ test('adds the block right after <body>, keeps the page, and a re-run changes no
   assert.equal(count(once, 'id="ogc-card"'), 1);
   // The card must leave even when no script runs (a blocking CSP, a syntax error): that exit is CSS, not JS.
   assert.match(once, /#ogc-card \{ animation: ogc-bail 0s 6\.5s forwards; \}/);
+  // Edit rounds screenshot the dev server; the block steps aside there (the built page has no Vite client).
+  assert.ok(once.includes('script[src$="/@vite/client"]'));
   const again = run(dir);
   assert.equal(again.status, 0);
   assert.match(again.stdout, /already current/);

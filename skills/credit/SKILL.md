@@ -16,7 +16,7 @@ node <this skill's dir>/apply.mjs --check <gameDir>/dist/index.html      # 0 = t
 - **Run it before `npm run build`.** It is idempotent: a second run reports `already current` and changes nothing.
 - **After the build, `--check` the built page.** Exit 1 means the build dropped the block (a build step that rewrites
   `index.html`); fix the build, do not publish without the credit.
-- **Look at the first screen once.** The pill sits at the bottom centre until the player's first tap. If it covers the
+- **Look at the first screen once, on the built page** (`npx vite preview`): the dev server shows no credit. The pill sits at the bottom centre until the player's first tap. If it covers the
   game's own text or buttons there, re-run with `--badge top` (or `--badge off` when both edges are taken). The choice
   is stored in the block, so later runs keep it.
 - **A game that draws its first screen late** (its own loader after the page load) shows a dark gap between the card

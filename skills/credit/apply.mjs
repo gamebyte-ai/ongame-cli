@@ -16,7 +16,8 @@
  *   the latest, so a slow or broken boot is never hidden behind it (a CSS-only exit at 6.5 s covers a page whose
  *   scripts never run: a blocking CSP, a syntax error);
  * - a small "BUILT WITH onGame" pill then sits over the game's first screen and leaves on the player's first tap;
- * - inside a Capacitor app it hides the native launch splash itself and starts the motion when the card is seen.
+ * - inside a Capacitor app it hides the native launch splash itself and starts the motion when the card is seen;
+ * - under the Vite dev server it removes itself, so edit rounds see the game, not the card.
  *
  * The block is fenced by markers and versioned; edit it here, never inside a game.
  */
@@ -69,6 +70,8 @@ const BLOCK_TEMPLATE = `${OPEN}
   var MIN = 2400, MAX = 6000, FADE = 450, PULSE = 7000;
   var card = document.getElementById('ogc-card'), badge = document.getElementById('ogc-badge');
   if (!card || !badge) return;
+  // The Vite dev server (edit rounds, their screenshots) shows no credit; a built page carries no Vite client.
+  if (document.querySelector('script[src$="/@vite/client"]')) { card.remove(); badge.remove(); return; }
   // Inline styles blocked (a strict CSP): the card never showed (it starts [hidden]); take the block away quietly.
   if (getComputedStyle(card).position !== 'fixed') { card.remove(); badge.remove(); return; }
   var logo = card.querySelector('.ogc-logo').cloneNode(true);
