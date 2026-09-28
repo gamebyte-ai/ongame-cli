@@ -83,7 +83,7 @@ const BLOCK_TEMPLATE = `${OPEN}
   });
   badge.appendChild(logo);
   function replay(el, cls) { el.classList.remove('ogc-play', 'ogc-pulse'); void el.offsetWidth; el.classList.add(cls); }
-  var loaded = document.readyState === 'complete', gone = false;
+  var loaded = document.readyState === 'complete', gone = false, tapped = false;
   // data-wait="ready": the game says when its first screen is drawn; "load" (default): the page load event is enough.
   var ready = card.getAttribute('data-wait') !== 'ready';
   var cap = window.Capacitor, splash = cap && cap.isNativePlatform && cap.isNativePlatform() && cap.Plugins && cap.Plugins.SplashScreen;
@@ -95,7 +95,7 @@ const BLOCK_TEMPLATE = `${OPEN}
   }
   window.addEventListener('load', function () { loaded = true; });
   function showBadge() {
-    if (badge.getAttribute('data-pos') === 'off') { badge.remove(); return; }
+    if (tapped || badge.getAttribute('data-pos') === 'off') { badge.remove(); return; }
     badge.hidden = false;
     replay(badge, 'ogc-play');
     var iv = setInterval(function () { replay(badge, 'ogc-pulse'); }, PULSE);
@@ -109,6 +109,8 @@ const BLOCK_TEMPLATE = `${OPEN}
     if (gone) return;
     gone = true;
     card.classList.add('ogc-done');
+    // A tap on the game during the fade is the player's first tap: the pill then never shows.
+    window.addEventListener('pointerdown', function first() { tapped = true; window.removeEventListener('pointerdown', first, true); }, true);
     setTimeout(function () { card.remove(); showBadge(); }, FADE);
   }
   card.addEventListener('pointerdown', function () { if (loaded && ready) dismiss(); });
