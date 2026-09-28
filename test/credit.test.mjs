@@ -74,6 +74,48 @@ test('--wait ready is kept like --badge, and the block exposes ready() to the ga
   assert.equal(run(dir, '--wait', 'soon').status, 2);
 });
 
+test('the card starts hidden: only the block\'s own CSS shows it, so blocked inline styles never leave a bare card', () => {
+  const dir = game();
+  apply(dir);
+  assert.match(read(dir), /<div id="ogc-card" class="ogc-play" data-wait="load" hidden /);
+});
+
+test('duplicate blocks (a copied or merge-conflicted page) collapse to one', () => {
+  const dir = game();
+  apply(dir);
+  const block = read(dir).match(/<!-- ongame:brand-credit v1 -->[\s\S]*?<!-- \/ongame:brand-credit -->\n/)[0];
+  fs.writeFileSync(path.join(dir, 'index.html'), read(dir).replace('</body>', block + '</body>'));
+  assert.equal(count(read(dir), 'id="ogc-card"'), 2);
+  apply(dir);
+  assert.equal(count(read(dir), 'id="ogc-card"'), 1);
+});
+
+test('the block goes after the real <body>, not one inside a comment, a script or a quoted attribute', () => {
+  const tricky = '<html><head><!-- <body> --><script>var t = "<body>";</script></head>\n<body data-x="1 > 0">\n<div id="stage"></div>\n</body></html>\n';
+  const dir = game(tricky);
+  apply(dir);
+  const html = read(dir);
+  assert.equal(html.indexOf('<!-- ongame:brand-credit v1 -->'), html.indexOf('<body data-x="1 > 0">\n') + '<body data-x="1 > 0">\n'.length);
+  assert.ok(html.startsWith('<html><head><!-- <body> --><script>var t = "<body>";</script></head>'));
+});
+
+test('unknown or repeated arguments are refused instead of silently ignored', () => {
+  const dir = game();
+  assert.equal(run(dir, '--badg', 'off').status, 2);
+  assert.equal(run(dir, '--badge', 'top', '--badge', 'off').status, 2);
+  assert.ok(!read(dir).includes('ogc-card'));
+});
+
+test('--check fails a build that kept the markers but lost the script', () => {
+  const dir = game();
+  apply(dir);
+  const file = path.join(dir, 'index.html');
+  fs.writeFileSync(file, read(dir).replace(/<script>[\s\S]*?<\/script>/, ''));
+  const r = run('--check', file);
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /missing/);
+});
+
 test('--check passes only on a page that carries the current block', () => {
   const dir = game();
   const file = path.join(dir, 'index.html');
