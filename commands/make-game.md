@@ -36,7 +36,7 @@ substantial follow-up input, not just the initial command.
 ## Tools and access
 
 Tools are referred to by short name here; match the available tool's actual namespace and schema.
-Use `knowledge_get`, `template_get` and `brain_recall` when the work needs ongame guidance, and the appropriate
+Use `knowledge_get`, `template_get`, `mechanic_find` and `brain_recall` when the work needs ongame guidance, and the appropriate
 asset, audio, level, reference or preview tools as needed. Access to a tool does not require traversing phases.
 Never fabricate a `buildId` or call a phase tool just to satisfy an old checklist. Keep truthful game
 registration as described below; it does not start a phase workflow.
@@ -131,6 +131,11 @@ templates to start from, and says how to check it with stepped frames.
 Before writing movement for more than one moving thing — walkers, crowds, units, traffic — read
 `knowledge_get({ key: 'pattern:agent-space' })`: what is floor, wall or a reserved zone, who collides with whom,
 how routes go round what they must not cross, and how to keep a crowd apart without changing the game's pace.
+
+Before writing a game rule — something that has to behave: a hit, a match, a merge, a spawn, a jump, a state
+change — call `mechanic_find({ need })` with the need in the game's own words. The library holds verified mechanic
+code with tests and licence; read `notFor` and `whenNot` before `mechanic_get({ id })`, and carry the licence note
+with any code you copy. Nothing fits → write it yourself; the tool's description says when one re-phrasing is worth it.
 
 Verify the behavior the user asked for in the relevant runtime. A preview URL, clean compile or empty console
 alone is not proof that a game works. Inspect actual rendering and interaction in a browser or the engine.
