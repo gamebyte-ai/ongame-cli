@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.30 — 2026-10-01
+
+- Before writing a game rule (a hit, a match, a merge, a spawn, a jump, a state change), `/make-game` now looks in the mechanics library for verified code first, reads when each one does not fit, and carries the licence note with anything it copies.
+
 ## 1.7.29 — 2026-09-28
 
 - Every published game now carries a "Built with onGame" credit: an animated card at launch and a small pill on the first screen that leaves on the first tap. `/publish` adds it before the build and checks the built page for it; `--badge top|off` moves the pill off a game's own UI, and `--wait ready` lets a game with a late first screen say when it is drawn.
