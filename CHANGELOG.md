@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.32 — 2026-10-02
+
+- The "Built with onGame" credit is now checked as a phone: the pill leaves when play starts (`window.ongameCredit.leave()`), stays on one line at 360 px, and a game can place it above its own bottom bar. `/make-game` runs the credit and a phone check (pause, background audio, back key, pixel ratio, safe area) before calling a web game done.
+- `/publish` and the polish phase pass the new `source` slot through and report it. Keeping a game's source is off for accounts unless it has been turned on for them; when it is off, nothing changes and nothing is said.
+
 ## 1.7.31 — 2026-10-02
 
 - Before the levels of a level-based game (puzzle, casual or hybrid-casual stages) are generated or written, `/make-game` now runs a level design step: it decides where the game is hard, where it rests and where a booster is offered, measures the levels against that, has the result reviewed, and keeps it in `docs/LEVEL_DESIGN.md`.
