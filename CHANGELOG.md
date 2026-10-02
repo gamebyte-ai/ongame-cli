@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.31 — 2026-10-02
+
+- Before the levels of a level-based game (puzzle, casual or hybrid-casual stages) are generated or written, `/make-game` now runs a level design step: it decides where the game is hard, where it rests and where a booster is offered, measures the levels against that, has the result reviewed, and keeps it in `docs/LEVEL_DESIGN.md`.
+
 ## 1.7.30 — 2026-10-01
 
 - Before writing a game rule (a hit, a match, a merge, a spawn, a jump, a state change), `/make-game` now looks in the mechanics library for verified code first, reads when each one does not fit, and carries the licence note with anything it copies.

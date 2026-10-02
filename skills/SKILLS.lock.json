@@ -1,6 +1,6 @@
 {
-  "pluginVersion": "1.7.30",
-  "generatedAt": "2026-10-01",
+  "pluginVersion": "1.7.31",
+  "generatedAt": "2026-10-02",
   "skills": {
     "credit": {
       "sha256": "7524677ea3060589ea1cc3805cc3e325c846cb50a919513e8d3c5fc795f88f01",
@@ -11,6 +11,11 @@
       "sha256": "ade0d303a692ac5dde817d4568cd52360660b7ad0f6d9425b351bc60ae5d3d4a",
       "bytes": 14302,
       "lines": 178
+    },
+    "level-design": {
+      "sha256": "b25a09d0f6e791280790081ebf5446100f38062158319fd183e94e1c8b4bf21a",
+      "bytes": 1685,
+      "lines": 29
     },
     "phases/assets": {
       "sha256": "8317fb2fe7b3a7c18186706846b88520a021d666de0cd6d4ccad8c58de8289a0",
@@ -38,9 +43,9 @@
       "lines": 33
     },
     "phases/levels": {
-      "sha256": "b339a9d706a5159ffe84ea4c5528cc04ef9b2b72f86435568f1e9640c403394c",
-      "bytes": 10593,
-      "lines": 107
+      "sha256": "15b4109b2bbeea9317e8ffee72acf7e0cf7c8501f3dca73022b06fbfd8479e76",
+      "bytes": 11262,
+      "lines": 114
     },
     "phases/polish": {
       "sha256": "f407b02d667507891e4b9ab643012e2f9e14d6d28fe529fc9229acba5a3fce20",
