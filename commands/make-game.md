@@ -147,6 +147,13 @@ Verify the behavior the user asked for in the relevant runtime. A preview URL, c
 alone is not proof that a game works. Inspect actual rendering and interaction in a browser or the engine.
 If verification is unavailable, state what remains unverified. Do not mark a native goal complete without that
 evidence, and do not claim a phase or review happened when it did not.
+Before calling a web game done, check it as a phone. The "Built with onGame" credit is required in every game,
+not only published ones: run `node <pluginRoot>/skills/credit/apply.mjs {gameDir}` before `npm run build`, then
+`node <pluginRoot>/skills/credit/apply.mjs --check {gameDir}/dist/index.html` after it; open the built page at 360×640 and 414×896 with DPR 3, and walk
+`pattern:gamelabs-shell-contract` §14 — pause halts the sim, background suspends audio, back key, pixel ratio
+per canvas, safe-area fallback. Unity: the same list in `pattern:unity-shell-contract` §14.
+Step the clock frame by frame for timing-critical moments, check placement with a numeric probe rather than by
+eye, and reach hard states by seeding the save (`pattern:temporal-capture`, `pattern:visual-polish-loop`).
 
 Use the registered game/build identifiers accepted by each tool. Do not invent phase completion or mark an
 earlier phase build done. Follow the notice and capture choice established before registration; do not repeat

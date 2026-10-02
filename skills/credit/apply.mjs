@@ -24,7 +24,7 @@
 import { readFileSync, writeFileSync, existsSync, renameSync, statSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
 
-const VERSION = 1;
+const VERSION = 2;
 const OPEN = `<!-- ongame:brand-credit v${VERSION} -->`;
 const CLOSE = '<!-- /ongame:brand-credit -->';
 const FENCE = /<!-- ongame:brand-credit v\d+ -->[\s\S]*?<!-- \/ongame:brand-credit -->\n?/g;
@@ -34,11 +34,14 @@ const SVG = "<svg class=\"ogc-logo\" role=\"img\" aria-label=\"onGame\" viewBox=
 const BLOCK_TEMPLATE = `${OPEN}
 <style>
   #ogc-card { position: fixed; inset: 0; z-index: 2147483000; background: #0e121b; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 2.2vh; transition: opacity .45s ease; }
+    align-items: center; justify-content: center; gap: 2.2vh; transition: opacity .38s ease; }
   #ogc-card.ogc-done { opacity: 0; pointer-events: none; }
   #ogc-card { animation: ogc-bail 0s 6.5s forwards; }
   @keyframes ogc-bail { to { opacity: 0; visibility: hidden; pointer-events: none; } }
-  #ogc-card .ogc-logo { width: min(64vw, 330px); }
+  #ogc-card .ogc-logo { width: min(80vw, 420px); }
+  #ogc-card.ogc-play .ogc-logo { animation: ogc-in .55s cubic-bezier(.2,1.5,.35,1) both; }
+  @keyframes ogc-in { from { opacity: 0; transform: scale(.72); } to { opacity: 1; transform: none; } }
+  #ogc-card .ogc-cap { font-size: 15px; }
   .ogc-cap { font: 600 13px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; letter-spacing: .42em;
     margin-left: .42em; color: #8d96a8; text-transform: uppercase; }
   .ogc-logo { height: auto; overflow: visible; }
@@ -54,12 +57,14 @@ const BLOCK_TEMPLATE = `${OPEN}
   @keyframes ogc-shine { 0% { opacity: 1; transform: none; } 100% { opacity: 1; transform: translateX(560px); } }
   @keyframes ogc-word { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
   @keyframes ogc-fade { from { opacity: 0; } to { opacity: 1; } }
-  #ogc-badge { position: fixed; z-index: 2147482999; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+  #ogc-badge { position: fixed; z-index: 2147482999; left: 50%; bottom: calc(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 16px);
     transform: translateX(-50%); display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px;
     background: rgba(0, 0, 0, .34); pointer-events: none; overflow: hidden; }
-  #ogc-badge[data-pos="top"] { bottom: auto; top: calc(env(safe-area-inset-top, 0px) + 12px); }
+  #ogc-badge[data-pos="top"] { bottom: auto; top: calc(var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) + 12px); }
   #ogc-badge[hidden], #ogc-badge[data-pos="off"] { display: none; }
-  #ogc-badge .ogc-cap { font-size: 10px; letter-spacing: .24em; margin-left: 0; color: #e6ecf7; }
+  #ogc-badge .ogc-cap { font-size: 10px; letter-spacing: .24em; margin-left: 0; color: #e6ecf7; white-space: nowrap; }
+  /* left: 50% caps a shrink-to-fit box at half the screen, which wrapped the caption at 360px */
+  #ogc-badge { width: max-content; }
   #ogc-badge .ogc-logo { width: 84px; }
   @media (prefers-reduced-motion: reduce) { #ogc-card *, #ogc-badge * { animation: none !important; } }
 </style>
@@ -67,7 +72,7 @@ const BLOCK_TEMPLATE = `${OPEN}
 <div id="ogc-badge" data-pos="__POS__" hidden aria-label="Built with onGame"><div class="ogc-cap">Built with</div></div>
 <script>
 (function () {
-  var MIN = 2400, MAX = 6000, FADE = 450, PULSE = 7000;
+  var MIN = 1700, MAX = 6000, FADE = 380, PULSE = 7000, left = false, iv;
   var card = document.getElementById('ogc-card'), badge = document.getElementById('ogc-badge');
   if (!card || !badge) return;
   // The Vite dev server (edit rounds, their screenshots) shows no credit; a built page carries no Vite client.
@@ -98,15 +103,16 @@ const BLOCK_TEMPLATE = `${OPEN}
   }
   window.addEventListener('load', function () { loaded = true; });
   function showBadge() {
-    if (tapped || badge.getAttribute('data-pos') === 'off') { badge.remove(); return; }
+    if (tapped || left || badge.getAttribute('data-pos') === 'off') { badge.remove(); return; }
     badge.hidden = false;
     replay(badge, 'ogc-play');
-    var iv = setInterval(function () { replay(badge, 'ogc-pulse'); }, PULSE);
-    window.addEventListener('pointerdown', function hide() {
-      badge.hidden = true;
-      clearInterval(iv);
-      window.removeEventListener('pointerdown', hide, true);
-    }, true);
+    iv = setInterval(function () { replay(badge, 'ogc-pulse'); }, PULSE);
+    window.addEventListener('pointerdown', hideBadge, true);
+  }
+  function hideBadge() {
+    badge.hidden = true;
+    clearInterval(iv);
+    window.removeEventListener('pointerdown', hideBadge, true);
   }
   function dismiss() {
     if (gone) return;
@@ -122,7 +128,8 @@ const BLOCK_TEMPLATE = `${OPEN}
     // MAX is the ceiling either way: from the motion start, or from navigation if the splash never answered.
     if ((loaded && ready && t >= MIN) || t >= MAX || (started === Infinity && now >= MAX)) { clearInterval(poll); dismiss(); }
   }, 100);
-  window.ongameCredit = { dismiss: dismiss, ready: function () { ready = true; } };
+  // leave(): the game has moved past its first screen; the pill is not shown again (or goes now if showing)
+  window.ongameCredit = { dismiss: dismiss, ready: function () { ready = true; }, leave: function () { left = true; hideBadge(); } };
 })();
 </script>
 ${CLOSE}
@@ -136,7 +143,7 @@ function fail(msg, code = 2) {
 const args = process.argv.slice(2);
 
 /** Pieces a working block cannot lack; a build that strips any of them must not pass --check. */
-const SENTINELS = ['id="ogc-card"', 'id="ogc-badge"', 'ogc-bail', 'window.ongameCredit', '</script>', '<style>'];
+const SENTINELS = ['id="ogc-card"', 'id="ogc-badge"', 'ogc-bail', 'window.ongameCredit', 'leave: function', '</script>', '<style>'];
 
 if (args[0] === '--check') {
   if (args.length !== 2) fail('usage: apply.mjs --check <html>');

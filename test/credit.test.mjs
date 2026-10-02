@@ -29,7 +29,7 @@ test('adds the block right after <body>, keeps the page, and a re-run changes no
   const dir = game();
   apply(dir);
   const once = read(dir);
-  assert.ok(once.indexOf('<!-- ongame:brand-credit v1 -->') < once.indexOf('<div id="stage">'));
+  assert.ok(once.indexOf('<!-- ongame:brand-credit v2 -->') < once.indexOf('<div id="stage">'));
   assert.ok(once.includes('<script type="module" src="/src/main.ts"></script>'));
   assert.equal(count(once, 'id="ogc-card"'), 1);
   // The card must leave even when no script runs (a blocking CSP, a syntax error): that exit is CSS, not JS.
@@ -48,7 +48,7 @@ test('replaces an older block in place instead of stacking a second card', () =>
   const html = read(dir);
   assert.ok(!html.includes('>old<'));
   assert.equal(count(html, 'id="ogc-card"'), 1);
-  assert.ok(html.includes('<!-- ongame:brand-credit v1 -->'));
+  assert.ok(html.includes('<!-- ongame:brand-credit v2 -->'));
 });
 
 test('--badge moves the pill, and a later run without the flag keeps that choice', () => {
@@ -76,6 +76,30 @@ test('--wait ready is kept like --badge, and the block exposes ready() to the ga
   assert.equal(run(dir, '--wait', 'soon').status, 2);
 });
 
+test('leave() drops the pill for good, and the pill caption never wraps on a narrow phone', () => {
+  const dir = game();
+  apply(dir);
+  const html = read(dir);
+  assert.ok(html.includes('leave: function () { left = true; hideBadge(); }'));
+  assert.match(html, /function hideBadge\(\) \{[^}]*clearInterval\(iv\);/);
+  assert.ok(html.includes("if (tapped || left || badge.getAttribute('data-pos') === 'off') { badge.remove(); return; }"));
+  assert.match(html, /#ogc-badge \.ogc-cap \{[^}]*white-space: nowrap;/);
+  assert.ok(html.includes('#ogc-badge { width: max-content; }'));
+});
+
+test('a v1 block is replaced by the current one, and --check reports it as older until then', () => {
+  const dir = game();
+  apply(dir);
+  const file = path.join(dir, 'index.html');
+  fs.writeFileSync(file, read(dir).replace('<!-- ongame:brand-credit v2 -->', '<!-- ongame:brand-credit v1 -->'));
+  const r = run('--check', file);
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /an older version/);
+  apply(dir);
+  assert.equal(run('--check', file).status, 0);
+  assert.equal(count(read(dir), 'id="ogc-card"'), 1);
+});
+
 test('the card starts hidden: only the block\'s own CSS shows it, so blocked inline styles never leave a bare card', () => {
   const dir = game();
   apply(dir);
@@ -85,7 +109,7 @@ test('the card starts hidden: only the block\'s own CSS shows it, so blocked inl
 test('duplicate blocks (a copied or merge-conflicted page) collapse to one', () => {
   const dir = game();
   apply(dir);
-  const block = read(dir).match(/<!-- ongame:brand-credit v1 -->[\s\S]*?<!-- \/ongame:brand-credit -->\n/)[0];
+  const block = read(dir).match(/<!-- ongame:brand-credit v2 -->[\s\S]*?<!-- \/ongame:brand-credit -->\n/)[0];
   fs.writeFileSync(path.join(dir, 'index.html'), read(dir).replace('</body>', block + '</body>'));
   assert.equal(count(read(dir), 'id="ogc-card"'), 2);
   apply(dir);
@@ -97,7 +121,7 @@ test('the block goes after the real <body>, not one inside a comment, a script o
   const dir = game(tricky);
   apply(dir);
   const html = read(dir);
-  assert.equal(html.indexOf('<!-- ongame:brand-credit v1 -->'), html.indexOf('<body data-x="1 > 0">\n') + '<body data-x="1 > 0">\n'.length);
+  assert.equal(html.indexOf('<!-- ongame:brand-credit v2 -->'), html.indexOf('<body data-x="1 > 0">\n') + '<body data-x="1 > 0">\n'.length);
   assert.ok(html.startsWith('<html><head><!-- <body> --><script>var t = "<body>";</script></head>'));
 });
 
@@ -116,6 +140,16 @@ test('--check fails a build that kept the markers but lost the script', () => {
   const r = run('--check', file);
   assert.equal(r.status, 1);
   assert.match(r.stdout, /missing/);
+});
+
+test('--check fails a v2 block that lost leave(), so a game calling it cannot ship a broken credit', () => {
+  const dir = game();
+  apply(dir);
+  const file = path.join(dir, 'index.html');
+  fs.writeFileSync(file, read(dir).replace(/, leave: function \(\) \{[^}]*\}/, ''));
+  const r = run('--check', file);
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /leave: function/);
 });
 
 test('--check passes only on a page that carries the current block', () => {

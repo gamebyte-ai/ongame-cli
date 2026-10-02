@@ -62,9 +62,17 @@ build*, never *retry the call*:
 
 Otherwise it returns `{uploads, publicUrl, signing}` — upload slots, no bytes moved yet.
 
-Then `publish_upload({gameDir, uploads})` (a local `ongame` tool) → reads each built file and uploads it. **Pass each slot
-through unchanged** — the slots carry headers that were signed for that exact file, so editing or dropping a field
-makes the upload fail. Returns `{uploaded, skipped?, failed?}`.
+It also returns `source` — where this publish keeps the game's source, privately, for your team.
+
+Then `publish_upload({gameDir, uploads, source})` (a local `ongame` tool) → reads each built file and uploads it, then
+keeps the source. **Pass each slot through unchanged** — the slots carry headers that were signed for that exact file,
+so editing or dropping a field makes the upload fail. Returns `{uploaded, skipped?, failed?, source}`.
+
+`source` is separate from the game: `.env` files, keys, `node_modules`, `dist` and `.ongame` are never in it, and its
+`.gitignore` is honoured. `status: "uploaded"` → keep `source.key` for step 5. `status: "not_kept"` → this account
+keeps no source; that is a setting, not a problem, so say nothing about it. `status: "failed"` → the game can still be
+live, but its source was not kept: say that in the hand-over, with the `reason`. Never drop it because the game
+worked.
 
 ## 4. Do not hand over a link you have not checked
 
@@ -81,8 +89,8 @@ A stale response is **not** live — treat it exactly like a failed publish.
 
 ## 5. Record it, then hand it over
 
-Only after step 4 passed: `trace_emit(buildId: <buildId>, name: "publish.done", payload: {gameId: <slug>})`
-(an `ongame` cloud tool), then give the user the URL plainly.
+Only after step 4 passed: `trace_emit(buildId: <buildId>, name: "publish.done", payload: {gameId: <slug>, source:
+<source.key>})` (an `ongame` cloud tool) — leave `source` out when it did not upload — then give the user the URL plainly.
 
 If you could not verify, say the publish is **unverified** and why. An unverified link presented as working is
 worse than no link — the user shares it, and finds out from someone else.

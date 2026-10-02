@@ -355,8 +355,9 @@ did not clearly improve, keep its old assets.
      here, so offer `/make-game` instead), `disallowed_file_type` (a file type a game cannot publish, named in
      `path` — drop it and rebuild), `no_entry_point` (no `index.html` at the root of `dist/`), `too_many_files` /
      `payload_too_large` (trim the build). Surface the refusal to the user in those words; do not route around it.
-  4. `publish_upload({gameDir, uploads})` → reads each built file from `dist/` and PUTs it to its upload slot.
-     Returns `{uploaded:[{path,status}], skipped?, failed?}`. **Pass each slot through UNCHANGED** — a slot carries
+  4. `publish_upload({gameDir, uploads, source})` — `uploads` and `source` are both straight from `publish_game` →
+     reads each built file from `dist/` and PUTs it to its upload slot, then keeps the game's source for the team.
+     Returns `{uploaded:[{path,status}], skipped?, failed?, source}`. **Pass each slot through UNCHANGED** — a slot carries
      headers that were signed for that exact file, so editing or dropping a field makes the PUT fail. (The build
      directory is fixed; there is no `subdir` argument.)
   5. **Only if `failed` AND `skipped` are both empty:** **report the `publicUrl`** to the user — that is the live,
@@ -364,6 +365,10 @@ did not clearly improve, keep its old assets.
      missing bucket, blocked public access), the game is **NOT** fully live: do NOT hand over the `publicUrl` as a working
      link. Surface it as a **partial/failed publish** (list the failed paths+statuses), and keep the locally-playable
      fallback (`npm run dev`) instead.
+     **`source` is reported on its own.** `status:"uploaded"` → keep its `key` for step 7. `status:"not_kept"` → this
+     account keeps no source (a setting, not a problem — say nothing). `status:"failed"` → the game
+     is still live (when the checks above say so), but its source was NOT kept: say so in the hand-over in one line,
+     with the `reason`, every time. Never leave it out because the game itself worked.
   6. **Live-serve check (a successful upload is NOT a successful serve — CDN stale-edge).** A CDN edge can keep
      serving the PREVIOUS bytes of a **stable-named** file (`index.html`, a hand-named `.glb`) after a clean
      republish, with no error anywhere — upload 200, page loads, old game. So before handing over `publicUrl`,
@@ -378,8 +383,9 @@ did not clearly improve, keep its old assets.
      MISMATCHED response is not. A stale serve = NOT live: treat like a failed publish (surface it, don't hand
      over the URL as working).
   7. **Stamp the build record — ONLY after step 6's live-byte check passed** (all PUTs ok in step 4 AND the live
-     bytes are THIS build): emit `trace_emit(buildId=<buildId>, name="publish.done", payload={gameId: <game slug>})`
-     (ongame). Server-side this writes `publishedUrl`/`publishedAt` onto the build record; the URL is
+     bytes are THIS build): emit `trace_emit(buildId=<buildId>, name="publish.done", payload={gameId: <game slug>, source: <source.key>})`
+     (ongame) — leave `source` out when step 4's source did not upload. Server-side this writes
+     `publishedUrl`/`publishedAt` (and where the source landed) onto the build record; the URL is
      reconstructed from your verified identity + the build's own gameId, and the emitted `gameId` must MATCH the
      build's (a mismatch is refused — it means the uploaded location and this record diverged). Skip on any
      partial/failed/stale publish — an unshipped build must never be recorded as published.

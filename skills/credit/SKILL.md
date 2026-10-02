@@ -22,10 +22,16 @@ node <this skill's dir>/apply.mjs --check <gameDir>/dist/index.html      # 0 = t
 - **A game that draws its first screen late** (its own loader after the page load) shows a dark gap between the card
   and that screen. Apply with `--wait ready` and call `window.ongameCredit?.ready()` once the first screen is drawn;
   the card waits for it, never longer than 6 s.
+- **Drop the pill when play starts.** Call `window.ongameCredit?.leave()` when the player moves past the first
+  screen (the play button, the first level); the pill goes at once and does not come back. Hide it while the
+  game's own loading bar is on screen for the same reason.
+- **When neither edge is free, the game places the pill.** Set `#ogc-badge`'s `style.bottom` from the game's own
+  `onResize` (above its bottom nav or button row) instead of editing the block. Check the pill on one line at
+  360×640: it is `nowrap`, so a clipped caption means it sits too close to an edge.
 - **Do not edit inside the `ongame:brand-credit` markers.** The next run replaces the block; change `apply.mjs` instead.
 - **In a Capacitor app** the block hides the launch splash itself and starts the motion when the card is uncovered. Set
   the splash `backgroundColor` (and Android's `windowSplashScreenBackground`) to `#0e121b` so the launch reads as one
-  dark frame.
+  dark frame. The game's own splash must stay at least 0.9 s after the card leaves, or it is never seen.
 
 If `apply.mjs` exits 2, its message names the missing piece (no `index.html`, no `<body>`). A game with neither cannot be
 published either; fix that first.
