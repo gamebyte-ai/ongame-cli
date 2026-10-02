@@ -116,6 +116,12 @@ a working artifact, not a phase or an approval gate, but it is ORDERED: show it 
 level or content art included — collecting reference evidence may come first. Skip it for single-screen or
 non-visual work.
 
+Before the levels of a level-based game are generated or authored — a numbered sequence of puzzle, casual or
+hybrid-casual stages — consult `skills/level-design/SKILL.md` — or, where that file is not on disk, the same procedure as
+`knowledge_get({ key: 'pattern:level-design' })`. For such games it is required. It is a working artifact, not a
+phase or an approval gate. Carry the resulting `docs/LEVEL_DESIGN.md` into later work and re-runs; skip it for
+games without a level sequence.
+
 ## Work and verify
 
 Work towards the confirmed brief, choose the necessary tools and implementation approach, and keep the scope

@@ -6,7 +6,8 @@ description: Retention-tuned level generation (phase 8) — the D1/D7/D30 diffic
 
 Purpose (VISION phase 8): for the shipped game to hit its **D1, D7, D30** retention numbers — levels
 are **fun, sticky, and won't burn the player out**. Do not hand-tune the difficulty curve; **the `levels_generate`
-tool generates PURE retention-math**, and you integrate it into the game code.
+tool generates PURE retention-math**, and you integrate it into the game code. (The level-design step in 4b may
+change the curve with measured reasons; that is not hand-tuning.)
 
 ## Steps
 
@@ -43,6 +44,7 @@ tool generates PURE retention-math**, and you integrate it into the game code.
      // levelsConfig: { levels: Level[] }
      const level = levelsConfig.levels[state.levelIndex];
      // level.params.moves / .target → this level's move budget & target score
+     // (a game WITHOUT a fail state does not turn params.moves into a limit — see the level-design step)
      // level.goal → the goal text to show in the HUD
      // level.isRelief → relief level: a "breather" tone in the UI, more generous reward
      // level.params.spike → challenge peak: show a "Boss/Challenge" badge
@@ -51,6 +53,11 @@ tool generates PURE retention-math**, and you integrate it into the game code.
      config (instead of a hardcoded single-level start, use `levelsConfig.levels`).
    - `params.reward` → that level's reward multiplier (high in onboarding & relief = dopamine).
    - Fix until `npx tsc --noEmit` is clean (config import + type usage).
+
+4b. **Level design (required for a level-based game):** follow `skills/level-design/SKILL.md` — or, where that file is
+   not on disk, the same procedure as `knowledge_get({ key: 'pattern:level-design' })`. It takes the curve written in
+   step 4 as input, decides what it means for THIS game (hard, rest and booster levels), measures the levels against it
+   and runs its expert review. Where it changes a number of the generated curve, its decision stands.
 
 5. **Verify:** `levelsConfig.levels.length === targetLevels`; the first level is easy+rewarding
    (`difficulty < 0.2`, `params.reward > 0`); there is at least one `isRelief: true` level.
