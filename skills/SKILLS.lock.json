@@ -1,5 +1,5 @@
 {
-  "pluginVersion": "1.7.32",
+  "pluginVersion": "1.7.33",
   "generatedAt": "2026-10-04",
   "skills": {
     "credit": {
@@ -18,8 +18,8 @@
       "lines": 29
     },
     "phases/assets": {
-      "sha256": "8317fb2fe7b3a7c18186706846b88520a021d666de0cd6d4ccad8c58de8289a0",
-      "bytes": 47130,
+      "sha256": "0650ac625abf5f352457a3c406cb13c94f11c1313bd76b7f71a3782276813b40",
+      "bytes": 47142,
       "lines": 611
     },
     "phases/audio": {
@@ -48,9 +48,9 @@
       "lines": 114
     },
     "phases/polish": {
-      "sha256": "3f4ad57078b44da7e4d518c4871f3469c190555bd7f936234118314ebe6383d9",
-      "bytes": 51680,
-      "lines": 526
+      "sha256": "f41da66c33816a451ad0560756b9b8e88008ad21823b886bb2a3a004ddb164fb",
+      "bytes": 52754,
+      "lines": 535
     },
     "phases/research": {
       "sha256": "121ee95275b701a4d80ed7535013c015780c280bd37542608a2a65d24f4bcbe5",

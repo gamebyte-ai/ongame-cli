@@ -26,7 +26,21 @@ offer `/make-game` instead. Do not try to route around it.
 
 ## 1. Build it
 
-Every published game carries the "Built with onGame" credit. First
+**First, wire player telemetry** — into the SOURCE `index.html`, because the build copies it into `dist/`.
+Without this step the published game reports nothing about how people play it.
+
+1. `telemetry_provision({gameId: <slug>, appVersion: <version from package.json>})` (an `ongame` cloud tool) → `{snippet}`
+   or `null`. Use the same `<slug>` you will publish under.
+2. Got a snippet → `telemetry_inject({gameDir, snippet})` (a local `ongame` tool). Safe on a game that already has telemetry:
+   the same snippet is a no-op, and a new version replaces the old block.
+3. `injected: false` with a `reason` → the page still holds an older telemetry config, maybe another maker's key.
+   Fix or delete the script the `note` names, then call `telemetry_inject` again. If it still refuses, delete every
+   script that sets `__ONGAME_TELEMETRY__` and the telemetry `sdk.js` tag, then publish without telemetry. Never
+   publish a page that still holds the old config: its players would report to that config's owner.
+4. `null`, or `injected: false` with no `reason` → publish anyway, and say in the hand-over that this build
+   does not report player data. Telemetry never blocks a publish.
+
+Every published game carries the "Built with onGame" credit. Next
 `Bash`: `node <pluginRoot>/skills/credit/apply.mjs {gameDir}` — it adds or updates the credit in `index.html`;
 `skills/credit/SKILL.md` covers moving it off the game's own UI.
 
@@ -38,13 +52,23 @@ build lost the credit, which is a build to fix, not one to publish.
 If the project has no web build (a Unity or native project), stop here and say so: this command ships web builds;
 that engine ships through its own toolchain.
 
-## 2. Enumerate what will go live
+## 2. Check before you publish
 
-`Bash`: `cd {gameDir}/dist && find . -type f` → strip the leading `./`.
+Every refusal `publish_game` gives can be found here first. Fix all of it before step 3.
 
-Send each file as **`{path, size}`** — path is `dist`-relative, size in bytes (`find . -type f -printf '%s'` or
-`stat`). **Do not send a content type**: it is derived from the file itself, and anything you assert about it is
-ignored.
+**A build behind the game.** `game_summary({gameId: <slug>})` (an `ongame` cloud tool). `reason: "unknown_game"` means this
+account has no build of that slug, and `publish_game` would refuse it (`no_such_build`). Check the slug first: it must be
+the `gameId` the build started with. If none of their games has it, the game was not built here: say so and offer
+`/make-game`.
+
+**The files.** `Bash`: `node <pluginRoot>/skills/phases/polish/precheck.mjs {gameDir}` → `{ok, files, problems}`.
+- Exit 0: pass `files` to `publish_game` exactly as printed. It holds every file under `dist/` as `{path, size}`.
+- Exit 1: fix every entry in `problems`, rebuild, and run it again. Each `reason` is the one `publish_game` would
+  refuse with, and the table in step 3 says how to fix it. `publish_game` names only the first bad file; this names
+  them all.
+- Exit 2: there is no `dist/`. Build first.
+
+**Do not send a content type**: it is derived from the file itself, and anything you assert about it is ignored.
 
 ## 3. Publish
 
@@ -59,6 +83,7 @@ build*, never *retry the call*:
 | `disallowed_file_type` | `dist/` holds a file type a game cannot publish (named in `path`) | Remove it from the build and rebuild |
 | `no_entry_point` | No `index.html` at the root of `dist/` | The build output is wrong — check the build config |
 | `too_many_files` / `payload_too_large` | Over the per-publish limits | Trim the build (unused assets, source maps) |
+| `missing_size` | A file was sent without its size (named in `path`) | Send every file as `{path, size}`, size in bytes |
 
 Otherwise it returns `{uploads, publicUrl, signing}` — upload slots, no bytes moved yet.
 

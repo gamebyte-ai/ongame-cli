@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.7.33 — 2026-10-04
+
+- `/publish` and the polish phase now check before publishing: they confirm a build exists for the game and run `precheck.mjs` on `dist/`, which lists every file a publish would refuse at once.
+- An imported game that still holds another maker's telemetry config is no longer published with it: the publish stops until that config is removed.
+- Every unit of work in `/make-game` opens its build steps, so each build's time and review are recorded.
+- Large Unity web games, including `.br` and `.gz` files, publish in one go. Unity builds start from the Unity project.
+- A failed upload no longer puts a broken page live: `index.html` goes up last.
+- Ships with CLI 0.2.20.
+
 ## 1.7.32 — 2026-10-02
 
 - The "Built with onGame" credit is now checked as a phone: the pill leaves when play starts (`window.ongameCredit.leave()`), stays on one line at 360 px, and a game can place it above its own bottom bar. `/make-game` runs the credit and a phone check (pause, background audio, back key, pixel ratio, safe area) before calling a web game done.
