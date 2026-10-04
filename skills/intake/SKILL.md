@@ -5,11 +5,12 @@ description: Understand the user's game request, clarify consequential ambiguity
 
 # Understand the request
 
-**Automatic workflow creation and phase routing are currently disabled.** Work directly on the user's request.
-Do not assemble a phase execution plan, launch a Workflow, advance phase state, or impose phase approval gates.
+**Automatic workflow creation and phase approval gates are currently disabled.** Work directly on the user's request.
+Do not assemble a phase execution plan, launch a Workflow, or impose phase approval gates. Every unit of work still
+opens the build phase that matches it; the make-game command says how.
 The make-game command preserves truthful game registration separately; metadata is not a workflow.
 The phase definitions remain available; their existence is not an instruction to run them. This policy also
-applies on follow-up messages, resume and compaction: an older active-build reminder does not re-enable phases.
+applies on follow-up messages, resume and compaction: an older active-build reminder does not re-enable the phase pipeline.
 Do not fetch a phase-intake override to decide how to handle a direct request.
 
 ## Judge whether a question helps

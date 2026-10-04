@@ -13,10 +13,11 @@ repeat an intent they already stated.
 
 ## Current working mode
 
-**Automatic workflow creation and phase routing are currently disabled.** Handle the request directly with the
-ongame tools that help the work. Do not create a Workflow, call `intake_build_plan` / `plan_segments` /
-`state_advance` to organize the request, run a phase sequence yourself, or impose phase approval
-gates. `state_init` is still permitted for truthful build registration, as described below; it is not a phase runner. A to-do or a native goal is not a reason to recreate the phase pipeline under a different name.
+**Automatic workflow creation and phase approval gates are currently disabled; every unit of work still opens its
+build phase.** Handle the request directly with the ongame tools that help the work. Do not create a Workflow, call
+`intake_build_plan` / `plan_segments` to organize the request, run phases the work does not need, or impose phase
+approval gates. Register each unit of work with `state_init` and open the phase that matches it, as described under
+"Record the work as phases" below; that is a record, not a phase runner. A to-do or a native goal is not a reason to recreate the phase pipeline under a different name.
 
 The phase skills and `workflows/build.js` remain available as definitions, but are not automatically invoked.
 Older active-build markers, resume reminders, phase instructions and live phase prompts do not override this
@@ -54,7 +55,7 @@ result is different: follow the documented fallback and explain the actual limit
 Do not reconstruct a withheld paid recipe. `upgrade`, `billing_status`, `usage_status` and `set_spend_cap` remain
 available for account questions. Do not expose credentials or private service details.
 
-## Keep the game's identity without running phases
+## Keep the game's identity and record its phases
 
 Before the first request-derived account write, including registration, show the notice once: "ℹ️ Build details
 (your requests and work results) are recorded to your account to operate and improve the service." If the user
@@ -67,17 +68,30 @@ ledger below too; `profile_record_build` must reuse the registered metadata, not
 
 When actually building or changing a game through ongame, preserve its account history and publishing identity.
 Reuse the game's real `gameId`; use `games_list` / `game_summary` and the workspace to recognize existing work.
-For a new unit of work that needs a build record, `state_init(gameId, plan)` is still the registration tool:
+Every unit of work gets a build record: a new game, a continued game and a quick fix alike.
+`state_init(gameId, plan)` is the registration tool:
 use its current schema and an agent-authored plan describing the confirmed request. `concept` describes the
 requested outcome; keep the full working brief in the session or project context; judge `path`, `target`, `persona`, `engine`, `deliveryTarget` and `entry` from the real task.
 Use `intake_context.returning` for `personalization.userKnown`; set `personalization.decidedBy` from whether
 you needed to ask and keep relevant confirmed notes in `personalization.notes`. Do not invent observations. A continuation needs its real
-`intent` and may carry the prior build of THIS game as `continues`. The schema still requires `phases`: include
-only phase keys accepted by the schema that describe the actual work, as record metadata, not an execution sequence. Do not call
-`intake_build_plan`, `plan_segments` or `state_advance` to turn that registration into a workflow.
+`intent` and may carry the prior build of THIS game as `continues`. `plan.phases` lists, in order, only the phase keys accepted by the schema that describe the actual
+work: `["code"]` for a quick fix, `["assets", "code"]` for new art wired into the game.
 Capture the returned `buildId`, check that registration succeeded, and keep it with the game's working context.
 Emit `trace_emit(buildId, name="build.start", payload={path: plan.path})` for that actual new work record.
 Never create an ownership record for a game you did not actually work on just to bypass a publishing refusal.
+
+**Record the work as phases.** Walk `plan.phases` in order. For each phase `<p>`:
+1. Before its work, call `state_advance(buildId)` and check that it returned `<p>` as the current phase. Then emit
+   `trace_emit(buildId, name="phase.<p>.start")`.
+2. Do the work of that phase.
+3. When `<p>` is `concept`, `docs`, `code` or `levels`, call `phase_review` with `buildId` and `gameId` on what it
+   produced. Its verdict is advice: apply or decline the feedback by your own judgment, and never wait on it.
+4. Emit `trace_emit(buildId, name="phase.output")` once with the phase's headline decision, then
+   `trace_emit(buildId, name="phase.<p>.done")`.
+
+After the last phase, one more `state_advance(buildId)` closes the build. If the work grows into a phase the plan
+does not list, close this build and register the next unit of work with `continues` set to this `buildId`. Never
+advance past a phase whose work did not happen.
 
 If `.ongame/active-build.json` exists or is written by registration, inspect it before acting. When it belongs
 to this game and the build being handled in direct-work mode, preserve it as inactive history under a unique
