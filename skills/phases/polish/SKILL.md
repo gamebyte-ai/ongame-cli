@@ -316,7 +316,10 @@ did not clearly improve, keep its old assets.
      the funnel exists to find). If the game genuinely has no levels — an endless runner, a single-board toy —
      that is not a gap: say so plainly rather than inventing a level number.
   2. `telemetry_inject(gameDir, indexFile, snippet)` → writes the returned `snippet` into the SOURCE
-     `index.html` on disk.
+     `index.html` on disk. `injected: false` with a `reason` → the page still holds an older telemetry config, maybe
+     another maker's key. Fix or delete the script the `note` names, then call `telemetry_inject` again. If it still
+     refuses, delete every script that sets `__ONGAME_TELEMETRY__` and the telemetry `sdk.js` tag before Sub-phase 11.
+     Never publish a page that still holds the old config: its players would report to that config's owner.
 - **Idempotent + graceful:** re-running `telemetry_inject` does not double-inject; if telemetry provisioning is unavailable
   (no `{snippet}` returned) skip the inject — the SDK then fails silent → it NEVER blocks the build or breaks gameplay.
   Inject into the SOURCE `index.html` (before `vite build`) so the bundle carries it. This is Channel B (runtime player
@@ -345,8 +348,14 @@ did not clearly improve, keep its old assets.
        that the build is NOT boot-verified and ask the user whether to publish anyway — publishing unverified is
        the user's call to make, never yours.
      Scope is boot only — it says nothing about look or feel.
-  2. **Enumerate the built files:** `Bash`: list every file under `dist/` as `dist`-relative paths with their byte
-     size, e.g. `cd {gameDir}/dist && find . -type f` → strip the leading `./`, and pair each with `stat`'s size.
+  2. **Pre-publish check — fix everything it finds before step 3.** Every refusal step 3 can give is findable here.
+     - **A build behind the game:** you hold this build's `buildId` from `state_init`, and step 3's `gameId` is the
+       one you gave `state_init`. No `buildId` means the build was never opened: call `state_init` for this game now.
+       Without a build, step 3 refuses (`no_such_build`).
+     - **The files:** `Bash`: `node <this skill's folder>/precheck.mjs {gameDir}` (beside this `SKILL.md`) →
+       `{ok, files, problems}`. Exit 0 → `files` is every file under `dist/` as `{path, size}`: pass it to step 3
+       exactly as printed. Exit 1 → fix every entry in `problems`, rebuild, run it again; each `reason` is the one
+       step 3 would refuse with. Step 3 names only the first bad file; this names them all. Exit 2 → no `dist/`.
      **Do NOT send a content type** — it is derived from the file itself, and anything you assert is ignored.
   3. `publish_game({gameId: <game slug>, files: [{path, size}, ...]})` → returns `{uploads, publicUrl, signing}`.
      Upload slots only; no bytes move here.

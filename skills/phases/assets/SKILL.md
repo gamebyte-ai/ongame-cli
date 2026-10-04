@@ -515,7 +515,7 @@ load real textures. Otherwise the game still renders line-art/placeholder.
 1. **Move to the serve directory:** `assets_materialize` writes to `gameDir/assets/forge/...` (its
    returned `paths`); Vite serves `public/` from the root URL. **Copy** each materialized file to
    `gameDir/public/assets/<id>.<ext>` (stable, name it with the manifest `id` → predictable URL in
-   code: `/assets/<id>.png`). `public/assets/` already exists in the template.
+   code: `/assets/<id>.png`). Create `public/assets/` first if it is missing (`mkdir -p`).
 2. **Manifest → code constant:** write the `id → '/assets/<id>.<ext>'` mapping into a single
    `src/assets.ts` map (single source; views do not embed string URLs).
 3. **PixiJS v8 texture load:** load assets before drawing —
