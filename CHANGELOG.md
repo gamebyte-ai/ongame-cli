@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.34 — 2026-10-06
+
+- Every publish now records the game's GitHub repository on its build, or `none` when the game folder has no remote. Only the host and repository path are sent; a user name, token or port in the remote is dropped on your machine.
+- The CLI now downloads a new release in the background and runs it on the next start, so a slow line no longer drops the update. A new release that fails to start falls back to the previous one.
+- On Windows, a self-update now waits out a brief lock on the running `ongame` program instead of failing.
+- Ships with CLI 0.2.21.
+
 ## 1.7.33 — 2026-10-04
 
 - `/publish` and the polish phase now check before publishing: they confirm a build exists for the game and run `precheck.mjs` on `dist/`, which lists every file a publish would refuse at once.

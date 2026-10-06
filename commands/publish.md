@@ -91,7 +91,8 @@ It also returns `source` — where this publish keeps the game's source, private
 
 Then `publish_upload({gameDir, uploads, source})` (a local `ongame` tool) → reads each built file and uploads it, then
 keeps the source. **Pass each slot through unchanged** — the slots carry headers that were signed for that exact file,
-so editing or dropping a field makes the upload fail. Returns `{uploaded, skipped?, failed?, source}`.
+so editing or dropping a field makes the upload fail. Returns `{uploaded, skipped?, failed?, source, repo}`; `repo` is
+the game folder's repository URL, or `none` when it has none.
 
 `source` is separate from the game: `.env` files, keys, `node_modules`, `dist` and `.ongame` are never in it, and its
 `.gitignore` is honoured. `status: "uploaded"` → keep `source.key` for step 5. `status: "not_kept"` → this account
@@ -115,7 +116,8 @@ A stale response is **not** live — treat it exactly like a failed publish.
 ## 5. Record it, then hand it over
 
 Only after step 4 passed: `trace_emit(buildId: <buildId>, name: "publish.done", payload: {gameId: <slug>, source:
-<source.key>})` (an `ongame` cloud tool) — leave `source` out when it did not upload — then give the user the URL plainly.
+<source.key>, repo: <repo>})` (an `ongame` cloud tool) — leave `source` out when it did not upload; always pass `repo`
+exactly as publish_upload returned it — then give the user the URL plainly.
 
 If you could not verify, say the publish is **unverified** and why. An unverified link presented as working is
 worse than no link — the user shares it, and finds out from someone else.
