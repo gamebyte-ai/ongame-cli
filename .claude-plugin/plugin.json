@@ -1,7 +1,7 @@
 {
   "name": "ongame",
   "description": "ongame — make or change a game with agent-judged clarification and direct work towards the confirmed goal.",
-  "version": "1.7.33",
+  "version": "1.7.34",
   "author": {
     "name": "ongame"
   },

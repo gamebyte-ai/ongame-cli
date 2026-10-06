@@ -366,7 +366,7 @@ did not clearly improve, keep its old assets.
      `payload_too_large` (trim the build). Surface the refusal to the user in those words; do not route around it.
   4. `publish_upload({gameDir, uploads, source})` — `uploads` and `source` are both straight from `publish_game` →
      reads each built file from `dist/` and PUTs it to its upload slot, then keeps the game's source for the team.
-     Returns `{uploaded:[{path,status}], skipped?, failed?, source}`. **Pass each slot through UNCHANGED** — a slot carries
+     Returns `{uploaded:[{path,status}], skipped?, failed?, source, repo}`. **Pass each slot through UNCHANGED** — a slot carries
      headers that were signed for that exact file, so editing or dropping a field makes the PUT fail. (The build
      directory is fixed; there is no `subdir` argument.)
   5. **Only if `failed` AND `skipped` are both empty:** **report the `publicUrl`** to the user — that is the live,
@@ -392,8 +392,9 @@ did not clearly improve, keep its old assets.
      MISMATCHED response is not. A stale serve = NOT live: treat like a failed publish (surface it, don't hand
      over the URL as working).
   7. **Stamp the build record — ONLY after step 6's live-byte check passed** (all PUTs ok in step 4 AND the live
-     bytes are THIS build): emit `trace_emit(buildId=<buildId>, name="publish.done", payload={gameId: <game slug>, source: <source.key>})`
-     (ongame) — leave `source` out when step 4's source did not upload. Server-side this writes
+     bytes are THIS build): emit `trace_emit(buildId=<buildId>, name="publish.done", payload={gameId: <game slug>, source: <source.key>, repo: <repo>})`
+     (ongame) — leave `source` out when step 4's source did not upload; always pass step 4's `repo` unchanged
+     (the game folder's repository URL, or `none`). Server-side this writes
      `publishedUrl`/`publishedAt` (and where the source landed) onto the build record; the URL is
      reconstructed from your verified identity + the build's own gameId, and the emitted `gameId` must MATCH the
      build's (a mismatch is refused — it means the uploaded location and this record diverged). Skip on any
