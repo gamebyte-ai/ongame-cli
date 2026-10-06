@@ -8,14 +8,15 @@ Every take is generated from the same idle still, so every take starts (and near
 relies on it: all frames of all clips share ONE crop box and ONE idle still (`<name>_idle.webp`), so the game holds
 the still between clips and swaps to video frames without a jump.
 
-Keying: alpha = 1 - (G - max(R,B) - lo) / (hi - lo), green spill clamped to max(R,B). The ratio of green over the other
-two channels separates the screen from the character, so a darker or vignetted screen keys the same.
+Keying: alpha = 1 - (G - max(R,B) - lo) / (hi - lo), green spill clamped to max(R,B). It is an absolute margin, tuned on
+forge's flat (0,177,64) screens; a screen that darkens mid-clip keys out less and fails the "green screen" check.
 
 Needs python3 with numpy + Pillow, and ffmpeg/ffprobe on PATH. Exit 0 = done and every take passed its checks,
 1 = a take failed a check (the pack is still written, so it can be looked at), 2 = bad input or a missing tool.
 """
 import argparse
 import json
+import re
 import math
 import pathlib
 import shutil
@@ -33,7 +34,7 @@ except ImportError as e:
 # of their frames, the thrown-out "sad" take for 71%. Peak motion does NOT separate them: a kept wave peaks
 # lower than the rejected sad take, because waving moves a small part of the body.
 STEP, MAX_STILL = 0.6, 0.6
-MIN_SCREEN = 0.2   # share of the first frame that must key out; a screen-region clip (no green) has ~0.03
+MIN_SCREEN = 0.2   # share of every frame that must key out; a screen-region clip (no green) has ~0.03
 MAX_EDGE = 0.01    # share of a frame border the character covers before that frame counts as touching the edge
 EDGE_FRAMES = 0.05 # touching in more frames than this means something is cut off; one frame is a passing effect streak
 MEASURE_H = 360    # frames are measured at this height, whatever the pack height
@@ -60,17 +61,18 @@ def decode(src, h, lo, hi):
     sw, sh, fps = probe(src)
     h = min(h, sh)
     w = round(sw * h / sh / 2) * 2
-    raw = subprocess.run(['ffmpeg', '-v', 'error', '-i', src, '-vf', f'scale={w}:{h}:flags=lanczos', '-f', 'rawvideo',
-                          '-pix_fmt', 'rgb24', '-'], capture_output=True, check=True).stdout
-    if not raw:
-        die(f'{src}: no frames decoded')
+    size = w * h * 3
     out = []
-    for f in np.frombuffer(raw, np.uint8).reshape(-1, h, w, 3):
-        rgb = f.astype(np.float32)
-        r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
-        rb = np.maximum(r, b)
-        alpha = 1.0 - np.clip((g - rb - lo) / (hi - lo), 0, 1)
-        out.append(np.dstack([r, np.minimum(g, rb), b, alpha * 255]).clip(0, 255).astype(np.uint8))
+    with subprocess.Popen(['ffmpeg', '-v', 'error', '-i', src, '-vf', f'scale={w}:{h}:flags=lanczos', '-f', 'rawvideo',
+                           '-pix_fmt', 'rgb24', '-'], stdout=subprocess.PIPE) as p:
+        while (buf := p.stdout.read(size)) and len(buf) == size:  # one frame at a time: only the keyed frames are kept
+            rgb = np.frombuffer(buf, np.uint8).reshape(h, w, 3).astype(np.float32)
+            r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+            rb = np.maximum(r, b)
+            alpha = 1.0 - np.clip((g - rb - lo) / (hi - lo), 0, 1)
+            out.append(np.dstack([r, np.minimum(g, rb), b, alpha * 255]).clip(0, 255).astype(np.uint8))
+    if p.returncode or not out:
+        die(f'{src}: ffmpeg could not decode it')
     return out, fps
 
 
@@ -96,12 +98,12 @@ def measure(name, fs, fps):
     a = s[..., 3] > 128
     border = np.stack([a[:, 0].mean(1), a[:, -1].mean(1), a[:, :, 0].mean(1), a[:, :, -1].mean(1)]).max(0)
     edge = float((border > MAX_EDGE).mean())
-    screen = float((s[0, ..., 3] < 8).mean())
+    screen = float((s[..., 3] < 8).mean((1, 2)).min())
     still = float((step[1:] < STEP).mean()) if len(step) > 1 else 1.0
     seam = float(np.abs(s[-1] - s[0])[region].mean()) if region.any() else 0.0
     problems = []
     if screen < MIN_SCREEN:
-        problems.append(f'only {screen:.0%} of the first frame keyed out: not a flat green screen')
+        problems.append(f'only {screen:.0%} of a frame keyed out: not a flat green screen, or it drifted')
     elif still > MAX_STILL:
         problems.append(f'{still:.0%} of the frames stand still: the action is too small to read, regenerate it')
     if edge > EDGE_FRAMES:
@@ -144,6 +146,8 @@ def main():
             die(f'{tool} not found on PATH')
     if not a.check and not a.out:
         die('--out is required unless --check')
+    if not re.fullmatch(r'[A-Za-z0-9_-]+', a.name):
+        die('--name must be letters, digits, _ or -')
     if not 0 <= a.lo < a.hi:
         die('need 0 <= --lo < --hi')
     pairs = []
@@ -185,7 +189,7 @@ def main():
         clips[name] = (kept, fps, act)
 
     # one crop box for every frame of every clip, so the feet never move inside the image
-    mask = np.zeros(idle_full.shape[:2], bool)
+    mask = idle_full[..., 3] > 8
     for fs, _, _ in clips.values():
         for f in fs:
             mask |= f[..., 3] > 8
@@ -204,8 +208,14 @@ def main():
 
     out = pathlib.Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    for old in out.glob(f'{a.name}_*.webp'):
-        old.unlink()
+    manifest = out / f'{a.name}-clips.json'
+    try:  # remove what the last pack of this character wrote, and nothing else
+        prev = json.loads(manifest.read_text())
+        for clip, c in prev.get('clips', {}).items():
+            for p in range(int(c.get('pages', 0))):
+                (out / f'{a.name}_{clip}_{p}.webp').unlink(missing_ok=True)
+    except (OSError, ValueError, AttributeError):
+        pass
     idle = cut(idle_full)
     iy, ix = np.nonzero(np.asarray(idle)[..., 3] > 128)
     meta = {'name': a.name, 'fw': fw, 'fh': fh, 'top': int(iy.min()), 'feet': int(iy.max()), 'cx': round(float(ix.mean()), 1),
@@ -216,6 +226,7 @@ def main():
     total = (out / meta['idle']).stat().st_size
     for name, (fs, fps, act) in clips.items():
         pages = math.ceil(len(fs) / per)
+        gpu = 0
         for p in range(pages):
             chunk = fs[p * per:(p + 1) * per]
             sheet = Image.new('RGBA', (cols * fw, math.ceil(len(chunk) / cols) * fh), (0, 0, 0, 0))
@@ -224,10 +235,11 @@ def main():
             page = out / f'{a.name}_{name}_{p}.webp'
             sheet.save(page, quality=a.quality, method=4)  # method 6 is ~9x slower for ~8% smaller pages
             total += page.stat().st_size
+            gpu += sheet.width * sheet.height * 4  # every page is decoded to RGBA on the GPU while the clip is loaded
         meta['clips'][name] = {'n': len(fs), 'fps': round(fps, 3), 'act': act, 'cols': cols, 'per': per, 'pages': pages}
-        mb = pages * cols * fw * rows * fh * 4 / 2 ** 20  # every page is decoded to RGBA on the GPU while the clip is loaded
-        print(f'{name:<14} kept {len(fs)} fr, action over at {act}s, {pages} page(s) of {cols}x{rows} at {fw}x{fh}, ~{mb:.0f} MB GPU')
-    (out / f'{a.name}-clips.json').write_text(json.dumps(meta, indent=1) + '\n')
+        print(f'{name:<14} kept {len(fs)} fr, action over at {act}s, {pages} page(s) of {cols}x{rows} at {fw}x{fh}, '
+              f'~{gpu / 2 ** 20:.0f} MB GPU')
+    manifest.write_text(json.dumps(meta, indent=1) + '\n')
     print(f'wrote {out}/{a.name}-clips.json; {total / 2 ** 20:.1f} MB of WebP')
     sys.exit(1 if failed else 0)
 

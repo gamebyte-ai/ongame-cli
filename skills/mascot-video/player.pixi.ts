@@ -25,7 +25,9 @@ export class MascotClips {
   public url(file: string): string { return this.dir + file; }
   private page(name: string, p: number): string { return this.url(`${this.meta.name}_${name}_${p}.webp`); }
 
+  /** Free the loaded clip; a load still in flight is dropped too and frees itself when it lands. */
   public unload(): void {
+    this.loading = null;
     if (!this.loaded) return;
     const { name, frames } = this.loaded;
     this.loaded = null;
@@ -47,9 +49,11 @@ export class MascotClips {
           return new PIXI.Texture({ source: pages[Math.floor(i / c.per)].source, frame: new PIXI.Rectangle((j % c.cols) * fw, Math.floor(j / c.cols) * fh, fw, fh) });
         });
         if (this.loading?.job === job) { this.loading = null; this.loaded = { name, frames }; }
-        else if (this.loaded?.name !== name) { // superseded while loading: nobody holds these pages
+        else { // superseded while loading: drop its frames, and its pages unless a newer load of this clip shares them
           for (const t of frames) t.destroy(false);
-          for (let p = 0; p < c.pages; p++) void PIXI.Assets.unload(this.page(name, p));
+          if (this.loaded?.name !== name && this.loading?.name !== name) {
+            for (let p = 0; p < c.pages; p++) void PIXI.Assets.unload(this.page(name, p));
+          }
         }
         return frames;
       })
@@ -58,8 +62,12 @@ export class MascotClips {
     return job;
   }
 
-  /** Start fetching a clip before the screen that plays it opens (a win card: on the win, not on the card). */
-  public preload(name: string): void { void this.load(name).catch(() => undefined); }
+  /** Start fetching a clip before the screen that plays it opens (a win card: on the win, not on the card). Does
+   * nothing while another clip is loaded: a character may be showing it, and loading this one would free it. */
+  public preload(name: string): void {
+    if (this.loaded && this.loaded.name !== name) return;
+    void this.load(name).catch(() => undefined);
+  }
 }
 
 /**
