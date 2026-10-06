@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.34 — 2026-10-06
+
+- A game's character can now perform on its menus and cards: `/make-game` follows a mascot video step that makes an idle still on a green screen, asks forge for short takes one at a time, checks each take (too still, cut off by the frame, no green screen), and packs the kept takes into transparent WebP pages with a ready player for Pixi. A video call that times out is no longer treated as failed: the step waits and looks in the library before anything is sent again.
+
 ## 1.7.33 — 2026-10-04
 
 - `/publish` and the polish phase now check before publishing: they confirm a build exists for the game and run `precheck.mjs` on `dist/`, which lists every file a publish would refuse at once.
