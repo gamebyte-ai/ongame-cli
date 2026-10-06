@@ -316,6 +316,8 @@ return, the client writes them to disk):
     for a sync call — a silent timeout would waste real spend).
     Submit via `forge_generate_async` and poll via `asset_job_status` (§3.5); never call `forge_request` for
     `3d-char`.
+  - **`video`** — a character performing on a menu or card (lobby wave, win cheer). Follow
+    `skills/mascot-video/SKILL.md`: the still, one request at a time, and a timeout is not a failure.
 - **`prompt`** — `ART_PREFIX + asset description` (Step 2). English, concrete, single subject.
 - **`aspectRatio?`** — `'1:1'|'16:9'|'9:16'|'4:3'|'3:4'`. Pass for non-square assets (banner 16:9,
   splash/vertical 9:16); otherwise it falls back to 1:1. (Now a parameter — no verbal description needed in the prompt.)
