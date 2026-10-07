@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.35 — 2026-10-07
+
+- Glows, light rays, skies and ribbon shading in new games are now drawn as one shape with a smooth gradient fill, so they no longer show visible rings or bands. The polish phase reads the gradient guide before drawing the first one.
+
 ## 1.7.34 — 2026-10-06
 
 - Every publish now records the game's GitHub repository on its build, or `none` when the game folder has no remote. Only the host and repository path are sent; a user name, token or port in the remote is dropped on your machine.

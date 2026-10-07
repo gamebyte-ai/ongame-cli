@@ -197,6 +197,10 @@ Resolve `ParticleManager` and `TimelineManager` from DI, tick them in `onStep` i
 > All these effects are triggered in the **Controller** (when Board state changes), the **View** only renders.
 > The effect does NOT BLOCK input — the input lock already exists in the code phase during cascade resolving.
 
+**Anything soft — a glow, light rays, a sky, ribbon shading, a sparkle halo — is ONE shape with a gradient
+fill, never a stack of flat shapes or strips** (a stack renders as visible rings). Call
+`knowledge_get({ key: 'pattern:gradients' })` before drawing the first one.
+
 **If the game has ABILITIES** (spells, skills, ultimates, dashes, projectiles with a status effect —
 action/RPG/shooter/MOBA-shaped, 2D or 3D), the juice above is not enough: an ability effect has to
 match its own mechanic (radius, windup, duration) or it misinforms the player, and the naive
@@ -218,8 +222,8 @@ improvise a half-version), and continue.
   exit `power2.in`. Popup `onClose(done)` → call `done()` when the fade-out completes.
 
 ## Sub-phase 7 — Background (gradient / parallax)
-- Static: `BackgroundComponent` (texture) or a **vertical gradient** (fill between two colors) with
-  `PIXI.Graphics` at the very bottom of `HudLayer.Content`, scaled to full-stage in `onResize`.
+- Static: `BackgroundComponent` (texture) or a **vertical gradient** — one rect with a Pixi `FillGradient`, not
+  strips (`pattern:gradients`) — in `PIXI.Graphics` at the very bottom of `HudLayer.Content`, scaled to full-stage in `onResize`.
 - Parallax: 2–3 `ImageComponent` layers at different speeds; in `onStep`, shift `x` according to the
   derivative of the camera/score (far layer slow). For a slight continuous motion, gsap `repeat:-1 yoyo`.
 - If asset generation is available, generate the background asset; otherwise gradient (gray-box fallback). Performance: the
