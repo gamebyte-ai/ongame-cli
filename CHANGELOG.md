@@ -6,7 +6,7 @@
 - A publish refuses a page whose HTML points at a file the build does not contain, before any file is sent.
 - Paid asset work started outside a build now gets its jury review.
 - Claude Code publishes keep the game source again.
-- A kept game source never includes a file a .gitignore hides, and a partial one is never reported as kept. Without git, no source is kept.
+- A kept game source never includes a file a .gitignore hides. A publish run from a folder inside the game no longer keeps only part of its source. Without git, no source is kept.
 - Ships with CLI 0.2.22.
 
 ## 1.7.35 — 2026-10-07
