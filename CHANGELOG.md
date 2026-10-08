@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.38 — 2026-10-08
+
+- In Claude Code, paid asset work started outside a build now really gets its jury review. 1.7.36 said so, but the plugin never ran the step that saves the review access after an image, 3D or sound request.
+- Ships with CLI 0.2.23.
+
 ## 1.7.37 — 2026-10-08
 
 - Publishing a game with a large source folder no longer freezes. The source is packed as it is read and stops at the limit. A kept source may now be up to 400 MiB after compression (was 200 MiB).
