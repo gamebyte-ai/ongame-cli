@@ -1,5 +1,5 @@
 {
-  "pluginVersion": "1.7.38",
+  "pluginVersion": "1.7.39",
   "generatedAt": "2026-10-08",
   "skills": {
     "credit": {
@@ -18,9 +18,9 @@
       "lines": 29
     },
     "phases/assets": {
-      "sha256": "0650ac625abf5f352457a3c406cb13c94f11c1313bd76b7f71a3782276813b40",
-      "bytes": 47142,
-      "lines": 611
+      "sha256": "c4a7319c63b166c14cd04749d955fd30e26db8cedfd92ac3a1a5e3793664cd1c",
+      "bytes": 47316,
+      "lines": 612
     },
     "phases/audio": {
       "sha256": "52fdd7c39ef961599d427390147b7feb3add2828d3f104c5bcff962edfba764d",
