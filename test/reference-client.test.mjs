@@ -133,7 +133,7 @@ test('typed CLI failures survive a nonzero exit without printing remote diagnost
   }
 });
 
-test('nonzero CLI exits and malformed stdout cannot be mistaken for success', async (t) => {
+test('nonzero CLI exits and malformed stdout cannot be mistaken for success', { skip: NO_POSIX_FAKE_CLI }, async (t) => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'reference-client-exit-'));
   await fs.mkdir(path.join(dir, 'bin'));
   await fs.writeFile(path.join(dir, 'package.json'), '{"type":"module"}');

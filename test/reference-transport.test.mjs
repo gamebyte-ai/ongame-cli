@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { runObligations } from '../skills/reference/obligations.mjs';
-import { NO_SYMLINK, NO_POSIX_FAKE_CLI } from './platform.mjs';
+import { CAN_SYMLINK, NO_SYMLINK, NO_POSIX_FAKE_CLI } from './platform.mjs';
 
 async function fixture(t, entries = {}) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'reference-transport-'));
@@ -46,13 +46,13 @@ test('probe forwards opaque obligations, both source layouts, and logical media 
   assert.equal(client.stderr.length, 0);
 });
 
-test('Unity build caches are skipped while generated image paths remain in the inventory', { skip: NO_SYMLINK }, async (t) => {
+test('Unity build caches are skipped while generated image paths remain in the inventory', async (t) => {
   const dir = await fixture(t, {
     'Assets/Scripts/Game.cs': 'class Game {}', 'Library/cache.png': 'cache', 'Temp/cache.png': 'cache',
     'Obj/cache.png': 'cache', 'obj/cache.png': 'cache', 'Logs/cache.png': 'cache', '.cache/cache.png': 'cache',
     '.ongame/buildlogs/log.png': 'cache', '.ongame/screenshots/runtime.png': 'generated', 'docs/concept/concept.png': 'generated',
   });
-  await fs.symlink('/outside/unused', path.join(dir, 'Library/linked.png'));
+  if (CAN_SYMLINK) await fs.symlink('/outside/unused', path.join(dir, 'Library/linked.png'));
   const client = io(async (_name, payload) => {
     assert.deepEqual(payload.assets, ['.ongame/screenshots/runtime.png', 'docs/concept/concept.png']);
     assert.equal(payload.sources.some(({ path }) => path === 'Assets/Scripts/Game.cs'), true);
@@ -161,7 +161,7 @@ test('source and output hardlinks cannot read or replace another file', async (t
   }
 });
 
-test('an artifact symlink introduced while waiting cannot redirect a result write', async (t) => {
+test('an artifact symlink introduced while waiting cannot redirect a result write', { skip: NO_SYMLINK }, async (t) => {
   const dir = await fixture(t), outside = await fixture(t, { 'protected.txt': 'unchanged' });
   const client = io(async () => {
     await fs.symlink(path.join(outside, 'protected.txt'), path.join(dir, 'docs/obligations.result.json'));
