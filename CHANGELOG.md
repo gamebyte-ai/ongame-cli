@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.39 — 2026-10-08
+
+- In Claude Code, paid asset work started outside a build now really gets its jury review. 1.7.36 said so, but the plugin never ran the step that saves the review access after an image, 3D or sound request.
+- Ships with CLI 0.2.23.
+
 ## 1.7.38 — 2026-10-08
 
 - When an agent rigs or makes a 3D model, it now names the game when it starts the job, not only when it collects the result. The rig then counts toward that game's build.
