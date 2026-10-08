@@ -287,10 +287,10 @@ return, the client writes them to disk):
 > **`gameId` (optional) — tag this generation for later game-scoped recall.** Pass the current game's slug
 > (the same identifier used elsewhere for this build) so the asset is later findable in ONE call via
 > `asset_library_list({ gameId })` — "what did I make/use for this game" instead of listing the whole tenant
-> library and filtering yourself. Same field on `sound_request`; for the async path (`forge_generate_async`/
-> `forge_rig`) pass it to `asset_job_status` when you POLL, not at submit — you already know the game at poll
-> time, and the generator itself never needs to carry it. Purely a correlation key; omit it if there's no game context
-> yet (e.g. a standalone reference generation).
+> library and filtering yourself. Same field on `sound_request`. On the async path (`forge_generate_async`/
+> `forge_rig`) pass it TWICE: at SUBMIT, so the job counts toward this game's build, and again to
+> `asset_job_status` when you POLL, so the delivered asset is tagged for this game. Omit it only if there's no game
+> context yet (e.g. a standalone reference generation).
 
 > **Size/weight (automatic + optional):** every raster output is automatically web-optimized
 > (PNG palette quantization + compression — 70-85% reduction in game art, visual quality preserved).
@@ -377,9 +377,10 @@ the asset (a job you never poll again costs nothing, per the tool's own contract
    the delivered asset for game-scoped `asset_library_list` recall (the submit-time value covers spend
    attribution; they serve different sinks) — see §3's gameId note.
 3. **Rigging (3d-char only, optional):** once the static mesh's `asset_job_status` call reports `completed`,
-   take that asset's `meta.assetId` and call `forge_rig({ modelRef: <that assetId>, heightMeters? })` →
-   another `{jobRef, status:'queued'}` — poll it the SAME way via `asset_job_status`. Rigging is a separate job
-   from generation, not a flag on step 1.
+   take that asset's `meta.assetId` and call `forge_rig({ modelRef: <that assetId>, gameId: <slug>, heightMeters? })`
+   → another `{jobRef, status:'queued'}` — poll it the SAME way via `asset_job_status` (with `gameId` again).
+   Pass `gameId` at this submit as in step 1 — rigging is the most expensive asset kind, and a rig submitted
+   without it counts toward no build. Rigging is a separate job from generation, not a flag on step 1.
    - **`modelRef` takes either id, same as `editOf` (§4):** the sealed `meta.assetId` from the generating result,
      or the **stable `a_<hex>`** from `asset_library_list`/`asset_library_get`. Use the stable one to rig a model
      you generated in an EARLIER session — the sealed handle is ~24h and will be dead by then.

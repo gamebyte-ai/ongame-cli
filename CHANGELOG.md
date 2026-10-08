@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.38 — 2026-10-08
+
+- When an agent rigs or makes a 3D model, it now names the game when it starts the job, not only when it collects the result. The rig then counts toward that game's build.
+
 ## 1.7.37 — 2026-10-08
 
 - Publishing a game with a large source folder no longer freezes. The source is packed as it is read and stops at the limit. A kept source may now be up to 400 MiB after compression (was 200 MiB).
