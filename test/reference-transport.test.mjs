@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { runObligations } from '../skills/reference/obligations.mjs';
+import { noScriptCli, noSymlinks } from './platform.mjs';
 
 async function fixture(t, entries = {}) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'reference-transport-'));
@@ -51,7 +52,7 @@ test('Unity build caches are skipped while generated image paths remain in the i
     'Obj/cache.png': 'cache', 'obj/cache.png': 'cache', 'Logs/cache.png': 'cache', '.cache/cache.png': 'cache',
     '.ongame/buildlogs/log.png': 'cache', '.ongame/screenshots/runtime.png': 'generated', 'docs/concept/concept.png': 'generated',
   });
-  await fs.symlink('/outside/unused', path.join(dir, 'Library/linked.png'));
+  if (!noSymlinks) await fs.symlink('/outside/unused', path.join(dir, 'Library/linked.png'));
   const client = io(async (_name, payload) => {
     assert.deepEqual(payload.assets, ['.ongame/screenshots/runtime.png', 'docs/concept/concept.png']);
     assert.equal(payload.sources.some(({ path }) => path === 'Assets/Scripts/Game.cs'), true);
@@ -90,7 +91,7 @@ test('score writes the response at the original artifact path and exits only on 
   }
 });
 
-test('the documented node command preserves JSON, artifact and process exit contracts', async (t) => {
+test('the documented node command preserves JSON, artifact and process exit contracts', { skip: noScriptCli }, async (t) => {
   const dir = await fixture(t), install = await fixture(t);
   await fs.mkdir(path.join(install, 'bin'));
   await fs.writeFile(path.join(install, 'package.json'), '{"type":"module"}');
@@ -119,7 +120,7 @@ test('authentication and malformed response failures do not create an artifact',
   }
 });
 
-test('source, evidence, document, root and artifact symlinks are refused', async (t) => {
+test('source, evidence, document, root and artifact symlinks are refused', { skip: noSymlinks }, async (t) => {
   for (const target of ['src/linked.ts', '.ref/frame.png', 'docs/obligations.json', 'docs/obligations.result.json']) {
     const dir = await fixture(t);
     const linked = path.join(dir, target);
@@ -160,7 +161,7 @@ test('source and output hardlinks cannot read or replace another file', async (t
   }
 });
 
-test('an artifact symlink introduced while waiting cannot redirect a result write', async (t) => {
+test('an artifact symlink introduced while waiting cannot redirect a result write', { skip: noSymlinks }, async (t) => {
   const dir = await fixture(t), outside = await fixture(t, { 'protected.txt': 'unchanged' });
   const client = io(async () => {
     await fs.symlink(path.join(outside, 'protected.txt'), path.join(dir, 'docs/obligations.result.json'));

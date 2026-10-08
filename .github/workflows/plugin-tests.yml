@@ -1,5 +1,5 @@
 name: plugin-tests
-# Every PR runs the plugin's whole test set, on Linux and macOS, whatever paths it touches. The other workflows
+# Every PR runs the plugin's whole test set, on Linux, macOS and Windows, whatever paths it touches. The other workflows
 # here are path-filtered guards; until this one existed, a PR that changed only hooks/hooks.json (ongame-cli
 # PR 61) reached main with no check on it at all.
 #
@@ -22,9 +22,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
+    # Git Bash on Windows, so `test/*.test.mjs` expands and the `sh` steps run the same way on every OS.
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       # The newest LTS, as a maker installing today gets. Node 20 is past end of life.
@@ -38,7 +42,9 @@ jobs:
         run: node --test test/*.test.mjs
       - name: Launcher
         run: sh test/launcher_test.sh
+      # install.sh is the Linux and macOS installer. Windows installs with install.ps1.
       - name: install.sh hand-off
+        if: runner.os != 'Windows'
         run: sh test/install_sh_test.sh
       - name: README and docs agree on the agent table
         run: sh test/doc_parity_test.sh

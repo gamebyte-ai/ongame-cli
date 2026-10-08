@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { callReferenceTool, logicalPath, referenceCliPath } from '../tools/reference-client.mjs';
+import { noScriptCli } from './platform.mjs';
 
 test('the binary path follows the install root on POSIX and Windows', () => {
   assert.equal(referenceCliPath({ home: '/home/user', platform: 'linux', env: {} }), '/home/user/.ongame/bin/ongame-cli');
@@ -44,7 +45,7 @@ test('POSIX logical paths retain backslash refusal and canonical root aliases', 
   }
 });
 
-test('the installed authenticated command receives JSON only through stdin', async (t) => {
+test('the installed authenticated command receives JSON only through stdin', { skip: noScriptCli }, async (t) => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'reference-client-'));
   await fs.mkdir(path.join(dir, 'bin'));
   const capture = path.join(dir, 'captured.json');
@@ -104,7 +105,7 @@ test('a domain rejection is returned unchanged for its caller to handle', async 
   }), response);
 });
 
-test('typed CLI failures survive a nonzero exit without printing remote diagnostics', async (t) => {
+test('typed CLI failures survive a nonzero exit without printing remote diagnostics', { skip: noScriptCli }, async (t) => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'reference-client-failure-'));
   await fs.mkdir(path.join(dir, 'bin'));
   await fs.writeFile(path.join(dir, 'package.json'), '{"type":"module"}');
@@ -132,7 +133,7 @@ test('typed CLI failures survive a nonzero exit without printing remote diagnost
   }
 });
 
-test('nonzero CLI exits and malformed stdout cannot be mistaken for success', async (t) => {
+test('nonzero CLI exits and malformed stdout cannot be mistaken for success', { skip: noScriptCli }, async (t) => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'reference-client-exit-'));
   await fs.mkdir(path.join(dir, 'bin'));
   await fs.writeFile(path.join(dir, 'package.json'), '{"type":"module"}');
