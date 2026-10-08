@@ -1,23 +1,23 @@
-// What a test host can do. Each value is a node:test `skip` option: false runs the test, a string skips it and says why.
-// Every skip here is Windows-only, so Linux and macOS CI still run each of these tests in full.
-import fs from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
-async function symlinkRefused() {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'symlink-probe-'));
+// A Windows account without Developer Mode or elevation gets EPERM from symlinkSync. Probe the
+// capability instead of the platform, so a Windows box that can create symlinks still runs these proofs.
+export const CAN_SYMLINK = (() => {
+  const probe = mkdtempSync(join(tmpdir(), 'ongame-cli-symlink-probe-'));
   try {
-    await fs.symlink(path.join(dir, 'target'), path.join(dir, 'link'));
+    writeFileSync(join(probe, 'target'), 'x');
+    symlinkSync(join(probe, 'target'), join(probe, 'link'));
+    return true;
+  } catch {
     return false;
-  } catch (error) {
-    if (error.code !== 'EPERM') throw error;
-    return 'this host refuses symlinks (Windows without Developer Mode or admin rights)';
   } finally {
-    await fs.rm(dir, { recursive: true, force: true });
+    rmSync(probe, { recursive: true, force: true });
   }
-}
+})();
 
-export const noSymlinks = await symlinkRefused();
+export const NO_SYMLINK = !CAN_SYMLINK && 'this account cannot create symlinks (EPERM)';
 
-// The fake ongame-cli these tests write is a `#!node` script. Windows runs only `bin\ongame-cli.exe`, a real executable.
-export const noScriptCli = process.platform === 'win32' && 'the fake ongame-cli is a #! script, and Windows runs only a real .exe';
+// The tests' fake ongame-cli is a POSIX script with a shebang. On Windows the client runs ongame-cli.exe.
+export const NO_POSIX_FAKE_CLI = process.platform === 'win32' && 'the fake ongame-cli is a POSIX script; Windows runs ongame-cli.exe';

@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import * as M from '../tools/measure/measure.mjs';
-import { noSymlinks } from './platform.mjs';
+import { NO_SYMLINK } from './platform.mjs';
 
 async function fixture(t) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'measurement-transport-'));
@@ -118,7 +118,7 @@ test('gated and malformed responses fail closed', async (t) => {
   }
 });
 
-test('symlinks, outside paths and private environment paths are refused before transport', { skip: noSymlinks }, async (t) => {
+test('symlinks, outside paths and private environment paths are refused before transport', { skip: NO_SYMLINK }, async (t) => {
   const dir = await fixture(t);
   await fs.symlink(path.join(dir, '.ref/one.png'), path.join(dir, '.ref/linked.png'));
   await fs.symlink(path.join(dir, '.ref'), path.join(dir, 'linked-dir'));
