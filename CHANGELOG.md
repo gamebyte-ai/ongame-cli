@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.40 — 2026-10-08
+
+- `/ongame-statusline` now says the statusline also names a file the backup leaves out because it holds a key. Before, it said the marker shows only during a build. The file name shows from the first CLI release after 0.2.23.
+- Ships with CLI 0.2.23.
+
 ## 1.7.39 — 2026-10-08
 
 - In Claude Code, paid asset work started outside a build now really gets its jury review. 1.7.36 said so, but the plugin never ran the step that saves the review access after an image, 3D or sound request.
