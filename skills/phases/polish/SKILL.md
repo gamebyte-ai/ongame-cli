@@ -350,7 +350,7 @@ did not clearly improve, keep its old assets.
        (same rule as the code phase's `playable`). **It does not authorise publishing either: "we did not look"
        is not "it works".** Do the one-line step in `fix` and verify again. If it still cannot run, say plainly
        that the build is NOT boot-verified and ask the user whether to publish anyway — publishing unverified is
-       the user's call to make, never yours.
+       the user's call to make, never yours. If they say yes, step 4 publishes it and returns `verify.warning`.
      Scope is boot only — it says nothing about look or feel.
   2. **Pre-publish check — fix everything it finds before step 3.** Every refusal step 3 can give is findable here.
      - **A build behind the game:** you hold this build's `buildId` from `state_init`, and step 3's `gameId` is the
@@ -373,6 +373,10 @@ did not clearly improve, keep its old assets.
      Returns `{uploaded:[{path,status}], skipped?, failed?, source, repo}`. **Pass each slot through UNCHANGED** — a slot carries
      headers that were signed for that exact file, so editing or dropping a field makes the PUT fail. (The build
      directory is fixed; there is no `subdir` argument.)
+     It boots the build again (step 1b's check) before the first PUT. `refused` with `reason: "boot_failed"` → nothing
+     was uploaded and the live game is unchanged: fix what `failures` names, rebuild, and start again from step 1b.
+     `verify.status: "unverified"` → the check could not run and the game IS published: tell the user `verify.warning`
+     word for word in the hand-over.
   5. **Only if `failed` AND `skipped` are both empty:** **report the `publicUrl`** to the user — that is the live,
      shareable game. **If `failed` is non-empty** (one or more PUTs returned a non-2xx status — expired signed-URL TTL,
      missing bucket, blocked public access), the game is **NOT** fully live: do NOT hand over the `publicUrl` as a working

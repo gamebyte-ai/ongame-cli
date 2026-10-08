@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.7.36 — 2026-10-07
+
+- A publish now boots the game first and refuses one that fails to start. It catches broken asset paths and boot errors; it does not judge whether a game is drawn. When the check cannot run, the game is published and you are told so.
+- The publish boot check no longer refuses a real game drawn in two colours on one canvas. A hung page letterboxed in flat colours is still refused.
+- A publish refuses a page whose HTML points at a file the build does not contain, before any file is sent.
+- Paid asset work started outside a build now gets its jury review.
+- Claude Code publishes keep the game source again.
+- A kept game source never includes a file a .gitignore hides. A publish run from a folder inside the game no longer keeps only part of its source. Without git, no source is kept.
+- Ships with CLI 0.2.22.
+
 ## 1.7.35 — 2026-10-07
 
 - Glows, light rays, skies and ribbon shading in new games are now drawn as one shape with a smooth gradient fill, so they no longer show visible rings or bands. The polish phase reads the gradient guide before drawing the first one.
