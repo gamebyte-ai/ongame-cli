@@ -3,7 +3,7 @@
 ## 1.7.37 — 2026-10-08
 
 - Publishing a game with a large source folder no longer freezes. The source is packed as it is read and stops at the limit. A kept source may now be up to 400 MiB after compression (was 200 MiB).
-- When a build's upload fails, publish no longer says the game is published. It says this build was not published. A game published before keeps its previous build.
+- When a build's upload fails, publish no longer says the game is published. It lists each failed file with its status, and a note about the game's source says this build was not published. If the host refused index.html, the previous page stays live. If the connection dropped while sending index.html (status 0), either the previous or the new page may be live.
 - On a Mac, login no longer hangs when the Keychain is unavailable. It stops and asks you to unlock or create your login Keychain.
 - At a Mac desktop, login and tool startup wait up to 120 seconds while you type your Keychain password. Remote (SSH) sessions keep a 5-second limit. An SSH login waits while a desktop login on the same Mac unlocks the Keychain.
 - A failed Mac Keychain write no longer prints your login tokens.
