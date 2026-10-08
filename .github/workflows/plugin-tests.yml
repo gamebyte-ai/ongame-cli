@@ -1,0 +1,44 @@
+name: plugin-tests
+# Every PR runs the plugin's whole test set, on Linux and macOS, whatever paths it touches. The other workflows
+# here are path-filtered guards; until this one existed, a PR that changed only hooks/hooks.json (ongame-cli
+# PR 61) reached main with no check on it at all.
+#
+# Runners: GitHub-hosted, not the org's gb-pool. This repo is public, so hosted minutes are free, and the
+# gb-pool runner group does not serve public repos (gamebyte-ai/fleet infra/github-runners/README.md): a
+# self-hosted runner would run a fork PR's code on our machines.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: plugin-tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    name: plugin tests - ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      # The newest LTS, as a maker installing today gets. Node 20 is past end of life.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+      - name: Skills lock matches the skills and the plugin version
+        run: node scripts/build-skills-lock.mjs --check
+      # hooks/hooks.json and .claude-plugin/plugin.json are checked by test/hooks-json.test.mjs.
+      - name: Node tests
+        run: node --test test/*.test.mjs
+      - name: Launcher
+        run: sh test/launcher_test.sh
+      - name: install.sh hand-off
+        run: sh test/install_sh_test.sh
+      - name: README and docs agree on the agent table
+        run: sh test/doc_parity_test.sh
