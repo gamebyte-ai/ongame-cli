@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { runObligations } from '../skills/reference/obligations.mjs';
+import { NO_SYMLINK, NO_POSIX_FAKE_CLI } from './platform.mjs';
 
 async function fixture(t, entries = {}) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'reference-transport-'));
@@ -45,7 +46,7 @@ test('probe forwards opaque obligations, both source layouts, and logical media 
   assert.equal(client.stderr.length, 0);
 });
 
-test('Unity build caches are skipped while generated image paths remain in the inventory', async (t) => {
+test('Unity build caches are skipped while generated image paths remain in the inventory', { skip: NO_SYMLINK }, async (t) => {
   const dir = await fixture(t, {
     'Assets/Scripts/Game.cs': 'class Game {}', 'Library/cache.png': 'cache', 'Temp/cache.png': 'cache',
     'Obj/cache.png': 'cache', 'obj/cache.png': 'cache', 'Logs/cache.png': 'cache', '.cache/cache.png': 'cache',
@@ -90,7 +91,7 @@ test('score writes the response at the original artifact path and exits only on 
   }
 });
 
-test('the documented node command preserves JSON, artifact and process exit contracts', async (t) => {
+test('the documented node command preserves JSON, artifact and process exit contracts', { skip: NO_POSIX_FAKE_CLI }, async (t) => {
   const dir = await fixture(t), install = await fixture(t);
   await fs.mkdir(path.join(install, 'bin'));
   await fs.writeFile(path.join(install, 'package.json'), '{"type":"module"}');
@@ -119,7 +120,7 @@ test('authentication and malformed response failures do not create an artifact',
   }
 });
 
-test('source, evidence, document, root and artifact symlinks are refused', async (t) => {
+test('source, evidence, document, root and artifact symlinks are refused', { skip: NO_SYMLINK }, async (t) => {
   for (const target of ['src/linked.ts', '.ref/frame.png', 'docs/obligations.json', 'docs/obligations.result.json']) {
     const dir = await fixture(t);
     const linked = path.join(dir, target);
