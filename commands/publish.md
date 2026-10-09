@@ -87,7 +87,7 @@ build*, never *retry the call*:
 
 Otherwise it returns `{uploads, publicUrl, signing}` — upload slots, no bytes moved yet.
 
-It also returns `source` — where this publish keeps the game's source, privately, for your team.
+It also returns `source` — where this publish keeps a private copy of the game's source. Every member of the gamebyte-ai organization can read it.
 
 Then `publish_upload({gameDir, uploads, source})` (a local `ongame` tool) → reads each built file and uploads it, then
 keeps the source. **Pass each slot through unchanged** — the slots carry headers that were signed for that exact file,
