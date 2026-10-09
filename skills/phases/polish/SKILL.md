@@ -369,7 +369,8 @@ did not clearly improve, keep its old assets.
      `path` — drop it and rebuild), `no_entry_point` (no `index.html` at the root of `dist/`), `too_many_files` /
      `payload_too_large` (trim the build). Surface the refusal to the user in those words; do not route around it.
   4. `publish_upload({gameDir, uploads, source})` — `uploads` and `source` are both straight from `publish_game` →
-     reads each built file from `dist/` and PUTs it to its upload slot, then keeps the game's source for the team.
+     reads each built file from `dist/` and PUTs it to its upload slot, then keeps a private copy of the game's source,
+     readable by every member of the gamebyte-ai organization.
      Returns `{uploaded:[{path,status}], skipped?, failed?, source, repo}`. **Pass each slot through UNCHANGED** — a slot carries
      headers that were signed for that exact file, so editing or dropping a field makes the PUT fail. (The build
      directory is fixed; there is no `subdir` argument.)

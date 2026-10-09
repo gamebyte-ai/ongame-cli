@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.41 — 2026-10-09
+
+- The publish texts now say who can read the kept copy of a game's source: every member of the gamebyte-ai organization. Before, they said it was kept "for your team".
+- Ships with CLI 0.2.23.
+
 ## 1.7.40 — 2026-10-08
 
 - `/ongame-statusline` now says the statusline also names a file the backup leaves out because it holds a key. Before, it said the marker shows only during a build. The file name shows from the first CLI release after 0.2.23.
