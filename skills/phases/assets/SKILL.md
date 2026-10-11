@@ -355,9 +355,12 @@ return, the client writes them to disk):
   (normalization happens at delivery), not at submit. Fail-soft: a model that cannot be measured confidently ships
   **untouched with a `warnings` entry** rather than being scaled by a number nobody trusts — read the warnings.
 - **`charParams?`** (3d-char, STATIC MESH ONLY) — `{ targetPolycount, pbr, poseMode, enableSafetyChecker }`.
-  Rigging/animation are NOT here — they're `forge_rig`'s params (§3.5). `poseMode: 't-pose'` still
-  matters at generate time (cleaner base mesh for the rig step to work from): in the prompt, **exact T-pose**
+  Rigging/animation are NOT here — they're `forge_rig`'s params (§3.5). The rig step needs a T-pose mesh, and
+  the mesh keeps the pose of its source image: so put the pose in the source — in the prompt, **exact T-pose**
   (arms straight out to the sides), **isolated single humanoid, no floor/no shadow** + **`transparent: true`**.
+  That is enough; leave `poseMode` unset. Set `poseMode` only when the source cannot be put in that pose (e.g. an
+  `editOf` concept in another pose): only a slower model that costs more per character can re-pose a mesh, so
+  the request goes to it, and fails rather than arriving un-posed when that model is unavailable.
   `enableSafetyChecker: false` may be set when you judge the content filter to be a false positive on
   legitimate game content (e.g. zombies/monsters/villains); use judgment, don't flip it as a blanket default.
 
@@ -386,7 +389,7 @@ the asset (a job you never poll again costs nothing, per the tool's own contract
      you generated in an EARLIER session — the sealed handle is ~24h and will be dead by then.
    - **Rig-only** — no animation is produced; there is no `animation`/`animationActionId` param.
      `heightMeters` is optional metadata only.
-   - The rig pipeline assumes a **T-pose HUMANOID input** (matching `charParams.poseMode:'t-pose'` above) — a
+   - The rig pipeline assumes a **T-pose HUMANOID input** (a T-pose source image, see `charParams` above) — a
      non-humanoid or non-T-pose mesh will make the rig job fail (check `asset_job_status`'s failure `detail`).
    - There is no `enableSafetyChecker` on `forge_rig`; the generation-time one on `charParams` above is
      unrelated and unchanged.

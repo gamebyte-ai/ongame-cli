@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.42 — 2026-10-11
+
+- The assets skill now says to put a character's T-pose in its source image and leave `poseMode` unset. The mesh keeps the source image's pose. `poseMode` sends the request to a slower model that costs more, so set it only when the source cannot be posed.
+- Ships with CLI 0.2.23.
+
 ## 1.7.41 — 2026-10-09
 
 - The publish texts now say who can read the kept copy of a game's source: every member of the gamebyte-ai organization. Before, they said it was kept "for your team".
