@@ -100,6 +100,14 @@ keeps no source; that is a setting, not a problem, so say nothing about it. `sta
 live, but its source was not kept: say that in the hand-over, with the `reason`. Never drop it because the game
 worked.
 
+**Record an incomplete upload once, before recovery:** if `refused` is not true and either `failed` or
+`skipped` is non-empty, call `trace_emit({buildId, name: "publish.partial", payload: {gameId: <game slug>,
+uploaded: <uploaded>, failed: <failed or []>, skipped: <skipped or []>}})`. Pass the result lists unchanged;
+do not send upload slots or signed URLs. Emit once for this upload attempt, including skipped-only results.
+Do not emit for a preflight refusal, a source-only failure, a successful upload, or a later live-byte mismatch.
+If the trace returns `recorded:false`, report that the failure record was not saved; do not retry the trace
+or the upload to repair telemetry. This event never marks a game as published.
+
 ## 4. Do not hand over a link you have not checked
 
 **The publish is live only when `failed` and `skipped` are both empty.** If either has entries, this is a partial

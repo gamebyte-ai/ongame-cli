@@ -378,6 +378,13 @@ did not clearly improve, keep its old assets.
      was uploaded and the live game is unchanged: fix what `failures` names, rebuild, and start again from step 1b.
      `verify.status: "unverified"` → the check could not run and the game IS published: tell the user `verify.warning`
      word for word in the hand-over.
+     **Record an incomplete upload once, before recovery:** if `refused` is not true and either `failed` or
+     `skipped` is non-empty, call `trace_emit({buildId, name: "publish.partial", payload: {gameId: <game slug>,
+     uploaded: <uploaded>, failed: <failed or []>, skipped: <skipped or []>}})`. Pass the result lists unchanged;
+     do not send upload slots or signed URLs. Emit once for this upload attempt, including skipped-only results.
+     Do not emit for a preflight refusal, a source-only failure, a successful upload, or a later live-byte mismatch.
+     If the trace returns `recorded:false`, report that the failure record was not saved; do not retry the trace
+     or the upload to repair telemetry. This event never marks a game as published.
   5. **Only if `failed` AND `skipped` are both empty:** **report the `publicUrl`** to the user — that is the live,
      shareable game. **If `failed` is non-empty** (one or more PUTs returned a non-2xx status — expired signed-URL TTL,
      missing bucket, blocked public access), the game is **NOT** fully live: do NOT hand over the `publicUrl` as a working

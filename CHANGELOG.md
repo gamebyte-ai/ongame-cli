@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.42 — 2026-10-12
+
+- When a game upload fails or skips files, the agent now records it once, so failed publishes can be counted. Uploads work as before.
+- Ships with CLI 0.2.27.
+
 ## 1.7.41 — 2026-10-09
 
 - The publish texts now say who can read the kept copy of a game's source: every member of the gamebyte-ai organization. Before, they said it was kept "for your team".
