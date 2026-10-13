@@ -29,8 +29,10 @@ offer `/make-game` instead. Do not try to route around it.
 **First, wire player telemetry** — into the SOURCE `index.html`, because the build copies it into `dist/`.
 Without this step the published game reports nothing about how people play it.
 
-1. `telemetry_provision({gameId: <slug>, appVersion: <version from package.json>})` (an `ongame` cloud tool) → `{snippet}`
+1. `telemetry_provision({gameId: <slug>, gameTitle: <visible game title>, appVersion: <version from package.json>})` (an `ongame` cloud tool) → `{snippet}`
    or `null`. Use the same `<slug>` you will publish under.
+   GameAnalytics is configured automatically. Every title uses the shared dashboard, separated by its build name.
+   Do not read or pass maker keys. Without the shared keys, the game reports to onGame only.
 2. Got a snippet → `telemetry_inject({gameDir, snippet})` (a local `ongame` tool). Safe on a game that already has telemetry:
    the same snippet is a no-op, and a new version replaces the old block.
 3. `injected: false` with a `reason` → the page still holds an older telemetry config, maybe another maker's key.
@@ -38,7 +40,9 @@ Without this step the published game reports nothing about how people play it.
    script that sets `__ONGAME_TELEMETRY__` and the telemetry `sdk.js` tag, then publish without telemetry. Never
    publish a page that still holds the old config: its players would report to that config's owner.
 4. `null`, or `injected: false` with no `reason` → publish anyway, and say in the hand-over that this build
-   does not report player data. Telemetry never blocks a publish.
+   does not report player data. First remove any previous `__ONGAME_TELEMETRY__` config and telemetry `sdk.js` tag
+   from the source HTML. A failed provision must not leave an old GameAnalytics destination active.
+   Telemetry never blocks a publish.
 
 Every published game carries the "Built with onGame" credit. Next
 `Bash`: `node <pluginRoot>/skills/credit/apply.mjs {gameDir}` — it adds or updates the credit in `index.html`;

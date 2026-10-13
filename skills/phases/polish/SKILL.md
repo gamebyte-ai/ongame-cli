@@ -302,8 +302,14 @@ continue — the build must never break. The golden rule still applies: the loop
 did not clearly improve, keep its old assets.
 
 ## Sub-phase 10 — Telemetry provisioning (deploy wiring, Channel B)
+- **Unity:** before every player build, install `template:unity-gameanalytics` and call
+  `telemetry_provision({gameId: <game slug>, gameTitle: <visible game title>})`.
+  Write its `gameAnalytics` object to `{gameDir}/.ongame/gameanalytics.json`; write `{}` when absent or the call fails.
+  Keep `.ongame/` and `Assets/Resources/GameAnalytics/Settings.asset` out of source control.
+  The adapter uses the shared keys and title automatically. Never ask the maker for keys or reuse an earlier config.
+  Then continue through the Unity build toolchain; the HTML injection steps below apply only to web games.
 - Provision shipped-game **player telemetry** so the deployed game feeds retention measurement ("which games retain") in **two steps**:
-  1. `telemetry_provision({gameId: <game slug>})` → returns `{ingestKey, endpoint, sdkUrl, snippet}`. This mints
+  1. `telemetry_provision({gameId: <game slug>, gameTitle: <visible game title>})` → returns `{ingestKey, endpoint, sdkUrl, snippet}`. This mints
      a per-game **public ingest key** (gate, via your OAuth identity — a tenant mints only its own) and builds the
      `ongame-telemetry` SDK snippet (NO disk write — it returns the snippet). The SDK auto-emits exactly two
      events — `session_start` and `session_end` — with an anonymous install id (D1/D7 retention); no PII.
@@ -325,7 +331,8 @@ did not clearly improve, keep its old assets.
      refuses, delete every script that sets `__ONGAME_TELEMETRY__` and the telemetry `sdk.js` tag before Sub-phase 11.
      Never publish a page that still holds the old config: its players would report to that config's owner.
 - **Idempotent + graceful:** re-running `telemetry_inject` does not double-inject; if telemetry provisioning is unavailable
-  (no `{snippet}` returned) skip the inject — the SDK then fails silent → it NEVER blocks the build or breaks gameplay.
+  (no `{snippet}` returned), remove any previous `__ONGAME_TELEMETRY__` config and telemetry `sdk.js` tag from source HTML.
+  Then skip injection. This prevents an old destination from surviving failed provisioning; publishing still proceeds.
   Inject into the SOURCE `index.html` (before `vite build`) so the bundle carries it. This is Channel B (runtime player
   telemetry — the shipped game's browser SDK), distinct from Channel A (build-time orchestration traces via `trace_emit`).
 

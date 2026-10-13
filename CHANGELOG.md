@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.43 — 2026-10-13
+
+- Web and Unity build instructions now provision shared GameAnalytics automatically, with each game identified by its title.
+- Failed provisioning clears the previous config. Makers no longer supply analytics keys.
+
 ## 1.7.42 — 2026-10-12
 
 - When a game upload fails or skips files, the agent now records it once, so failed publishes can be counted. Uploads work as before.
