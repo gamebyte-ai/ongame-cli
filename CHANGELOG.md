@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.44 — 2026-10-13
+
+- Game-writing instructions now cover tap-triggered ads, delayed reward offers, privacy choices, store prices, pending purchases and restores.
+- Older games check their helper exports before wiring these features. Reward readiness polling stops when its screen closes.
+- This updates plugin instructions. The new scaffold watcher reaches makers in a future CLI release.
+
 ## 1.7.43 — 2026-10-13
 
 - Web and Unity build instructions now provision shared GameAnalytics automatically, with each game identified by its title.

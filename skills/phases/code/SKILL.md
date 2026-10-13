@@ -229,6 +229,28 @@ Rule: state does not leak into the View, render does not leak into the Board. If
   exact difficulty spike it exists to find. Two lines, written next to the transitions they belong to — retrofitted
   later they are a separate pass over code that already works, and that pass is the one that does not happen.
 
+- **Check the existing helpers before adding imports.** These instructions can arrive before a CLI update or apply to an older game.
+  Never import a helper that its `src/ads.ts` or `src/purchases.ts` does not export. If `watchRewardedReady` is absent
+  but `rewardedReady` exists, check readiness immediately and every 250 ms while the screen is open.
+  Update button visibility only; clear the timer on close or destruction and restart it on reopening.
+  If the ads or purchases helpers are missing, update the CLI for new scaffolds; never re-scaffold an existing game.
+  Report the missing helpers before wiring those features.
+- **Ads, if the concept has them, go in the same pass:** `showInterstitial('level_end')` from the "Next" tap and,
+  for a reward, `showRewarded(placement)` from a "Watch an ad" button. On screen open, call
+  `const stop = watchRewardedReady(ready => { watchButton.visible = ready; })`; call `stop()` on close or destruction.
+  A single `rewardedReady()` check misses offers that arrive later. The watcher only updates visibility; the player
+  must still tap to show the ad. These helpers come from `src/ads.ts`. Ad calls do nothing until the game has an ad id,
+  and must be awaited with the game paused; grant a reward
+  only on `true`. The settings screen gets a "Privacy choices" button, shown only while `privacyOptionsRequired()`,
+  that calls `showPrivacyOptions()`.
+- **Real-money items, if the concept sells any, come from `src/purchases.ts`:** the shop shows them only while
+  `purchasesReady()`, with the `title` and `price` that `products()` returns (never a price typed into the game).
+  `buy(id)` runs from the item's tap, with the game paused; grant a consumable only on `'bought'` (on `'pending'`
+  tell the player the store finishes it later, and grant nothing). At start-up register `onPurchaseCompleted(id =>
+  …)` and grant there too: it is called once for each pending purchase that went through later. An unlock such as
+  "no ads" is `owns('<entitlement>')`, asked each time, never a saved flag. Settings gets "Restore purchases"
+  (`restorePurchases()`). Without a RevenueCat key the shop shows no real-money items, and the game must still work.
+
 
 ## 6. 60fps mobile-first performance (NO alloc on the hot path)
 - Target **60 fps mobile**. In every-frame `mainLoop`/`update`, do NOT `new` up new objects, create
