@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.45 — 2026-10-16
+
+- Asset instructions now cover animated mascots made from video: either a crop of a finished screen, or the character on a green backdrop that is removed afterwards so the same clips play on every screen.
+- Characters that move inside gameplay still use sprite animation.
+
 ## 1.7.44 — 2026-10-13
 
 - Game-writing instructions now cover tap-triggered ads, delayed reward offers, privacy choices, store prices, pending purchases and restores.
