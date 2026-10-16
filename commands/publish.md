@@ -29,8 +29,10 @@ offer `/make-game` instead. Do not try to route around it.
 **First, wire player telemetry** — into the SOURCE `index.html`, because the build copies it into `dist/`.
 Without this step the published game reports nothing about how people play it.
 
-1. `telemetry_provision({gameId: <slug>, appVersion: <version from package.json>})` (an `ongame` cloud tool) → `{snippet}`
+1. `telemetry_provision({gameId: <slug>, gameTitle: <visible game title>, appVersion: <version from package.json>})` (an `ongame` cloud tool) → `{snippet}`
    or `null`. Use the same `<slug>` you will publish under.
+   GameAnalytics is configured automatically. Every title uses the shared dashboard, separated by its build name.
+   Do not read or pass maker keys. Without the shared keys, the game reports to onGame only.
 2. Got a snippet → `telemetry_inject({gameDir, snippet})` (a local `ongame` tool). Safe on a game that already has telemetry:
    the same snippet is a no-op, and a new version replaces the old block.
 3. `injected: false` with a `reason` → the page still holds an older telemetry config, maybe another maker's key.
@@ -38,7 +40,9 @@ Without this step the published game reports nothing about how people play it.
    script that sets `__ONGAME_TELEMETRY__` and the telemetry `sdk.js` tag, then publish without telemetry. Never
    publish a page that still holds the old config: its players would report to that config's owner.
 4. `null`, or `injected: false` with no `reason` → publish anyway, and say in the hand-over that this build
-   does not report player data. Telemetry never blocks a publish.
+   does not report player data. First remove any previous `__ONGAME_TELEMETRY__` config and telemetry `sdk.js` tag
+   from the source HTML. A failed provision must not leave an old GameAnalytics destination active.
+   Telemetry never blocks a publish.
 
 Every published game carries the "Built with onGame" credit. Next
 `Bash`: `node <pluginRoot>/skills/credit/apply.mjs {gameDir}` — it adds or updates the credit in `index.html`;
@@ -87,17 +91,26 @@ build*, never *retry the call*:
 
 Otherwise it returns `{uploads, publicUrl, signing}` — upload slots, no bytes moved yet.
 
-It also returns `source` — where this publish keeps the game's source, privately, for your team.
+It also returns `source` — where this publish keeps a private copy of the game's source. Every member of the gamebyte-ai organization can read it.
 
 Then `publish_upload({gameDir, uploads, source})` (a local `ongame` tool) → reads each built file and uploads it, then
 keeps the source. **Pass each slot through unchanged** — the slots carry headers that were signed for that exact file,
-so editing or dropping a field makes the upload fail. Returns `{uploaded, skipped?, failed?, source}`.
+so editing or dropping a field makes the upload fail. Returns `{uploaded, skipped?, failed?, source, repo}`; `repo` is
+the game folder's repository URL, or `none` when it has none.
 
 `source` is separate from the game: `.env` files, keys, `node_modules`, `dist` and `.ongame` are never in it, and its
 `.gitignore` is honoured. `status: "uploaded"` → keep `source.key` for step 5. `status: "not_kept"` → this account
 keeps no source; that is a setting, not a problem, so say nothing about it. `status: "failed"` → the game can still be
 live, but its source was not kept: say that in the hand-over, with the `reason`. Never drop it because the game
 worked.
+
+**Record an incomplete upload once, before recovery:** if `refused` is not true and either `failed` or
+`skipped` is non-empty, call `trace_emit({buildId, name: "publish.partial", payload: {gameId: <game slug>,
+uploaded: <uploaded>, failed: <failed or []>, skipped: <skipped or []>}})`. Pass the result lists unchanged;
+do not send upload slots or signed URLs. Emit once for this upload attempt, including skipped-only results.
+Do not emit for a preflight refusal, a source-only failure, a successful upload, or a later live-byte mismatch.
+If the trace returns `recorded:false`, report that the failure record was not saved; do not retry the trace
+or the upload to repair telemetry. This event never marks a game as published.
 
 ## 4. Do not hand over a link you have not checked
 
@@ -115,7 +128,8 @@ A stale response is **not** live — treat it exactly like a failed publish.
 ## 5. Record it, then hand it over
 
 Only after step 4 passed: `trace_emit(buildId: <buildId>, name: "publish.done", payload: {gameId: <slug>, source:
-<source.key>})` (an `ongame` cloud tool) — leave `source` out when it did not upload — then give the user the URL plainly.
+<source.key>, repo: <repo>})` (an `ongame` cloud tool) — leave `source` out when it did not upload; always pass `repo`
+exactly as publish_upload returned it — then give the user the URL plainly.
 
 If you could not verify, say the publish is **unverified** and why. An unverified link presented as working is
 worse than no link — the user shares it, and finds out from someone else.

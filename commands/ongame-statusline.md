@@ -1,13 +1,15 @@
 ---
 name: ongame-statusline
-description: Turn the ongame statusline on/off. When on, a small "🎮 ongame" marker shows in your Claude Code statusline ONLY during an active /make-game build; your own statusline is preserved and restored.
+description: Turn the ongame statusline on/off. When on, a small "🎮 ongame" marker shows in your Claude Code statusline during an active /make-game build, and it names a file the backup leaves out because it holds a key; your own statusline is preserved and restored.
 ---
 
 # /ongame-statusline — opt-in build-time brand marker (on / off)
 
 `$ARGUMENTS` is `on`, `off`, or empty. This adds a small `🎮 ongame` marker to the Claude Code statusline
-that appears **only while a `/make-game` build is running**, and **never replaces the user's own
-statusline** — it wraps and delegates to it, and restores it exactly on `off`.
+that appears **only while a `/make-game` build is running**. The one other thing it adds, build or not, is
+the name of a file of the game being worked on that the backup leaves out because it holds a key. It
+**never replaces the user's own statusline** — it wraps and delegates to it, and restores it exactly on
+`off`.
 
 **If `$ARGUMENTS` is empty:** briefly explain the two options and ask which they want (`on` or `off`) via
 one `AskUserQuestion`. Do not run anything until they choose.
@@ -34,8 +36,8 @@ statusline is the one Claude Code surface that is always shell-executed), and pr
 `uninstall` restores their original command exactly, or removes the key if they had none. Both are
 idempotent, and `install` doubles as a refresh if they changed their statusline while ours was on.
 
-After `on`, tell the user in one line: it's on, it shows only during a build, their own statusline is
-preserved, and they can turn it off anytime with `/ongame-statusline off`. **The change takes effect on the
+After `on`, tell the user in one line: it's on, it shows during a build and names a file the backup leaves
+out because it holds a key, their own statusline is preserved, and they can turn it off anytime with `/ongame-statusline off`. **The change takes effect on the
 next statusline refresh / next session** (like any Claude Code settings change).
 
 Relay the command's own output honestly (it reports success, and warns if the install path contains a space

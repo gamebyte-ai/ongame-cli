@@ -1,8 +1,79 @@
 # Changelog
 
-## 1.7.34 — 2026-10-06
+## 1.7.46 — 2026-10-16
 
 - A game's character can now perform on its menus and cards: `/make-game` follows a mascot video step that makes an idle still on a green screen, asks forge for short takes one at a time, checks each take (too still, cut off by the frame, no green screen), and packs the kept takes into transparent WebP pages with a ready player for Pixi. A video call that times out is no longer treated as failed: the step waits and looks in the library before anything is sent again.
+
+## 1.7.45 — 2026-10-16
+
+- Asset instructions now cover animated mascots made from video: either a crop of a finished screen, or the character on a green backdrop that is removed afterwards so the same clips play on every screen.
+- Characters that move inside gameplay still use sprite animation.
+
+## 1.7.44 — 2026-10-13
+
+- Game-writing instructions now cover tap-triggered ads, delayed reward offers, privacy choices, store prices, pending purchases and restores.
+- Older games check their helper exports before wiring these features. Reward readiness polling stops when its screen closes.
+- This updates plugin instructions. The new scaffold watcher reaches makers in a future CLI release.
+
+## 1.7.43 — 2026-10-13
+
+- Web and Unity build instructions now provision shared GameAnalytics automatically, with each game identified by its title.
+- Failed provisioning clears the previous config. Makers no longer supply analytics keys.
+
+## 1.7.42 — 2026-10-12
+
+- When a game upload fails or skips files, the agent now records it once, so failed publishes can be counted. Uploads work as before.
+- Ships with CLI 0.2.27.
+
+## 1.7.41 — 2026-10-09
+
+- The publish texts now say who can read the kept copy of a game's source: every member of the gamebyte-ai organization. Before, they said it was kept "for your team".
+- Ships with CLI 0.2.23.
+
+## 1.7.40 — 2026-10-08
+
+- `/ongame-statusline` now says the statusline also names a file the backup leaves out because it holds a key. Before, it said the marker shows only during a build. The file name shows from the first CLI release after 0.2.23.
+- Ships with CLI 0.2.23.
+
+## 1.7.39 — 2026-10-08
+
+- In Claude Code, paid asset work started outside a build now really gets its jury review. 1.7.36 said so, but the plugin never ran the step that saves the review access after an image, 3D or sound request.
+- Ships with CLI 0.2.23.
+
+## 1.7.38 — 2026-10-08
+
+- When an agent rigs or makes a 3D model, it now names the game when it starts the job, not only when it collects the result. The rig then counts toward that game's build.
+
+## 1.7.37 — 2026-10-08
+
+- Publishing a game with a large source folder no longer freezes. The source is packed as it is read and stops at the limit. A kept source may now be up to 400 MiB after compression (was 200 MiB).
+- When a build's upload fails, publish no longer says the game is published. The result lists each failed file with its status. If the source upload failed too, its note says this build was not published. If the host refused index.html, that is true and the previous page stays live. If the connection dropped while sending index.html (status 0), the note can be wrong: either page may be live.
+- On a Mac, login no longer hangs when the Keychain is unavailable. It stops and asks you to unlock or create your login Keychain.
+- At a Mac desktop, login and tool startup wait up to 120 seconds while you type your Keychain password. Remote (SSH) sessions keep a 5-second limit. An SSH login waits while a desktop login on the same Mac unlocks the Keychain.
+- A failed Mac Keychain write no longer prints your login tokens.
+- When a source is over the limit, the source file is closed before the limit is reported, so Windows can clean it up.
+- Ships with CLI 0.2.23.
+
+## 1.7.36 — 2026-10-07
+
+- A publish now boots the game first and refuses one that fails to start. It catches broken asset paths and boot errors; it does not judge whether a game is drawn. When the check cannot run, the game is published and you are told so.
+- The publish boot check no longer refuses a real game drawn in two colours on one canvas. A hung page letterboxed in flat colours is still refused.
+- A publish refuses a page whose HTML points at a file the build does not contain, before any file is sent.
+- Paid asset work started outside a build now gets its jury review.
+- Claude Code publishes keep the game source again.
+- A kept game source never includes a file a .gitignore hides. A publish run from a folder inside the game no longer keeps only part of its source. Without git, no source is kept.
+- Ships with CLI 0.2.22.
+
+## 1.7.35 — 2026-10-07
+
+- Glows, light rays, skies and ribbon shading in new games are now drawn as one shape with a smooth gradient fill, so they no longer show visible rings or bands. The polish phase reads the gradient guide before drawing the first one.
+
+## 1.7.34 — 2026-10-06
+
+- Every publish now records the game's GitHub repository on its build, or `none` when the game folder has no remote. Only the host and repository path are sent; a user name, token or port in the remote is dropped on your machine.
+- The CLI now downloads a new release in the background and runs it on the next start, so a slow line no longer drops the update. A new release that fails to start falls back to the previous one.
+- On Windows, a self-update now waits out a brief lock on the running `ongame` program instead of failing.
+- Ships with CLI 0.2.21.
 
 ## 1.7.33 — 2026-10-04
 

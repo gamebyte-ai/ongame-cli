@@ -197,6 +197,10 @@ Resolve `ParticleManager` and `TimelineManager` from DI, tick them in `onStep` i
 > All these effects are triggered in the **Controller** (when Board state changes), the **View** only renders.
 > The effect does NOT BLOCK input — the input lock already exists in the code phase during cascade resolving.
 
+**Anything soft — a glow, light rays, a sky, ribbon shading, a sparkle halo — is ONE shape with a gradient
+fill, never a stack of flat shapes or strips** (a stack renders as visible rings). Call
+`knowledge_get({ key: 'pattern:gradients' })` before drawing the first one.
+
 **If the game has ABILITIES** (spells, skills, ultimates, dashes, projectiles with a status effect —
 action/RPG/shooter/MOBA-shaped, 2D or 3D), the juice above is not enough: an ability effect has to
 match its own mechanic (radius, windup, duration) or it misinforms the player, and the naive
@@ -218,8 +222,8 @@ improvise a half-version), and continue.
   exit `power2.in`. Popup `onClose(done)` → call `done()` when the fade-out completes.
 
 ## Sub-phase 7 — Background (gradient / parallax)
-- Static: `BackgroundComponent` (texture) or a **vertical gradient** (fill between two colors) with
-  `PIXI.Graphics` at the very bottom of `HudLayer.Content`, scaled to full-stage in `onResize`.
+- Static: `BackgroundComponent` (texture) or a **vertical gradient** — one rect with a Pixi `FillGradient`, not
+  strips (`pattern:gradients`) — in `PIXI.Graphics` at the very bottom of `HudLayer.Content`, scaled to full-stage in `onResize`.
 - Parallax: 2–3 `ImageComponent` layers at different speeds; in `onStep`, shift `x` according to the
   derivative of the camera/score (far layer slow). For a slight continuous motion, gsap `repeat:-1 yoyo`.
 - If asset generation is available, generate the background asset; otherwise gradient (gray-box fallback). Performance: the
@@ -298,8 +302,14 @@ continue — the build must never break. The golden rule still applies: the loop
 did not clearly improve, keep its old assets.
 
 ## Sub-phase 10 — Telemetry provisioning (deploy wiring, Channel B)
+- **Unity:** before every player build, install `template:unity-gameanalytics` and call
+  `telemetry_provision({gameId: <game slug>, gameTitle: <visible game title>})`.
+  Write its `gameAnalytics` object to `{gameDir}/.ongame/gameanalytics.json`; write `{}` when absent or the call fails.
+  Keep `.ongame/` and `Assets/Resources/GameAnalytics/Settings.asset` out of source control.
+  The adapter uses the shared keys and title automatically. Never ask the maker for keys or reuse an earlier config.
+  Then continue through the Unity build toolchain; the HTML injection steps below apply only to web games.
 - Provision shipped-game **player telemetry** so the deployed game feeds retention measurement ("which games retain") in **two steps**:
-  1. `telemetry_provision({gameId: <game slug>})` → returns `{ingestKey, endpoint, sdkUrl, snippet}`. This mints
+  1. `telemetry_provision({gameId: <game slug>, gameTitle: <visible game title>})` → returns `{ingestKey, endpoint, sdkUrl, snippet}`. This mints
      a per-game **public ingest key** (gate, via your OAuth identity — a tenant mints only its own) and builds the
      `ongame-telemetry` SDK snippet (NO disk write — it returns the snippet). The SDK auto-emits exactly two
      events — `session_start` and `session_end` — with an anonymous install id (D1/D7 retention); no PII.
@@ -321,7 +331,8 @@ did not clearly improve, keep its old assets.
      refuses, delete every script that sets `__ONGAME_TELEMETRY__` and the telemetry `sdk.js` tag before Sub-phase 11.
      Never publish a page that still holds the old config: its players would report to that config's owner.
 - **Idempotent + graceful:** re-running `telemetry_inject` does not double-inject; if telemetry provisioning is unavailable
-  (no `{snippet}` returned) skip the inject — the SDK then fails silent → it NEVER blocks the build or breaks gameplay.
+  (no `{snippet}` returned), remove any previous `__ONGAME_TELEMETRY__` config and telemetry `sdk.js` tag from source HTML.
+  Then skip injection. This prevents an old destination from surviving failed provisioning; publishing still proceeds.
   Inject into the SOURCE `index.html` (before `vite build`) so the bundle carries it. This is Channel B (runtime player
   telemetry — the shipped game's browser SDK), distinct from Channel A (build-time orchestration traces via `trace_emit`).
 
@@ -346,7 +357,7 @@ did not clearly improve, keep its old assets.
        (same rule as the code phase's `playable`). **It does not authorise publishing either: "we did not look"
        is not "it works".** Do the one-line step in `fix` and verify again. If it still cannot run, say plainly
        that the build is NOT boot-verified and ask the user whether to publish anyway — publishing unverified is
-       the user's call to make, never yours.
+       the user's call to make, never yours. If they say yes, step 4 publishes it and returns `verify.warning`.
      Scope is boot only — it says nothing about look or feel.
   2. **Pre-publish check — fix everything it finds before step 3.** Every refusal step 3 can give is findable here.
      - **A build behind the game:** you hold this build's `buildId` from `state_init`, and step 3's `gameId` is the
@@ -365,10 +376,22 @@ did not clearly improve, keep its old assets.
      `path` — drop it and rebuild), `no_entry_point` (no `index.html` at the root of `dist/`), `too_many_files` /
      `payload_too_large` (trim the build). Surface the refusal to the user in those words; do not route around it.
   4. `publish_upload({gameDir, uploads, source})` — `uploads` and `source` are both straight from `publish_game` →
-     reads each built file from `dist/` and PUTs it to its upload slot, then keeps the game's source for the team.
-     Returns `{uploaded:[{path,status}], skipped?, failed?, source}`. **Pass each slot through UNCHANGED** — a slot carries
+     reads each built file from `dist/` and PUTs it to its upload slot, then keeps a private copy of the game's source,
+     readable by every member of the gamebyte-ai organization.
+     Returns `{uploaded:[{path,status}], skipped?, failed?, source, repo}`. **Pass each slot through UNCHANGED** — a slot carries
      headers that were signed for that exact file, so editing or dropping a field makes the PUT fail. (The build
      directory is fixed; there is no `subdir` argument.)
+     It boots the build again (step 1b's check) before the first PUT. `refused` with `reason: "boot_failed"` → nothing
+     was uploaded and the live game is unchanged: fix what `failures` names, rebuild, and start again from step 1b.
+     `verify.status: "unverified"` → the check could not run and the game IS published: tell the user `verify.warning`
+     word for word in the hand-over.
+     **Record an incomplete upload once, before recovery:** if `refused` is not true and either `failed` or
+     `skipped` is non-empty, call `trace_emit({buildId, name: "publish.partial", payload: {gameId: <game slug>,
+     uploaded: <uploaded>, failed: <failed or []>, skipped: <skipped or []>}})`. Pass the result lists unchanged;
+     do not send upload slots or signed URLs. Emit once for this upload attempt, including skipped-only results.
+     Do not emit for a preflight refusal, a source-only failure, a successful upload, or a later live-byte mismatch.
+     If the trace returns `recorded:false`, report that the failure record was not saved; do not retry the trace
+     or the upload to repair telemetry. This event never marks a game as published.
   5. **Only if `failed` AND `skipped` are both empty:** **report the `publicUrl`** to the user — that is the live,
      shareable game. **If `failed` is non-empty** (one or more PUTs returned a non-2xx status — expired signed-URL TTL,
      missing bucket, blocked public access), the game is **NOT** fully live: do NOT hand over the `publicUrl` as a working
@@ -392,8 +415,9 @@ did not clearly improve, keep its old assets.
      MISMATCHED response is not. A stale serve = NOT live: treat like a failed publish (surface it, don't hand
      over the URL as working).
   7. **Stamp the build record — ONLY after step 6's live-byte check passed** (all PUTs ok in step 4 AND the live
-     bytes are THIS build): emit `trace_emit(buildId=<buildId>, name="publish.done", payload={gameId: <game slug>, source: <source.key>})`
-     (ongame) — leave `source` out when step 4's source did not upload. Server-side this writes
+     bytes are THIS build): emit `trace_emit(buildId=<buildId>, name="publish.done", payload={gameId: <game slug>, source: <source.key>, repo: <repo>})`
+     (ongame) — leave `source` out when step 4's source did not upload; always pass step 4's `repo` unchanged
+     (the game folder's repository URL, or `none`). Server-side this writes
      `publishedUrl`/`publishedAt` (and where the source landed) onto the build record; the URL is
      reconstructed from your verified identity + the build's own gameId, and the emitted `gameId` must MATCH the
      build's (a mismatch is refused — it means the uploaded location and this record diverged). Skip on any

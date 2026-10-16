@@ -51,6 +51,8 @@ a reputation for being heavy.
 
 For animated characters, use **sprite clip mode** (§3) and pass the character image as `editOf`.
 Only the legacy **grid mode** is prompt-only; describe the anchored character in its grid prompt.
+A mascot that has to *act* on menus and result cards (cheer, wave, "oops") is a **`video`** asset instead (§3):
+fetch `pattern:mascot-video` before generating it.
 
 > **GRAYBOX-FIRST — you run AFTER `code`.** By the time this phase starts, the `code`
 > phase has produced a fully-PLAYABLE graybox game (placeholder `PIXI.Graphics`/`PIXI.Text`). You are the **"dress"**
@@ -287,10 +289,10 @@ return, the client writes them to disk):
 > **`gameId` (optional) — tag this generation for later game-scoped recall.** Pass the current game's slug
 > (the same identifier used elsewhere for this build) so the asset is later findable in ONE call via
 > `asset_library_list({ gameId })` — "what did I make/use for this game" instead of listing the whole tenant
-> library and filtering yourself. Same field on `sound_request`; for the async path (`forge_generate_async`/
-> `forge_rig`) pass it to `asset_job_status` when you POLL, not at submit — you already know the game at poll
-> time, and the generator itself never needs to carry it. Purely a correlation key; omit it if there's no game context
-> yet (e.g. a standalone reference generation).
+> library and filtering yourself. Same field on `sound_request`. On the async path (`forge_generate_async`/
+> `forge_rig`) pass it TWICE: at SUBMIT, so the job counts toward this game's build, and again to
+> `asset_job_status` when you POLL, so the delivered asset is tagged for this game. Omit it only if there's no game
+> context yet (e.g. a standalone reference generation).
 
 > **Size/weight (automatic + optional):** every raster output is automatically web-optimized
 > (PNG palette quantization + compression — 70-85% reduction in game art, visual quality preserved).
@@ -303,6 +305,13 @@ return, the client writes them to disk):
 - **`kind`** — YOU judge which kind:
   - **`2d-static`** — flat 2D visual (UI/HUD/tile/bg/menu). Most assets are this.
   - **`sprite`** — transparent character animation (idle/walk or one-shot attack). Use `spriteParams.mode: "clip"` + a character reference; legacy grid mode remains available (below).
+  - **`video`** — a full-body performance made from ONE `editOf` frame: either a crop of a screen you already
+    drew (plays back in that same rectangle), or the character on a flat chroma-key green plate that you key to
+    transparency afterwards, so one set of clips plays on every screen the mascot appears on. For small,
+    numerous or in-gameplay characters use `sprite`. Billed per second and the most expensive asset: read the
+    remaining allowance first and send one clip at a time. Fetch `pattern:mascot-video` and follow `skills/mascot-video/SKILL.md` (the still, one request at a time, a timeout is not a failure, `pack.py` and the player) before the first clip.
+    The `ART_PREFIX` background rule and `transparent` do not apply to this kind (it refuses `transparent`):
+    keep the style words, and take the background and camera wording from the pattern.
   - **`3d-static`** — image→GLB 3D model (prop/object, ~1-3 min). Meaningful **ONLY in 3D games**
     (Three.js world3d); do not use in a pure 2D game. `threeDParams` + single-object prompt (or
     `editOf`=ready clean visual). Sync `forge_request` usually completes within the MCP client's own request
@@ -316,8 +325,6 @@ return, the client writes them to disk):
     for a sync call — a silent timeout would waste real spend).
     Submit via `forge_generate_async` and poll via `asset_job_status` (§3.5); never call `forge_request` for
     `3d-char`.
-  - **`video`** — a character performing on a menu or card (lobby wave, win cheer). Follow
-    `skills/mascot-video/SKILL.md`: the still, one request at a time, and a timeout is not a failure.
 - **`prompt`** — `ART_PREFIX + asset description` (Step 2). English, concrete, single subject.
 - **`aspectRatio?`** — `'1:1'|'16:9'|'9:16'|'4:3'|'3:4'`. Pass for non-square assets (banner 16:9,
   splash/vertical 9:16); otherwise it falls back to 1:1. (Now a parameter — no verbal description needed in the prompt.)
@@ -379,9 +386,10 @@ the asset (a job you never poll again costs nothing, per the tool's own contract
    the delivered asset for game-scoped `asset_library_list` recall (the submit-time value covers spend
    attribution; they serve different sinks) — see §3's gameId note.
 3. **Rigging (3d-char only, optional):** once the static mesh's `asset_job_status` call reports `completed`,
-   take that asset's `meta.assetId` and call `forge_rig({ modelRef: <that assetId>, heightMeters? })` →
-   another `{jobRef, status:'queued'}` — poll it the SAME way via `asset_job_status`. Rigging is a separate job
-   from generation, not a flag on step 1.
+   take that asset's `meta.assetId` and call `forge_rig({ modelRef: <that assetId>, gameId: <slug>, heightMeters? })`
+   → another `{jobRef, status:'queued'}` — poll it the SAME way via `asset_job_status` (with `gameId` again).
+   Pass `gameId` at this submit as in step 1 — rigging is the most expensive asset kind, and a rig submitted
+   without it counts toward no build. Rigging is a separate job from generation, not a flag on step 1.
    - **`modelRef` takes either id, same as `editOf` (§4):** the sealed `meta.assetId` from the generating result,
      or the **stable `a_<hex>`** from `asset_library_list`/`asset_library_get`. Use the stable one to rig a model
      you generated in an EARLIER session — the sealed handle is ~24h and will be dead by then.
