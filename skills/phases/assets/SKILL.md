@@ -51,6 +51,8 @@ a reputation for being heavy.
 
 For animated characters, use **sprite clip mode** (§3) and pass the character image as `editOf`.
 Only the legacy **grid mode** is prompt-only; describe the anchored character in its grid prompt.
+A mascot that has to *act* on menus and result cards (cheer, wave, "oops") is a **`video`** asset instead (§3):
+fetch `pattern:mascot-video` before generating it.
 
 > **GRAYBOX-FIRST — you run AFTER `code`.** By the time this phase starts, the `code`
 > phase has produced a fully-PLAYABLE graybox game (placeholder `PIXI.Graphics`/`PIXI.Text`). You are the **"dress"**
@@ -303,6 +305,13 @@ return, the client writes them to disk):
 - **`kind`** — YOU judge which kind:
   - **`2d-static`** — flat 2D visual (UI/HUD/tile/bg/menu). Most assets are this.
   - **`sprite`** — transparent character animation (idle/walk or one-shot attack). Use `spriteParams.mode: "clip"` + a character reference; legacy grid mode remains available (below).
+  - **`video`** — a full-body performance made from ONE `editOf` frame: either a crop of a screen you already
+    drew (plays back in that same rectangle), or the character on a flat chroma-key green plate that you key to
+    transparency afterwards, so one set of clips plays on every screen the mascot appears on. For small,
+    numerous or in-gameplay characters use `sprite`. Billed per second and the most expensive asset: read the
+    remaining allowance first and send one clip at a time. Fetch `pattern:mascot-video` before the first clip.
+    The `ART_PREFIX` background rule and `transparent` do not apply to this kind (it refuses `transparent`):
+    keep the style words, and take the background and camera wording from the pattern.
   - **`3d-static`** — image→GLB 3D model (prop/object, ~1-3 min). Meaningful **ONLY in 3D games**
     (Three.js world3d); do not use in a pure 2D game. `threeDParams` + single-object prompt (or
     `editOf`=ready clean visual). Sync `forge_request` usually completes within the MCP client's own request
