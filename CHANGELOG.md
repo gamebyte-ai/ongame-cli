@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.46 — 2026-10-16
+
+- A game's character can now perform on its menus and cards: `/make-game` follows a mascot video step that makes an idle still on a green screen, asks forge for short takes one at a time, checks each take (too still, cut off by the frame, no green screen), and packs the kept takes into transparent WebP pages with a ready player for Pixi. A video call that times out is no longer treated as failed: the step waits and looks in the library before anything is sent again.
+
 ## 1.7.45 — 2026-10-16
 
 - Asset instructions now cover animated mascots made from video: either a crop of a finished screen, or the character on a green backdrop that is removed afterwards so the same clips play on every screen.

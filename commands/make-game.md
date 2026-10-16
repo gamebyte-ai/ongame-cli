@@ -136,6 +136,11 @@ hybrid-casual stages — consult `skills/level-design/SKILL.md` — or, where th
 phase or an approval gate. Carry the resulting `docs/LEVEL_DESIGN.md` into later work and re-runs; skip it for
 games without a level sequence.
 
+When a character on a non-gameplay screen should move — the mascot in the lobby, on the win or fail card, on a
+loading screen — consult `skills/mascot-video/SKILL.md` before the first `kind:"video"` request. It covers the still,
+the prompt, sending takes one at a time, what to do when a video call times out (the clip is often delivered and billed
+later), and the check and packing tools.
+
 ## Work and verify
 
 Work towards the confirmed brief, choose the necessary tools and implementation approach, and keep the scope

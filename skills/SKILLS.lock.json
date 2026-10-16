@@ -1,5 +1,5 @@
 {
-  "pluginVersion": "1.7.45",
+  "pluginVersion": "1.7.46",
   "generatedAt": "2026-10-16",
   "skills": {
     "credit": {
@@ -17,9 +17,14 @@
       "bytes": 1685,
       "lines": 29
     },
+    "mascot-video": {
+      "sha256": "5616e1101a76c93ac92525a7af5fca6fc0258fed636dfb68b6079231ebae88bf",
+      "bytes": 8069,
+      "lines": 122
+    },
     "phases/assets": {
-      "sha256": "bf535c7b7e24811ae25671ad386befdfc6acf97cb90e69dcb5650339fa160d68",
-      "bytes": 48226,
+      "sha256": "bc0f89d522007bc526188f8c13b48f2a1f5099a873a26b1a85c0a867ab3d5bf2",
+      "bytes": 48357,
       "lines": 621
     },
     "phases/audio": {
