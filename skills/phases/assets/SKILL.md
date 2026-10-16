@@ -310,6 +310,8 @@ return, the client writes them to disk):
     transparency afterwards, so one set of clips plays on every screen the mascot appears on. For small,
     numerous or in-gameplay characters use `sprite`. Billed per second and the most expensive asset: read the
     remaining allowance first and send one clip at a time. Fetch `pattern:mascot-video` before the first clip.
+    The `ART_PREFIX` background rule and `transparent` do not apply to this kind (it refuses `transparent`):
+    keep the style words, and take the background and camera wording from the pattern.
   - **`3d-static`** — image→GLB 3D model (prop/object, ~1-3 min). Meaningful **ONLY in 3D games**
     (Three.js world3d); do not use in a pure 2D game. `threeDParams` + single-object prompt (or
     `editOf`=ready clean visual). Sync `forge_request` usually completes within the MCP client's own request
