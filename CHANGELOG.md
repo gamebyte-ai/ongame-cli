@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.46 — 2026-10-18
+
+- When the user asks to change work a phase already produced, the build now records the redo before repeating that phase.
+
 ## 1.7.45 — 2026-10-16
 
 - Asset instructions now cover animated mascots made from video: either a crop of a finished screen, or the character on a green backdrop that is removed afterwards so the same clips play on every screen.
