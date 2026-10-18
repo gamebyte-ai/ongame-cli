@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Document the upcoming `ongame-cli login --device` flow for cloud/headless machines,
+  including explicit phone approval, expiry, cancellation and credential storage.
+  Requires the matching future CLI release and auth-server rollout; CLI 0.2.33
+  does not support device login.
+
 ## 1.7.45 — 2026-10-16
 
 - Asset instructions now cover animated mascots made from video: either a crop of a finished screen, or the character on a green backdrop that is removed afterwards so the same clips play on every screen.

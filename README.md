@@ -68,6 +68,15 @@ anything is called playable — uses a bundled Playwright server that needs **No
 (for `npx`). Without it a build still runs end to end, but it is reported as `unverified` rather than
 playable.
 
+### Sign in from a cloud or headless machine
+
+Device login is an upcoming feature requiring a matching CLI release and auth
+server rollout; CLI 0.2.33 does not support it. Once available, run
+`ongame-cli login --device`, then enter its code and approve access at the official
+OnGame page on your phone. See [device login](docs/device-login.md) for permissions,
+expiry, cancellation and credential storage. Desktop `ongame-cli login` remains
+available.
+
 ### Choosing agents without the prompt
 
 ```
