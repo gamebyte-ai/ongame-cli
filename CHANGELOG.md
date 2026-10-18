@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.47 — 2026-10-18
+
+- After the browser check, the build now closes the game browser, so an open game no longer drains the battery.
+
 ## 1.7.45 — 2026-10-16
 
 - Asset instructions now cover animated mascots made from video: either a crop of a finished screen, or the character on a green backdrop that is removed afterwards so the same clips play on every screen.
