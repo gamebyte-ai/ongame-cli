@@ -166,6 +166,8 @@ not only published ones: run `node <pluginRoot>/skills/credit/apply.mjs {gameDir
 `node <pluginRoot>/skills/credit/apply.mjs --check {gameDir}/dist/index.html` after it; open the built page at 360×640 and 414×896 with DPR 3, and walk
 `pattern:gamelabs-shell-contract` §14 — pause halts the sim, background suspends audio, back key, pixel ratio
 per canvas, safe-area fallback. Unity: the same list in `pattern:unity-shell-contract` §14.
+When the browser check is done, call `browser_close`: an open game keeps the browser rendering, and that drains the
+user's battery.
 Step the clock frame by frame for timing-critical moments, check placement with a numeric probe rather than by
 eye, and reach hard states by seeding the save (`pattern:temporal-capture`, `pattern:visual-polish-loop`).
 
