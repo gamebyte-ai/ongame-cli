@@ -12,7 +12,7 @@ whose look is still being decided (that is the concept step, `pattern:art-direct
 
 1. Call `knowledge_get({ key: "pattern:art-direction-pass" })` and follow the returned procedure in its order,
    including its audit, its control matrix and its coverage sweep.
-2. Write the rules to `docs/STYLE.md` in the game directory before changing code, with the invariants the pass must
+2. Write the rules to `docs/ART_DIRECTION.md` in the game directory before changing code, with the invariants the pass must
    not move. Show the user the audit page and the rules before generating anything.
 3. Keep the control matrix as a script in the game, so a later change can be checked against the same rules.
 
