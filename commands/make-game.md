@@ -136,6 +136,11 @@ hybrid-casual stages — consult `skills/level-design/SKILL.md` — or, where th
 phase or an approval gate. Carry the resulting `docs/LEVEL_DESIGN.md` into later work and re-runs; skip it for
 games without a level sequence.
 
+When an existing game must look consistent or holistic, match a reference game's quality, or the user asks you to work
+as an art director, consult `skills/art-direction/SKILL.md` — or, where that file is not on disk, the same procedure as
+`knowledge_get({ key: 'pattern:art-direction-pass' })`. It audits every screen, writes `docs/STYLE.md` before code and
+proves the change with a control matrix. Carry `docs/STYLE.md` into later work and re-runs.
+
 ## Work and verify
 
 Work towards the confirmed brief, choose the necessary tools and implementation approach, and keep the scope
