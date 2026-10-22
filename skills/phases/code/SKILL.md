@@ -130,7 +130,8 @@ zombie report. This lock guards WRITES only — reading/analysis needs no lock.
    key. Instead, fall back to `framework` + the appropriate `pattern:*`s in the list
    (app-setup + game-loop + input + whatever else the design requires), and in the output document
    **note** "no genre knowledge existed, composed from framework + patterns".
-6. Fetch the matched/selected `pattern:*`s (at minimum: app-setup, game-loop, input).
+6. Fetch the matched/selected `pattern:*`s (at minimum: app-setup, game-loop, input). Also fetch
+   `pattern:code-craft`, and run its four checks before you hand the code over.
 7. **Call `brain_recall`** (the DYNAMIC sibling of knowledge — compose static knowledge + LEARNED lessons):
    `brain_recall(phase="code", gameId=<game slug>, mechanic=<mechanic>, genre=<type>, query=<specific need>, buildId=<buildId>)`
    → returns curated lesson texts (if empty — memory unavailable or no lessons yet → static knowledge only, that's fine). Use these

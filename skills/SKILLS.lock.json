@@ -1,6 +1,6 @@
 {
-  "pluginVersion": "1.7.48",
-  "generatedAt": "2026-10-20",
+  "pluginVersion": "1.7.49",
+  "generatedAt": "2026-10-22",
   "skills": {
     "art-direction": {
       "sha256": "4fb82004119bfc33672560fdea3da9ad11d71d2eb9a535574f0a8ac522beb1c0",
@@ -33,9 +33,9 @@
       "lines": 155
     },
     "phases/code": {
-      "sha256": "f69897b7f706223b9f520aaf6cf8eca6b437f885ed2eb29f8e25193b5b50e37d",
-      "bytes": 47720,
-      "lines": 493
+      "sha256": "ccdd2583d183b59d03431eb176a87cfb3c3b4fe7b8b7967d9db965f666180ed0",
+      "bytes": 47811,
+      "lines": 494
     },
     "phases/concept": {
       "sha256": "e640e552d8a454e8f78098bbfc3bb9ade95d3a7b155e510a74662bbe741b7ddf",
@@ -73,9 +73,9 @@
       "lines": 31
     },
     "unity": {
-      "sha256": "be005f451bbd9b06faa9454a6d404ef4e0cf413db74bc0d93648406f245de643",
-      "bytes": 26445,
-      "lines": 443
+      "sha256": "1c867a96215c33e47e2624be7f4bbca273a11e07ac93724582f35274441c637e",
+      "bytes": 26556,
+      "lines": 444
     }
   }
 }
