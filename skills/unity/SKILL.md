@@ -380,6 +380,7 @@ That material is not in this file — it is retrievable, and it is specific enou
 - `knowledge_get({ key: 'pattern:unity-porting-content' })` — when content authored elsewhere has to run in Unity
   (another engine's project, an exported scene, someone's prototype). The import succeeds, nothing errors, and it
   is subtly a different game; this is the list of ways that happens.
+- `knowledge_get({ key: 'pattern:unity-code-craft' })` — before you hand the code over. Run its four checks.
 - `knowledge_get({ key: 'pattern:unity-verification' })` — before reporting anything as working.
 
 **And do not hand-write the parts nobody should be re-deriving.** `template_list('unity')` returns drop-in C#
