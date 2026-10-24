@@ -1,0 +1,20 @@
+# Dependabot for gamebyte-ai/ongame-cli (gamebyte-ai/fleet i_agamcijm). Security updates are
+# turned on in the repo settings. This file adds weekly version updates for the one ecosystem
+# this repo has: the GitHub Actions its workflows use. It has no package lockfile.
+#
+# - One grouped PR per week, not one PR per action.
+# - cooldown: a version update only takes a release that is at least 7 days old. It does not
+#   apply to security updates (GitHub's dependabot options reference, read 2026-10-24). Why: on
+#   2026-10-21 a LiteLLM release carried malware for under 2 hours (OSV MAL-2026-2144).
+# - Every Dependabot PR still gets an independent review and green CI, and merges through the
+#   fleet's bin/fleet-merge.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: {interval: weekly, day: monday, time: "06:00", timezone: Etc/UTC}
+    cooldown: {default-days: 7}
+    groups:
+      github-actions:
+        patterns: ["*"]
+    commit-message: {prefix: "chore(deps)"}
