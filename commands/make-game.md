@@ -142,6 +142,11 @@ hybrid-casual stages — consult `skills/level-design/SKILL.md` — or, where th
 phase or an approval gate. Carry the resulting `docs/LEVEL_DESIGN.md` into later work and re-runs; skip it for
 games without a level sequence.
 
+When an existing game must look consistent or holistic, match a reference game's quality, or the user asks you to work
+as an art director, consult `skills/art-direction/SKILL.md` — or, where that file is not on disk, the same procedure as
+`knowledge_get({ key: 'pattern:art-direction-pass' })`. It audits every screen, writes `docs/ART_DIRECTION.md` before code and
+proves the change with a control matrix. Carry `docs/ART_DIRECTION.md` into later work and re-runs.
+
 ## Work and verify
 
 Work towards the confirmed brief, choose the necessary tools and implementation approach, and keep the scope
@@ -172,6 +177,8 @@ not only published ones: run `node <pluginRoot>/skills/credit/apply.mjs {gameDir
 `node <pluginRoot>/skills/credit/apply.mjs --check {gameDir}/dist/index.html` after it; open the built page at 360×640 and 414×896 with DPR 3, and walk
 `pattern:gamelabs-shell-contract` §14 — pause halts the sim, background suspends audio, back key, pixel ratio
 per canvas, safe-area fallback. Unity: the same list in `pattern:unity-shell-contract` §14.
+When the browser check is done, call `browser_close`: an open game keeps the browser rendering, and that drains the
+user's battery.
 Step the clock frame by frame for timing-critical moments, check placement with a numeric probe rather than by
 eye, and reach hard states by seeding the save (`pattern:temporal-capture`, `pattern:visual-polish-loop`).
 

@@ -1,8 +1,21 @@
 # Changelog
 
-## 1.7.46 — 2026-10-18
+## 1.7.50 — 2026-10-25
 
 - When the user asks to change work a phase already produced, the build now records the redo before repeating that phase.
+
+## 1.7.49 — 2026-10-22
+
+- Before the agent hands game code over, it now reads and runs four code checks: layers kept apart, nothing allocated per frame, a core action that answers on three channels, and recalled lessons that show in the code. This holds for web and Unity games.
+
+## 1.7.48 — 2026-10-20
+
+- New art direction step: when an existing game should look like one consistent world, or you ask the agent to work as an art director, it audits every screen, writes the visual rules down before changing anything, and checks the result on phone and desktop, in every theme and on every screen.
+- Animated mascots now breathe and blink while they wait between animations instead of freezing on a still frame.
+
+## 1.7.47 — 2026-10-18
+
+- After the browser check, the build now closes the game browser, so an open game no longer drains the battery.
 
 ## 1.7.45 — 2026-10-16
 
