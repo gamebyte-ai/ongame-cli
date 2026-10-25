@@ -25,7 +25,7 @@ jobs:
   build-and-verify:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # MSVC is preinstalled on windows-latest but `cl.exe` is not on PATH until the developer
       # environment is entered. vswhere + the DevShell module are both shipped with Visual Studio, so
@@ -54,7 +54,7 @@ jobs:
 
       # Also how the committed binary is produced in the first place: download this artifact and
       # commit it as bin/ongame-launcher.exe. Nobody ever builds it on a personal machine.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ongame-launcher-exe
           path: build/ongame-launcher.exe
