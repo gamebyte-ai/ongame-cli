@@ -21,7 +21,7 @@
         ]
       },
       {
-        "matcher": "mcp__plugin_ongame_ongame__(forge_request|forge_batch|forge_generate_async|sound_request)$",
+        "matcher": "mcp__plugin_ongame_ongame__(forge_request|forge_batch|forge_generate_async|forge_rig|sound_request|call_wait)$",
         "hooks": [
           { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/ongame-launcher", "args": ["hook", "build-marker-write"], "timeout": 10 }
         ]

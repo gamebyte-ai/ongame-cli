@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.52 — 2026-10-26
+
+- Rigged characters, and asset requests that take longer than 45 seconds, now get the same quality review as every other generated asset. Needs ongame-cli 0.2.35 or newer, which updates itself at session start.
+
 ## 1.7.51 — 2026-10-26
 
 - When the user asks to change work a phase already produced, the build now records the redo before repeating that phase.
