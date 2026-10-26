@@ -97,3 +97,17 @@ test("every plugin MCP tool prefix in a matcher names this plugin and one of its
     });
   }
 });
+
+// build-marker-write saves a build's jury credential from every tool result that registers an asset build
+// (ongame cli/src/hooks/build-marker-write.ts). A tool missing from this matcher never gets its review. call_wait is
+// here because a call slower than 45 s answers call_pending and delivers the real result through call_wait.
+test('build-marker-write runs after every asset-registering tool', () => {
+  const groups = hooks.hooks.PostToolUse.filter(
+    (g) => g.matcher !== undefined && g.hooks.some((h) => h.args?.join(' ') === 'hook build-marker-write'),
+  );
+  const prefix = `mcp__plugin_${manifest.name}_ongame__`;
+  for (const tool of ['forge_request', 'forge_batch', 'forge_generate_async', 'forge_rig', 'sound_request', 'call_wait', 'state_init']) {
+    assert.ok(groups.some((g) => new RegExp(g.matcher).test(prefix + tool)), `no build-marker-write hook matches ${tool}`);
+  }
+  assert.ok(!groups.some((g) => new RegExp(g.matcher).test(`${prefix}forge_rig_status`)), 'matcher must be anchored');
+});
