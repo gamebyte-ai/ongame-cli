@@ -1,6 +1,6 @@
 {
-  "pluginVersion": "1.7.49",
-  "generatedAt": "2026-10-22",
+  "pluginVersion": "1.7.50",
+  "generatedAt": "2026-10-26",
   "skills": {
     "art-direction": {
       "sha256": "4fb82004119bfc33672560fdea3da9ad11d71d2eb9a535574f0a8ac522beb1c0",
@@ -61,6 +61,11 @@
       "sha256": "121ee95275b701a4d80ed7535013c015780c280bd37542608a2a65d24f4bcbe5",
       "bytes": 5633,
       "lines": 25
+    },
+    "playable-ads": {
+      "sha256": "0c7e7e7ef7739e2abae63ab4687924ecc19bb4d8e73fed854324e56c90534bba",
+      "bytes": 980,
+      "lines": 18
     },
     "reference": {
       "sha256": "af63e8956f6d13c88c651082c3eb63f381ac21e4286701941a42bf72ef91ebd3",
