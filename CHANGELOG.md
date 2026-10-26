@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.51 — 2026-10-26
+
+- When the user asks to change work a phase already produced, the build now records the redo before repeating that phase.
+
 ## 1.7.50 — 2026-10-26
 
 - New playable ads step: ask for playable ads for a game that already plays and the agent builds three short ads from the game's own code, art, sounds and mascot, checks with the game's own simulation that each one is a real challenge, shows them on a review page, and then makes one file per ad network (AppLovin, Unity Ads, Meta, Google) with your store link.

@@ -93,6 +93,12 @@ After the last phase, one more `state_advance(buildId)` closes the build. If the
 does not list, close this build and register the next unit of work with `continues` set to this `buildId`. Never
 advance past a phase whose work did not happen.
 
+**Redo a phase when the user asks to change its work.** When the user corrects something a phase of this build
+already produced, record the correction as `user.feedback` (below). Right before you redo that work, call
+`record_iteration(buildId, <p>)`; never call it speculatively. It makes `<p>` current again and counts the redo.
+Then repeat steps 2-4 for `<p>`, starting with `phase.<p>.start`; skip step 1's `state_advance`. Call it once for
+each phase the change reaches. When the corrected request is complete, close the build with `build.done` again.
+
 If `.ongame/active-build.json` exists or is written by registration, inspect it before acting. When it belongs
 to this game and the build being handled in direct-work mode, preserve it as inactive history under a unique
 name in `.ongame/` instead of leaving an active phase reminder. Do not touch another project's/build's marker,
