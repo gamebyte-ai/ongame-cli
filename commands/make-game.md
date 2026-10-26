@@ -147,6 +147,11 @@ as an art director, consult `skills/art-direction/SKILL.md` — or, where that f
 `knowledge_get({ key: 'pattern:art-direction-pass' })`. It audits every screen, writes `docs/ART_DIRECTION.md` before code and
 proves the change with a control matrix. Carry `docs/ART_DIRECTION.md` into later work and re-runs.
 
+When the user wants playable ads for a game that already plays — interactive ads, "playables", an ad end card, or
+files for AppLovin, Unity Ads, Meta or Google — consult `skills/playable-ads/SKILL.md` — or, where that file is not on disk, the
+same procedure as `knowledge_get({ key: 'pattern:playable-ads' })`. It builds them from the game's own code and art,
+measures each board with the game's own simulation, and shows them on a review page before any network file.
+
 ## Work and verify
 
 Work towards the confirmed brief, choose the necessary tools and implementation approach, and keep the scope
