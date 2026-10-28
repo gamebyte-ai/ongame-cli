@@ -13,7 +13,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: docs/install.sh must equal install.sh
         run: |
           if ! diff -q install.sh docs/install.sh >/dev/null; then

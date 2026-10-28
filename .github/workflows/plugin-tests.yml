@@ -30,9 +30,9 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # The newest LTS, as a maker installing today gets. Node 20 is past end of life.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 'lts/*'
       - name: Skills lock matches the skills and the plugin version
