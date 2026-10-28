@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.53 — 2026-10-28
+
+- A game's character can now perform on its menus and cards: `/make-game` follows a mascot video step that makes an idle still on a green screen, asks forge for short takes one at a time, checks each take (too still, cut off by the frame, no green screen), and packs the kept takes into transparent WebP pages with a ready player for Pixi. A video call that times out is no longer treated as failed: the step waits and looks in the library before anything is sent again.
+
 ## 1.7.52 — 2026-10-26
 
 - Rigged characters, and asset requests that take longer than 45 seconds, now get the same quality review as every other generated asset. Needs ongame-cli 0.2.35 or newer, which updates itself at session start.
