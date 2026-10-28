@@ -152,6 +152,11 @@ files for AppLovin, Unity Ads, Meta or Google — consult `skills/playable-ads/S
 same procedure as `knowledge_get({ key: 'pattern:playable-ads' })`. It builds them from the game's own code and art,
 measures each board with the game's own simulation, and shows them on a review page before any network file.
 
+When a character on a non-gameplay screen should move — the mascot in the lobby, on the win or fail card, on a
+loading screen — consult `skills/mascot-video/SKILL.md` before the first `kind:"video"` request. It covers the still,
+the prompt, sending takes one at a time, what to do when a video call times out (the clip is often delivered and billed
+later), and the check and packing tools.
+
 ## Work and verify
 
 Work towards the confirmed brief, choose the necessary tools and implementation approach, and keep the scope
