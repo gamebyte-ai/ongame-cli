@@ -93,6 +93,12 @@ After the last phase, one more `state_advance(buildId)` closes the build. If the
 does not list, close this build and register the next unit of work with `continues` set to this `buildId`. Never
 advance past a phase whose work did not happen.
 
+**Redo a phase when the user asks to change its work.** When the user corrects something a phase of this build
+already produced, record the correction as `user.feedback` (below). Right before you redo that work, call
+`record_iteration(buildId, <p>)`; never call it speculatively. It makes `<p>` current again and counts the redo.
+Then repeat steps 2-4 for `<p>`, starting with `phase.<p>.start`; skip step 1's `state_advance`. Call it once for
+each phase the change reaches. When the corrected request is complete, close the build with `build.done` again.
+
 If `.ongame/active-build.json` exists or is written by registration, inspect it before acting. When it belongs
 to this game and the build being handled in direct-work mode, preserve it as inactive history under a unique
 name in `.ongame/` instead of leaving an active phase reminder. Do not touch another project's/build's marker,
@@ -140,6 +146,11 @@ When an existing game must look consistent or holistic, match a reference game's
 as an art director, consult `skills/art-direction/SKILL.md` — or, where that file is not on disk, the same procedure as
 `knowledge_get({ key: 'pattern:art-direction-pass' })`. It audits every screen, writes `docs/ART_DIRECTION.md` before code and
 proves the change with a control matrix. Carry `docs/ART_DIRECTION.md` into later work and re-runs.
+
+When the user wants playable ads for a game that already plays — interactive ads, "playables", an ad end card, or
+files for AppLovin, Unity Ads, Meta or Google — consult `skills/playable-ads/SKILL.md` — or, where that file is not on disk, the
+same procedure as `knowledge_get({ key: 'pattern:playable-ads' })`. It builds them from the game's own code and art,
+measures each board with the game's own simulation, and shows them on a review page before any network file.
 
 ## Work and verify
 

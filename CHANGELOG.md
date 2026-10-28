@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.7.52 — 2026-10-26
+
+- Rigged characters, and asset requests that take longer than 45 seconds, now get the same quality review as every other generated asset. Needs ongame-cli 0.2.35 or newer, which updates itself at session start.
+
+## 1.7.51 — 2026-10-26
+
+- When the user asks to change work a phase already produced, the build now records the redo before repeating that phase.
+
+## 1.7.50 — 2026-10-26
+
+- New playable ads step: ask for playable ads for a game that already plays and the agent builds three short ads from the game's own code, art, sounds and mascot, checks with the game's own simulation that each one is a real challenge, shows them on a review page, and then makes one file per ad network (AppLovin, Unity Ads, Meta, Google) with your store link.
+
 ## 1.7.49 — 2026-10-22
 
 - Before the agent hands game code over, it now reads and runs four code checks: layers kept apart, nothing allocated per frame, a core action that answers on three channels, and recalled lessons that show in the code. This holds for web and Unity games.
