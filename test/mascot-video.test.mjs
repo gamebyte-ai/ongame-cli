@@ -12,7 +12,7 @@
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { stripTypeScriptTypes } from 'node:module';
+import nodeModule from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -148,6 +148,7 @@ export const Assets = {
   unload(url) { Assets.unloaded.push(url); return Promise.resolve(); },
 };
 `;
+const { stripTypeScriptTypes } = nodeModule; // not a named import: older nodes lack it, and the tests skip
 const tsSkip = typeof stripTypeScriptTypes === 'function' ? false : 'needs a node with module.stripTypeScriptTypes';
 const playerDir = tsSkip ? '' : fs.mkdtempSync(path.join(os.tmpdir(), 'mascot-player-'));
 after(() => { if (playerDir) fs.rmSync(playerDir, { recursive: true, force: true }); });
