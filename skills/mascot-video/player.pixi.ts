@@ -14,6 +14,7 @@ export interface ClipsMeta {
 }
 
 const FADE = 0.2;
+const RETRY = 1; // seconds on the idle still after a failed download, however short the hold
 
 export class MascotClips {
   private loaded: { name: string; frames: PIXI.Texture[] } | null = null;
@@ -42,8 +43,17 @@ export class MascotClips {
     this.unload();
     const c = this.meta.clips[name];
     const { fw, fh } = this.meta;
-    const job = Promise.all(Array.from({ length: c.pages }, (_, p) => PIXI.Assets.load<PIXI.Texture>(this.page(name, p))))
-      .then((pages) => {
+    const job = Promise.allSettled(Array.from({ length: c.pages }, (_, p) => PIXI.Assets.load<PIXI.Texture>(this.page(name, p))))
+      .then((settled) => {
+        const failed = settled.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+        if (failed) { // free the pages that did load, unless a newer load of this clip shares them
+          if (this.loading?.job === job) this.loading = null;
+          if (this.loaded?.name !== name && this.loading?.name !== name) {
+            settled.forEach((r, p) => { if (r.status === 'fulfilled') void PIXI.Assets.unload(this.page(name, p)); });
+          }
+          throw failed.reason;
+        }
+        const pages = settled.map((r) => (r as PromiseFulfilledResult<PIXI.Texture>).value);
         const frames = Array.from({ length: c.n }, (_, i) => {
           const j = i % c.per;
           return new PIXI.Texture({ source: pages[Math.floor(i / c.per)].source, frame: new PIXI.Rectangle((j % c.cols) * fw, Math.floor(j / c.cols) * fh, fw, fh) });
@@ -102,6 +112,7 @@ export class Mascot extends PIXI.Container {
   public cue(clip: string, holdAfter = 1.5): void { this.start(clip, holdAfter); }
 
   private next(): void {
+    if (!this.programme.length) { this.hold = Infinity; return; } // after a cue: the idle still for good
     const p = this.programme[this.step % this.programme.length];
     this.step++;
     this.start(p.clip, p.hold);
@@ -122,7 +133,7 @@ export class Mascot extends PIXI.Container {
         this.vid.texture = frames[0]; this.vid.alpha = 1; this.vid.visible = true;
         this.idle.alpha = 0;
       })
-      .catch(() => { if (id === this.run) { this.waiting = false; this.hold = hold; } }); // the idle still stays on screen
+      .catch(() => { if (id === this.run) { this.waiting = false; this.hold = Math.max(hold, RETRY); } }); // the idle still stays on screen
   }
 
   /** Frames run on the game clock; the last FADE seconds fade the frame out over the idle still. */
@@ -130,7 +141,7 @@ export class Mascot extends PIXI.Container {
     if (this.destroyed) return;
     const v = this.video;
     if (!v) {
-      if (this.waiting || this.hold <= 0) return;
+      if (this.waiting) return;
       this.hold -= dt;
       if (this.hold <= 0) this.next();
       return;

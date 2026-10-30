@@ -4,15 +4,20 @@
  * and one whose screen darkens mid-take each fail --check; takes of different shapes and an unsafe --name are refused;
  * a re-pack removes only the pages the last pack listed.
  *
- * Needs python3 with numpy + Pillow and ffmpeg; without them the tests are skipped, not passed.
+ * skills/mascot-video/player.pixi.ts on a stand-in for pixi.js: a cue on a mascot with no programme ends on the idle
+ * still, a hold of 0 moves on to the next clip, and a clip whose page fails to download frees the pages that loaded.
+ *
+ * The pack tests need python3 with numpy + Pillow and ffmpeg; without them they are skipped, not passed.
  * Run: node --test test/mascot-video.test.mjs
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { stripTypeScriptTypes } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { test } from 'node:test';
+import { after, test } from 'node:test';
 
 const PACK = path.resolve(import.meta.dirname, '../skills/mascot-video/pack.py');
 const has = (cmd, args) => spawnSync(cmd, args, { encoding: 'utf8' }).status === 0;
@@ -122,4 +127,115 @@ test('pack writes the idle still, the pages and a clips JSON that describes them
   const files = fs.readdirSync(out).sort();
   const pages = Array.from({ length: c.pages }, (_, p) => `hero_jump_${p}.webp`);
   assert.deepEqual(files, ['hero-clips.json', ...pages, 'hero_idle.webp', 'hero_portrait.webp'].sort());
+});
+
+// The player imports pixi.js, which this repo does not install: it runs against a stand-in with just what it touches.
+// Each Assets.load waits until the test resolves or rejects it.
+const PIXI_STUB = `
+export class Texture { constructor(o = {}) { Object.assign(this, o); } destroy() { this.destroyed = true; } }
+export class Rectangle { constructor(x, y, w, h) { Object.assign(this, { x, y, w, h }); } }
+class Point { set(x, y = x) { this.x = x; this.y = y; } }
+export class Container { children = []; destroyed = false; addChild(...c) { this.children.push(...c); } destroy() { this.destroyed = true; } }
+export class Sprite extends Container {
+  constructor(texture) { super(); this.texture = texture; this.anchor = new Point(); this.scale = new Point(); this.visible = true; this.alpha = 1; }
+}
+export const Assets = {
+  calls: [], unloaded: [],
+  load(url) {
+    return new Promise((resolve, reject) => Assets.calls.push({ url,
+      resolve: () => resolve(new Texture({ source: { url } })), reject: () => reject(new Error('404 ' + url)) }));
+  },
+  unload(url) { Assets.unloaded.push(url); return Promise.resolve(); },
+};
+`;
+const tsSkip = typeof stripTypeScriptTypes === 'function' ? false : 'needs a node with module.stripTypeScriptTypes';
+const playerDir = tsSkip ? '' : fs.mkdtempSync(path.join(os.tmpdir(), 'mascot-player-'));
+after(() => { if (playerDir) fs.rmSync(playerDir, { recursive: true, force: true }); });
+async function player() {
+  const stub = path.join(playerDir, 'pixi.mjs');
+  const out = path.join(playerDir, 'player.mjs');
+  if (!fs.existsSync(out)) {
+    fs.writeFileSync(stub, PIXI_STUB);
+    const ts = fs.readFileSync(path.resolve(import.meta.dirname, '../skills/mascot-video/player.pixi.ts'), 'utf8');
+    const js = stripTypeScriptTypes(ts, { mode: 'transform' }).replace("from 'pixi.js'", `from '${pathToFileURL(stub)}'`);
+    assert.ok(js.includes(pathToFileURL(stub).href), 'the player no longer imports pixi.js the way this test expects');
+    fs.writeFileSync(out, js);
+  }
+  const [{ Mascot, MascotClips }, PIXI] = await Promise.all([import(pathToFileURL(out)), import(pathToFileURL(stub))]);
+  PIXI.Assets.calls.length = 0; PIXI.Assets.unloaded.length = 0;
+  return { Mascot, MascotClips, PIXI };
+}
+// jump: 4 frames at 20 fps on one page (0.2 s); wave: 8 frames on two pages.
+const META = { name: 'hero', fw: 10, fh: 10, top: 0, feet: 10, cx: 5, idle: 'idle', clips: {
+  jump: { n: 4, fps: 20, act: 0.1, cols: 2, per: 4, pages: 1 }, wave: { n: 8, fps: 20, act: 0.3, cols: 2, per: 4, pages: 2 } } };
+const settle = () => new Promise((resolve) => setImmediate(resolve));
+const showing = (m) => m.children[1].visible; // the clip's sprite, above the idle still
+function playOut(m) { // run the clip on screen to its end
+  for (let i = 0; showing(m); i++) { assert.ok(i < 100, 'the clip never ended'); m.update(0.05); }
+}
+
+test('a cue on a mascot with no programme plays, then holds the idle still for good', { skip: tsSkip }, async () => {
+  const { Mascot, MascotClips, PIXI } = await player();
+  const m = new Mascot(new MascotClips(META, 'a/'), 100, new PIXI.Texture(), []);
+  m.cue('jump', 0.5);
+  PIXI.Assets.calls[0].resolve(); await settle();
+  assert.ok(showing(m));
+  playOut(m);
+  for (let i = 0; i < 40; i++) m.update(0.05); // 2 s, well past the 0.5 s hold
+  await settle();
+  assert.equal(showing(m), false);
+  assert.equal(PIXI.Assets.calls.length, 1);
+});
+
+test('a hold of 0, in the programme or on a cue, moves straight on to the next clip', { skip: tsSkip }, async () => {
+  const { Mascot, MascotClips, PIXI } = await player();
+  const m = new Mascot(new MascotClips(META, 'a/'), 100, new PIXI.Texture(), [{ clip: 'jump', hold: 0 }]);
+  PIXI.Assets.calls[0].resolve(); await settle();
+  playOut(m);
+  m.update(0.05); await settle();
+  assert.ok(showing(m), 'the programme stopped after a hold of 0');
+
+  const n = new Mascot(new MascotClips(META, 'b/'), 100, new PIXI.Texture(), [{ clip: 'jump', hold: 60 }]);
+  PIXI.Assets.calls[1].resolve(); await settle();
+  playOut(n);
+  n.cue('jump', 0); await settle();
+  playOut(n);
+  n.update(0.05); await settle();
+  assert.ok(showing(n), 'the programme stopped after cue(clip, 0)');
+});
+
+test('a failed download with a hold of 0 waits a second before it tries again', { skip: tsSkip }, async () => {
+  const { Mascot, MascotClips, PIXI } = await player();
+  const m = new Mascot(new MascotClips(META, 'a/'), 100, new PIXI.Texture(), [{ clip: 'jump', hold: 0 }]);
+  PIXI.Assets.calls[0].reject(); await settle();
+  for (let i = 0; i < 10; i++) m.update(0.05);
+  assert.equal(PIXI.Assets.calls.length, 1, 'retried at once');
+  for (let i = 0; i < 12; i++) m.update(0.05);
+  assert.equal(PIXI.Assets.calls.length, 2, 'never tried again');
+});
+
+test('a clip whose page fails frees the pages that loaded, early or late, but not a newer load of it', { skip: tsSkip }, async () => {
+  const { MascotClips, PIXI } = await player();
+  const { calls, unloaded } = PIXI.Assets;
+  const clips = new MascotClips(META, 'a/');
+  let job = clips.load('wave');
+  calls[0].resolve(); calls[1].reject();
+  await assert.rejects(job, /404 a\/hero_wave_1/);
+  assert.deepEqual(unloaded, ['a/hero_wave_0.webp']);
+
+  unloaded.length = 0;
+  job = clips.load('wave');
+  calls[3].reject(); await settle(); calls[2].resolve(); // the page that loads lands after the failure
+  await assert.rejects(job);
+  assert.deepEqual(unloaded, ['a/hero_wave_0.webp']);
+
+  unloaded.length = 0;
+  const old = clips.load('wave');
+  void clips.load('jump').catch(() => undefined); // supersedes it
+  const newer = clips.load('wave');
+  calls[4].resolve(); calls[5].reject();
+  await assert.rejects(old);
+  assert.deepEqual(unloaded, [], 'freed pages the newer load of the clip shares');
+  calls[7].resolve(); calls[8].resolve();
+  assert.equal((await newer).length, 8);
 });

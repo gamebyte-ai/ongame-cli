@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.54 — 2026-10-30
+
+- The mascot player no longer stops a character for good. A tap on a character with no programme now ends on the idle still, a hold of 0 goes straight to the next clip, and a failed download tries again after a second. A clip whose download fails part way now frees the pages it did get.
+
 ## 1.7.53 — 2026-10-28
 
 - A game's character can now perform on its menus and cards: `/make-game` follows a mascot video step that makes an idle still on a green screen, asks forge for short takes one at a time, checks each take (too still, cut off by the frame, no green screen), and packs the kept takes into transparent WebP pages with a ready player for Pixi. A video call that times out is no longer treated as failed: the step waits and looks in the library before anything is sent again.
