@@ -16,6 +16,9 @@ description: Light GDD — an anchor document so the agent doesn't get lost duri
 
 2. Generate a **light GDD** from CONCEPT.md: core loop, entities, controls, win/lose, screens (menu/play/gameover).
 3. Output: `docs/GAME_DESIGN.md` (short, actionable — the anchor for the code phase).
+3a. **Label every number.** Each number in GAME_DESIGN.md is marked measured, set by the user, or a starting guess with
+   the range to tune within. An unlabeled number reads as measured, and nobody tunes it. Before writing the numbers,
+   read `knowledge_get({ key: 'pattern:design-numbers' })`. Before step 4, check that no number is left unlabeled.
 4. **`trace_emit` the headline `phase.output`** (ONE per phase — the docs phase's main decision; nests as a `generation` observation under the phase span, so the eval can read context→artifact→why). Emit it **after** `GAME_DESIGN.md` is written, **before** `state_advance`:
    ```
    trace_emit(buildId, name="phase.output", payload={
