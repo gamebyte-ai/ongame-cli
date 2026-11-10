@@ -372,8 +372,8 @@ did not clearly improve, keep its old assets.
      - Go on only when every feature has a `pass` line. Report the lines, not a summary: "7 pass, 1 fail
        (level-complete)". Call `preview_stop` when done.
      If the browser tool cannot run, say the features were NOT checked; never report them as passing.
-  1d. **Contact sheet — `contact_sheet({gameDir})`**, only after step 1c passes. It plays the built
-     game and saves one frame every 2 s, tiled and time-labelled. The polish review judges this sheet, so take it
+  1d. **Contact sheet — `contact_sheet({gameDir})`**, only after step 1c passes. It records the built
+     game with no input and saves one frame every 2 s, tiled and time-labelled. The polish review judges this sheet, so take it
      from the working build. Read `status`: `"unverified"` means no sheet was made — do the step in `fix` (build
      first on `no_dist`) and call it again. If it still cannot run, say the game's look was judged from stills only.
   2. **Pre-publish check — fix everything it finds before step 3.** Every refusal step 3 can give is findable here.
