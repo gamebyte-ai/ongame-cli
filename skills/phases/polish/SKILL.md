@@ -287,8 +287,12 @@ general art-pipeline knowledge, or this file. The value here is the specific pro
 produces worse assets than doing nothing while still spending the user's generation budget. **Then read WHICH
 kind of gate it was — they are different situations and must not be conflated:**
 - **`rateLimited: true` (no `upgrade` payload)** → this is a *paying* tenant who hit the crown-jewel read
-  limiter. Do **not** pitch an upgrade at a customer who already paid. Say the recipe is momentarily
-  unavailable and can be retried shortly, then continue.
+  limiter. Do **not** pitch an upgrade at a customer who already paid. Then read `reason`:
+  - **`reason: 'daily-distinct-cap'`** → the account read its daily limit of different know-how entries. It
+    does not reopen shortly. Relay the answer's `detail` and the `resetsAt` time, then continue with what you
+    have. Do not retry before `resetsAt`.
+  - **any other rate limit** → say the recipe is momentarily unavailable and can be retried shortly, then
+    continue.
 - **an `upgrade` payload is present** → free tier. Say plainly that the guided visual polish pass is a paid
   capability and relay the upgrade doors that payload carries.
 

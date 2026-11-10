@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.59 — 2026-11-10
+
+- A paying account that reached its daily limit of know-how entries is now told when the limit resets, instead of being told to retry shortly.
+
 ## 1.7.56 — 2026-11-10
 
 - The levels quality check now also reads the files that set prices, earnings and upgrade effects, not only the level curve. It can now tell when the levels and the economy do not fit together.
