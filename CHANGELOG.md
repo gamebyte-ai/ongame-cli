@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.56 — 2026-11-10
+
+- The levels quality check now also reads the files that set prices, earnings and upgrade effects, not only the level curve. It can now tell when the levels and the economy do not fit together.
+
 ## 1.7.55 — 2026-10-31
 
 - The design doc now says where each number came from: measured, set by the user, or a starting guess with the range to tune within. A guess no longer reads like a measurement, so it gets tuned.
