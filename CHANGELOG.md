@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.56 — 2026-11-10
+
+- The polish step now plays every feature before the game is reviewed. It opens the built game with `?test=1` and reads one `pass` or `fail` line per feature. It fixes every failing feature and every feature with no line. Then it calls `contact_sheet`, so the review judges a working build as it plays.
+
 ## 1.7.55 — 2026-10-31
 
 - The design doc now says where each number came from: measured, set by the user, or a starting guess with the range to tune within. A guess no longer reads like a measurement, so it gets tuned.
