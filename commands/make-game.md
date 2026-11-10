@@ -192,6 +192,16 @@ user's battery.
 Step the clock frame by frame for timing-critical moments, check placement with a numeric probe rather than by
 eye, and reach hard states by seeding the save (`pattern:temporal-capture`, `pattern:visual-polish-loop`).
 
+**A game is done only after it was played on record.** After the last build and before `build.done`, call
+`play_gate({gameDir, buildId, desktop, phone})`. Write both play scripts yourself: the shortest
+keyboard play (desktop) and touch play (phone) from the first screen to the win or goal. The game prints `pass goal`
+there (`pattern:gamelabs-self-check`). `state: "blocked"` names the failed checks: fix the game, rebuild and call it
+again. Waive a check only when it is wrong for this game, with the reason. On `"awaiting_review"`, open both footage
+images, then call `play_review` with what you saw. `build.done` and `profile_record_build` are refused until it passed.
+A game with no web build to play (Unity, a docs-only change) calls `play_gate` with `skip: {reason}`; tell the user it
+was not played. An install with no `play_gate` tool cannot play it either: say the game was not played on record.
+Give the user the check lines and any waiver with its reason.
+
 Use the registered game/build identifiers accepted by each tool. Do not invent phase completion or mark an
 earlier phase build done. Follow the notice and capture choice established before registration; do not repeat
 the notice or ask again. If the user objected, keep request/feedback and lesson capture off.

@@ -376,6 +376,11 @@ did not clearly improve, keep its old assets.
      game with no input and saves one frame every 2 s, tiled and time-labelled. The polish review judges this sheet, so take it
      from the working build. Read `status`: `"unverified"` means no sheet was made — do the step in `fix` (build
      first on `no_dist`) and call it again. If it still cannot run, say the game's look was judged from stills only.
+  1e. **Play gate — `play_gate({gameDir, buildId, desktop, phone})`** (ongame-local), after 1d, on the build you will
+     publish. It plays the game as a desktop by keyboard and as a phone by touch, from scripts you write that reach
+     the win (`pass goal`). Fix every failed check, rebuild and run it again; waive one only when it is wrong for
+     this game, with the reason. Then open both footage images and call `play_review`. Publish and `build.done` are
+     refused until it passed for this `dist/`.
   2. **Pre-publish check — fix everything it finds before step 3.** Every refusal step 3 can give is findable here.
      - **A build behind the game:** you hold this build's `buildId` from `state_init`, and step 3's `gameId` is the
        one you gave `state_init`. No `buildId` means the build was never opened: call `state_init` for this game now.
