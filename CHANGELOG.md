@@ -1,12 +1,16 @@
 # Changelog
 
-## 1.7.57 — 2026-11-10
+## 1.7.58 — 2026-11-10
 
 - A game is now done only after it was played on record. `/make-game`, `/publish` and the polish step call `play_gate`: it plays the built game by keyboard as a desktop and by touch as a phone, to the win. The agent then looks at the footage and calls `play_review`. A new hook holds `build.done` and `profile_record_build` until that passed. Needs an ongame-cli release that has `play_gate`. An older one has no such hook: it logs a non-blocking hook error and the build finishes as before.
 
-## 1.7.56 — 2026-11-10
+## 1.7.57 — 2026-11-10
 
 - The polish step now plays every feature before the game is reviewed. It opens the built game with `?test=1` and reads one `pass` or `fail` line per feature. It fixes every failing feature and every feature with no line. Then it calls `contact_sheet`, so the review judges a working build as it plays.
+
+## 1.7.56 — 2026-11-10
+
+- The levels quality check now also reads the files that set prices, earnings and upgrade effects, not only the level curve. It can now tell when the levels and the economy do not fit together.
 
 ## 1.7.55 — 2026-10-31
 
