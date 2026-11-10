@@ -1,5 +1,5 @@
 {
-  "pluginVersion": "1.7.56",
+  "pluginVersion": "1.7.58",
   "generatedAt": "2026-11-10",
   "skills": {
     "art-direction": {
@@ -58,9 +58,9 @@
       "lines": 114
     },
     "phases/polish": {
-      "sha256": "5c0fb1be5ec754bacae36a628ea9ddc5fc767f21aa516e9cc0497d5d6a1d5dbe",
-      "bytes": 55239,
-      "lines": 559
+      "sha256": "bb463eb33d37c2979bd4aeb80dd2c0313fda149e6e85c5129f7a507b3d958b4b",
+      "bytes": 57458,
+      "lines": 581
     },
     "phases/research": {
       "sha256": "121ee95275b701a4d80ed7535013c015780c280bd37542608a2a65d24f4bcbe5",
