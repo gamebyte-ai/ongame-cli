@@ -77,10 +77,8 @@ from scratch; **compose** what's already in the engine.
 - **Audio:** `AudioService` (`playSfx`/`playMusic`, `setMasterMute`/`setSfxMute`/`setMusicMute`,
   `setMasterVolume`...). Settings bind to these.
 
-> **Tick ordering (critical):** the particle/timeline modules are **hand-ticked** — in the app's
-> `onStep(dt)`, **first `timelineManager.update(dt)`** (burst tracks call `spawn()`),
-> **then `particleManager.update(dt)`** (advances what was spawned). In the reverse order it is delayed
-> by one frame. Call `AudioService.resume()` on the first user-gesture (autoplay policy).
+> **Tick ordering:** the particle/timeline modules are **hand-ticked** in the app's `onStep(dt)`; call
+> `AudioService.resume()` on the first user-gesture. Call `knowledge_get({ key: "pattern:polish-juice-recipes" })` for the tuned juice/motion recipes (tick order, timings, easings). If it returns empty, continue with your own judgment.
 
 ---
 
@@ -118,23 +116,18 @@ hand-built path below, that is not a fault (same handling as Sub-phase 9.5).
 ---
 
 ## Sub-phase 1 — Splash screen
-- New `SplashScreenView extends ScreenView`. Center the logo (`ImageComponent`/`PIXI.Sprite`),
-  reposition it in `onResize`. In `onEnter`, with gsap, the logo **scale 0.8→1 + alpha 0→1**
-  (`ease: 'back.out'`), a short hold, then `UIEvents.createScreen(MainMenu, {type: FADE_IN})`.
+- New `SplashScreenView extends ScreenView`: centered logo repositioned in `onResize`, an entry animation, then
+  `UIEvents.createScreen(MainMenu, {type: FADE_IN})`. Call `knowledge_get({ key: "pattern:polish-juice-recipes" })` for the tuned juice/motion recipes (logo entry). If it returns empty, continue with your own judgment.
 - If asset generation is available, generate the logo asset; otherwise the game name with `LabelComponent` (gray-box).
-- Start asset preload here. **`template:shell-splash` already solves the hard half** — a bar driven by the
-  REAL asset count and eased toward it (a fixed-duration fake bar lies in both directions), cover-fit that never
-  letterboxes, a code-drawn scene that adopts each texture the frame it lands, and the tap-to-start beat that
-  doubles as the audio unlock. Adapt it instead of re-deriving the timing.
+- Start asset preload here. Adapt `template:shell-splash` (real-progress bar, tap-to-start audio unlock) instead of
+  re-deriving the timing. Call `knowledge_get({ key: "pattern:shell-contract" })` for why the splash is built that way. If it returns empty, continue with your own judgment.
 
 ## Sub-phase 2 — Main menu (play / settings)
 - Add the ready-made `MainScreenBinding` with `addModule(new MainScreenBinding())` → the built-in
   `MainScreenView` (background + play/settings button column) comes in. Subscribe to `MainScreenEvents`:
   `onPlayClick(() => UIEvents.createScreen(GameScreen, transition))`,
   `onSettingsClick(() => UIEvents.openPopup(Settings))`.
-- **Routing belongs in ONE place** — a screen reports a press, the flow owns what a press means, or within a
-  week every screen knows the whole map. `template:shell-spine` is that skeleton (persistent panel map with
-  `onEnter`/`onExit`, the post-transition restart guard, a typed intent bus).
+- **Routing belongs in ONE place** — `template:shell-spine` is that skeleton.
 - If a custom view is wanted, your own `MainMenuView extends ScreenView` + `ButtonComponent({label:'PLAY'})` /
   `ButtonComponent({label:'SETTINGS'})` inside a `VerticalLayoutComponent`; route with each
   `.onPress(...)`. Title with `LabelComponent`.
@@ -144,12 +137,8 @@ hand-built path below, that is not a fault (same handling as Sub-phase 9.5).
   `sfxVolume`/`musicVolume` (0–100) fields to `AudioService`
   (`setSfxMute(!v)` / `setSfxVolume(v/100)`), values persist via `StorageService`.
   `addModule(new SettingsBinding())` + open from `MainScreenEvents.onSettingsClick`.
-- **`template:shell-settings` is the converged design** (two shells built independently landed on it): a column
-  of squircle buttons under the gear, a dim that swallows taps, OFF as a slash plus dim rather than a colour
-  change, switches seeded once and persisted on every press, and the bridge that actually reaches the audio bus.
-  It reads state back off the subsystem instead of mirroring a flag — the failure it exists for is a toggle that
-  looks wired and nothing reads. It goes through `template:core-audio` + `template:core-save` (settings get their
-  OWN save slot; the main slot is cached at boot by whoever owns progress and a second writer there is reverted).
+- Adapt `template:shell-settings` (through `template:core-audio` + `template:core-save`, settings in their OWN save
+  slot). Call `knowledge_get({ key: "pattern:shell-contract" })` for the settings design rules. If it returns empty, continue with your own judgment.
 - If an extra field is needed, add `SettingsBooleanField`/`SettingsNumberField` to `SettingsModel`
   (e.g. a theme toggle). Theme: with `StyleManager.modify(...)`, swap the global UIComponents styles
   (color/texture) between two presets.
@@ -162,37 +151,21 @@ hand-built path below, that is not a fault (same handling as Sub-phase 9.5).
 - **Responsive:** every view overrides `onResize(width, height, dpr)`; layouts reflow.
   Phone/desktop test: no overflow on narrow (390px) and wide (1280px) viewports. `LabelComponent`
   for score; when the value changes, the pop tween in Sub-phase 5 fires.
-- **Take the chrome from the library:** counters from `template:ui-currency-chip` (ONE writer, high-water mark —
-  increments count up, decrements snap; a pooled callback assigning an absolute balance is how a HUD sticks
-  permanently wrong with a clean console), a tab bar from `template:shell-bottom-nav`, insets and DPR from
-  `template:platform-viewport`. **Register every canvas-drawn control through `template:platform-ui-registry`** —
-  a HUD painted into the canvas has no DOM to query, so the gate's touch-target check finds an empty set and
-  reports **unmeasured** unless this surface exists.
+- **Take the chrome from the library:** counters from `template:ui-currency-chip`, a tab bar from
+  `template:shell-bottom-nav`, insets and DPR from `template:platform-viewport`. **Register every canvas-drawn
+  control through `template:platform-ui-registry`** — without it the gate's touch-target check reports
+  **unmeasured**. Call `knowledge_get({ key: "pattern:shell-contract" })` for the one-writer counter rule. If it returns empty, continue with your own judgment.
 
 ## Sub-phase 5 — JUICE (explosion on match, score pop, screenshake, glow, cascade multiplier)
 > Read `knowledge_get({ key: 'pattern:game-feel' })` first: it decides which moments need a response and names the
 > `feel:<id>` recipes and the code to start from (`template:feel-core`). If the game already has `src/feel/`, add these effects as rows and
 > recipes there — not as separate gsap tweens or shakes beside it.
 Add the modules: `addModule(new ParticlesBinding(budget?))` + `addModule(new TimelineBinding())`.
-Resolve `ParticleManager` and `TimelineManager` from DI, tick them in `onStep` in the order above.
-- **Match explosion (particle burst):** per tile type, a `HudParticleEmitter` (colored sprite +
-  fade/gravity `IParticleBehavior`), `EmitterConfig {rate:0, ...}` (burst-only). On a match, move the
-  emitter to the tile's HUD coordinate, `timeline.add(new ParticleBurstTrack(emitter, {burst:12,
-  duration:0.3}))`. The budget is bounded by `ParticleBudget` (default 4096) — safe on mobile.
-- **Score pop-up tween:** for the match score, spawn a short-lived `LabelComponent` at the match position,
-  with gsap **y -= 40, alpha 1→0, scale 1→1.4 (0.5s, ease 'power2.out')**, `destroy()` when done.
-  The total score label: gsap `scale 1→1.25→1` "punch" (every time the number increases).
-- **Screenshake:** `timeline.add(new CameraShakeTrack(gameCamera, {amplitude, duration:0.2}))`
-  (3D/world camera). In a 2D-only game, briefly offset the HUD root `Container`'s `x/y` randomly
-  (gsap timeline) — let amplitude scale with the match size (bigger cascade = stronger shake).
-- **Impact (zoom punch / hit-stop):** on a big match/combo, `ZoomPunchTrack({duration:0.2,
-  fovDelta:-4})` or `HitStopTrack({duration:0.08})` — a short dramatic emphasis.
-- **Glow / sparkle:** a white `ImageComponent` overlay on the matched tile, gsap alpha 0→0.8→0 "flash";
-  for continuous shimmer, a low-`rate` sparkle emitter. (Glow via PixiJS `BlurFilter`/`ColorMatrixFilter`
-  — but filters are expensive on mobile, prefer sprite-flash.)
-- **Cascade multiplier animation:** as the chain length grows, the multiplier label (`x2`, `x3`...) comes
-  onto the screen with gsap **pop-in (back.out) + color transition**; at each cascade step, the `playSfx`
-  pitch increases (`PlaySfxOptions`). As the multiplier visual rises, the shake amplitude also increases.
+Resolve `ParticleManager` and `TimelineManager` from DI and tick them in `onStep`. Give each listed moment a
+response: match explosion (particle
+burst), score pop-up + total-score punch, screenshake scaled to match size, impact (zoom punch / hit-stop) on big
+combos, glow/sparkle, cascade multiplier animation with rising sfx pitch.
+Call `knowledge_get({ key: "pattern:polish-juice-recipes" })` for the tuned juice/motion recipes (burst counts, durations, easings, amplitudes, mobile-safe glow). If it returns empty, continue with your own judgment.
 
 > All these effects are triggered in the **Controller** (when Board state changes), the **View** only renders.
 > The effect does NOT BLOCK input — the input lock already exists in the code phase during cascade resolving.
@@ -216,41 +189,24 @@ improvise a half-version), and continue.
 - Between screens: `UIEvents.createScreen(id, {type: SCREEN_TRANSITION_TYPES.FADE_IN |
   SLIDE_IN_LEFT | SLIDE_IN_RIGHT | SLIDE_IN_UP | SLIDE_IN_DOWN, durationMs})`. Splash→menu FADE,
   menu→game SLIDE. Collect into the scaffold's `<GameName>Config.transitions` (the renamed `MyGameConfig` from the
-  baseplate — `scaffold_materialize` renamed it to PascalCase(gameName), e.g. `Match3Config`).
-- In-view micro-transition: in the `onEnter(transition)`/`onExit(transition)` hooks, element stagger
-  with gsap (buttons alpha/scale in sequence). Easing standard: entry `back.out`/`power2.out`,
-  exit `power2.in`. Popup `onClose(done)` → call `done()` when the fade-out completes.
+- In-view micro-transition: element stagger in the `onEnter(transition)`/`onExit(transition)` hooks; popup
+  `onClose(done)` → call `done()` when the fade-out completes. Call `knowledge_get({ key: "pattern:polish-juice-recipes" })` for the tuned juice/motion recipes (easing standard). If it returns empty, continue with your own judgment.
 
 ## Sub-phase 7 — Background (gradient / parallax)
-- Static: `BackgroundComponent` (texture) or a **vertical gradient** — one rect with a Pixi `FillGradient`, not
-  strips (`pattern:gradients`) — in `PIXI.Graphics` at the very bottom of `HudLayer.Content`, scaled to full-stage in `onResize`.
-- Parallax: 2–3 `ImageComponent` layers at different speeds; in `onStep`, shift `x` according to the
-  derivative of the camera/score (far layer slow). For a slight continuous motion, gsap `repeat:-1 yoyo`.
-- If asset generation is available, generate the background asset; otherwise gradient (gray-box fallback). Performance: the
-  background is a single sprite/single draw, do not draw a new `Graphics` every frame.
+- Static gradient or texture background at the very bottom of `HudLayer.Content` (one rect with a Pixi
+  `FillGradient`, not strips — `pattern:gradients`), or 2–3 parallax layers. If asset generation is available,
+  generate the background asset; otherwise gradient (gray-box fallback). Call `knowledge_get({ key: "pattern:polish-juice-recipes" })` for the tuned juice/motion recipes (background and parallax). If it returns empty, continue with your own judgment.
 
 ## Sub-phase 8 — Game-over screen + frame + confetti
-- **Win and lose are ONE screen with two moods, not two screens** — built separately they drift and the player
-  sees them back to back; carry the mood in tone (the plate cools and desaturates) with the composition
-  unchanged. Build the card on `template:ui-popup` (scrim, 9-slice frame + separate inner panel, title band,
-  overhanging close, the layout-defer guard and the input lock) rather than a bespoke panel.
-- `GameOverView extends PopupView` (`HudLayer.Popup`): a semi-transparent scrim + a centered **framed
-  panel** (`BackgroundComponent`/`ImageComponent` frame), final score `LabelComponent` (gsap
-  count-up tween 0→score), high-score comparison (`StorageService`).
-- **Confetti:** a dedicated `HudParticleEmitter` (random color/rotation/gravity behavior), on open
-  `timeline.add(new ParticleBurstTrack(confettiEmitter, {burst:80, duration:1.2, rate:30}))` —
-  rains down from the top of the screen. Intensity changes based on win/loss.
+- **Win and lose are ONE screen with two moods.** Build the card on `template:ui-popup`. Call `knowledge_get({ key: "pattern:shell-contract" })` for the result-card rules. If it returns empty, continue with your own judgment.
+- `GameOverView extends PopupView` (`HudLayer.Popup`): scrim + framed panel, final score with a count-up,
+  high-score comparison (`StorageService`), confetti on open whose intensity follows win/loss.
 - Buttons: `ButtonComponent({label:'RETRY'})` → state reset + `createScreen(GameScreen)`;
   `ButtonComponent({label:'MENU'})` → `createScreen(MainMenu)`. Panel gsap pop-in in `onOpen`.
 
 ## Sub-phase 9 — Button hover/press feedback
-- `ButtonComponent` already manages the **idle/hover/pressed/disabled** texture states automatically
-  (pointer over/down/up). Add **feel** on top: inside `onPress`, gsap **scale punch**
-  (`1→0.92→1`, 0.12s) + `playSfx('click')`. On hover, a slight `scale 1.04` (pointer over event in a
-  custom view; in the ready-made component the texture swap is enough).
-- `template:ui-kit`'s Button carries this already — press feel, skin tint, disabled, and an invisible hit pad
-  that pads a small icon out to a thumb-sized target. Press feedback moves `pivot`, never `y`: layout writes
-  `y`, and sharing that channel means the first tap teleports the control.
+- `ButtonComponent` already manages the **idle/hover/pressed/disabled** texture states; add press/hover feel on
+  top with a `playSfx('click')`, or take `template:ui-kit`'s Button, which carries it. Call `knowledge_get({ key: "pattern:polish-juice-recipes" })` for the tuned juice/motion recipes (press/hover numbers). If it returns empty, continue with your own judgment.
 - Disabled button (e.g. insufficient moves): `setEnabled(false)` → disabled texture + the press is swallowed.
   On all interactive elements, the touch target is ≥44px on mobile (layout `width/height`).
 
@@ -461,85 +417,11 @@ did not clearly improve, keep its old assets.
   **Dead-interaction check:** polish is exactly where buttons get wired (Play, Settings toggle, Retry/Menu on
   game-over) — if a tap meant to do something leaves the screenshot effectively unchanged, treat that button as
   suspected dead before calling the build done.
-  **Phone-reality check (the 390×844 viewport is NOT a phone).** Resizing gives you a phone's *size* and nothing
-  else: the session still reports a **fine pointer**, has **no safe-area insets**, and never misses a tap. So the
-  three ways a game is fine on your screen and unusable on a real handset all pass silently here. Check each, and
-  where the tool cannot emulate the condition, say **unverified** rather than passing it:
-  (a) **Pointer type** — `browser_evaluate` **both** `matchMedia('(pointer: coarse)').matches` and
-  `matchMedia('(any-pointer: coarse)').matches`: `pointer` describes only the PRIMARY pointer, so a hybrid or
-  touch-capable device reports `false` there while still being touched — `any-pointer` is what tells you a coarse
-  input exists at all. Better still, confirm touch directly (`'ontouchstart' in window` / `navigator.maxTouchPoints`).
-  If the tool can emulate touch (a touch-enabled context / device emulation), turn it on and re-walk the core verb;
-  a control that only reacts to `hover`/`mousemove` is DEAD on a handset and this is the only way to see it. If it
-  cannot, report the core verb as **unverified for touch** and confirm from the code that no REQUIRED interaction
-  depends on hover (hover may only *enhance*).
-  (b) **Touch-target size** — the build rule is ≥44 CSS px (§ sub-phase 9); the gate is where it gets checked, not
-  assumed. **Measure the RIGHT surface:** a gamelabs HUD draws its buttons into the CANVAS, so they are not DOM
-  elements — `getBoundingClientRect()` over `document` finds nothing and an empty set "passes" vacuously. Read
-  `__game.diagnostics.hitAreas` (the code phase publishes each control's rect in CSS px, viewport coords — §9) and
-  flag anything under 44×44; for a genuinely DOM-based UI, measure the elements directly. **An EMPTY result is not
-  a pass** — on a screen where you can plainly see controls, an empty `hitAreas` means the surface is unwired, so
-  report **unmeasured**, exactly as when neither surface exists. Cross-check the ids you got against the controls
-  you actually just interacted with in the walk above: a control you clicked that has no entry is a hole in the
-  surface, not a control that passed. A 30px button is clickable with a mouse and a coin-flip with a thumb.
-  (c) **Safe area** — a desktop browser reports `env(safe-area-inset-*)` as **0**, so a control tucked under a notch
-  or the home indicator is invisible here by construction. This one is a SOURCE assertion, and say so: `viewport-fit=cover`
-  must be in the meta viewport, and each edge-pinned element must consume the inset for **the edge it actually
-  occupies** — `top` for a status bar, `bottom` for a thumb bar, `left`/`right` for anything hugging a side in
-  landscape (a phone in landscape puts the notch on a SIDE). Demanding all four everywhere would fail correct
-  layouts; demanding none is how a control ends up under the home indicator. Claiming it "looked fine" from a
-  notch-less browser is not evidence either way.
-  **Canvas-geometry check (dpr silent misalignment):** a game can "work" — logic fine, clean console — while
-  every overlay/hit-target sits visibly offset from the canvas content, because the canvas CSS size, its backing
-  size and the renderer's resolution disagree (a classic symptom: everything lands at ~1/dpr of where it should
-  on a dpr=1.5 screen). Assert with the instrument, in two separate claims:
-  (a) **CSS geometry** — the canvas `getBoundingClientRect()` fills its intended CSS area (fullscreen game →
-  ≈`window.innerWidth/innerHeight`); and `canvas.width/height` ≈ `rect × <the resolution the game CONFIGURED>` —
-  which is the renderer's `resolution` (often deliberately capped, e.g. `min(devicePixelRatio, 2)`), **not**
-  blindly `devicePixelRatio`: rendering below native dpr is a valid perf choice that costs sharpness, not
-  alignment, so comparing against raw dpr false-fails a correct game.
-  (b) **Coordinate mapping** — alignment itself: pick a canvas-anchored landmark the DOM/HUD also positions
-  against (a button over a board cell, a health bar over a unit) and confirm via `elementFromPoint` /
-  `getBoundingClientRect` that the two land in the same place.
-  This failure mode only EXISTS at `devicePixelRatio > 1` — a check run in a dpr=1 browser session passes
-  vacuously. If the browser tool can emulate dpr (device-scale emulation), run the check at dpr 2; if it
-  cannot and the session reports `devicePixelRatio <= 1`, report this check as **unverified at dpr>1** rather
-  than passed.
-  **Full-bleed check (every full-cover card):** a card that covers the display — victory, defeat,
-  continue-for-an-ad, out of energy, reward, pause — must reach the device's real edges, not stop at the safe area.
-  Measure rather than eyeball, because a thin band reads as intentional in a screenshot: with the card open,
-  `browser_evaluate` the backdrop's `getBoundingClientRect()` and compare it against `innerWidth`/`innerHeight` —
-  the backdrop covers the viewport, and `getComputedStyle(document.documentElement).getPropertyValue('--safe-top')`
-  is non-zero on a notched profile (all-zero there means `viewport-fit=cover` is missing and nothing else in this
-  check can be trusted — see `pattern:app-setup`). Then check the OTHER half, which is the one that hurts: sample
-  `document.elementFromPoint` just inside the bottom inset and confirm no button or text sits under the home
-  indicator. Bleeding the card as one piece trades a cosmetic band for an unpressable button.
-  **Modal-occlusion check:** when a modal/overlay/panel is OPEN (shop, settings, pause, confirm, game-over), nothing
-  should render OVER it. Screenshot each open modal and look: is its content fully on top, or is a HUD bar / score / a
-  leftover element bleeding through above it — **especially along the modal's top edge**, where a stray top-bar tends to
-  sit? Confirm with the instrument — `browser_evaluate` `document.elementFromPoint` at **several points inside the
-  modal's own bounding rect** (centre **plus near each edge**, not just the viewport centre — an off-centre modal or a
-  partial top-strip occlusion slips past a single centre sample) and check each hit element is `.contains`-ed by the
-  modal root, not a HUD/overlay node behind it. In the default gamelabs.js layer stack the DOM HUD overlay sits above
-  the Pixi canvas, so any surviving DOM HUD node (e.g. a top-bar left half-hidden by a partial DOM→Pixi migration — only
-  some of its children set `display:none`) paints over a canvas modal; the audit is **per-panel/container-level**, not
-  per-child. Treat an occluded modal as a blocker to fix (raise the modal's layer, or fully hide the leftover container)
-  before calling the build done.
-  **Frozen-subject check:** whatever should be moving on its own — an idle/locomotion animation, an ambient
-  loop, a drifting background — must actually move. Pixels alone are a poor test in both directions: a busy
-  background can drift while the subject stays frozen (false pass), and a loop sampled at matching phase, or
-  one that hasn't started yet, reads as frozen when it isn't (false fail). So **lead with the runtime signal
-  and use pixels to corroborate.** First put the subject into the state that should animate (don't sample an
-  idle screen and conclude about a run cycle). Then `browser_evaluate` the code phase's
-  `__game.diagnostics.subjects[<id>].poseChanges` — the per-subject counter that increments only when that
-  subject's rendered pose actually changed — taking the baseline **after** the state is active, then polling
-  it across a short observation window (~1s). Require it to keep advancing — **at least two increments on
-  separate polls**, not one: a subject that applies a single pose and then freezes passes a one-shot check,
-  and a single pair of samples can land on the same loop phase. Corroborate with two screenshots over that
-  same window, comparing **the subject's own region**, not the whole frame. A counter that never advances
-  (or a subject the code phase never registered, which makes this unknowable) is a blocker to fix before
-  calling the build done — the usual cause is a name-keyed
-  clip/asset lookup that resolved to nothing, which fails with a completely clean console. A quiet console is
+  **Device-reality checks — a 390×844 desktop session is NOT a phone.** Before calling the build done, check
+  pointer type, touch-target size, safe area, canvas geometry at dpr>1, full-bleed cards, modal occlusion and
+  frozen animated subjects; where the tool cannot emulate a condition, report it **unverified**, never passed.
+  Call `knowledge_get({ key: "pattern:polish-device-reality-checks" })` for how to measure each one. If it
+  returns empty, continue with your own judgment. A quiet console is
   not evidence of life. The screenshots also feed the auto-jury (a CC hook you don't
   control) — without them the review is text-only and blind to the actual look. **If the browser tool is unavailable
   OR unusable (Chromium missing, the call errors —

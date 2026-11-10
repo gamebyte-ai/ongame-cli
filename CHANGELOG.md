@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.57 — 2026-11-10
+
+- The phase skills are shorter. Tuned recipes (art prefix, asset sizes, sound timings, juice timings, level profiles, phone checks, Unity setup failures) now come from `knowledge_get` when a phase needs them. If that returns nothing, the agent continues with its own judgment.
+
 ## 1.7.56 — 2026-11-10
 
 - The levels quality check now also reads the files that set prices, earnings and upgrade effects, not only the level curve. It can now tell when the levels and the economy do not fit together.
