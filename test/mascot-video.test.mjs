@@ -158,7 +158,7 @@ async function player() {
   if (!fs.existsSync(out)) {
     fs.writeFileSync(stub, PIXI_STUB);
     const ts = fs.readFileSync(path.resolve(import.meta.dirname, '../skills/mascot-video/player.pixi.ts'), 'utf8');
-    const js = stripTypeScriptTypes(ts, { mode: 'transform' }).replace("from 'pixi.js'", `from '${pathToFileURL(stub)}'`);
+    const js = stripTypeScriptTypes(ts).replace("from 'pixi.js'", `from '${pathToFileURL(stub)}'`);
     assert.ok(js.includes(pathToFileURL(stub).href), 'the player no longer imports pixi.js the way this test expects');
     fs.writeFileSync(out, js);
   }

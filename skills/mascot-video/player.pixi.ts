@@ -20,8 +20,11 @@ export class MascotClips {
   private loaded: { name: string; frames: PIXI.Texture[] } | null = null;
   private loading: { name: string; job: Promise<PIXI.Texture[]> } | null = null;
 
+  public readonly meta: ClipsMeta;
+  private readonly dir: string;
+
   /** `dir` is where the pages are served from, e.g. `assets/mascot/`. */
-  public constructor(public readonly meta: ClipsMeta, private readonly dir: string) {}
+  public constructor(meta: ClipsMeta, dir: string) { this.meta = meta; this.dir = dir; }
 
   public url(file: string): string { return this.dir + file; }
   private page(name: string, p: number): string { return this.url(`${this.meta.name}_${name}_${p}.webp`); }
@@ -93,10 +96,13 @@ export class Mascot extends PIXI.Container {
   private step = 0;
   private run = 0;
   private waiting = false;
+  private readonly clips: MascotClips;
+  private readonly programme: { clip: string; hold: number }[];
 
-  public constructor(private readonly clips: MascotClips, height: number, idle: PIXI.Texture,
-    private readonly programme: { clip: string; hold: number }[]) {
+  public constructor(clips: MascotClips, height: number, idle: PIXI.Texture, programme: { clip: string; hold: number }[]) {
     super();
+    this.clips = clips;
+    this.programme = programme;
     const { fw, fh, top, feet, cx } = clips.meta;
     const s = height / (feet - top);
     for (const sp of [this.vid, (this.idle = new PIXI.Sprite(idle))]) {
