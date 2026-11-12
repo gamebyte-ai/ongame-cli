@@ -166,13 +166,7 @@ then pass that asset as `editOf` with `spriteParams.mode: "clip"` and describe t
 The legacy grid path remains prompt-only; it matches identity by description and needs visual review.
 
 Then call `knowledge_get({ key: 'pattern:concept-deconstruction' })` and follow it before writing those
-rows. Splitting a picture has two failure modes that cost real money and are easy to walk into: **one
-asset per visible object** (twenty-six soldiers become twenty-six assets rather than three types plus a
-placement table), and **a shared frame baked into every item** (six inventory cards instead of one
-reusable frame plus six icons — so a seventh item needs a whole new card). The pattern carries the
-type/instance manifest shape, when to redraw an asset versus cut it out, the deterministic check that
-catches a silently-bad extraction, and the rule that the model decides *what* while code measures
-*where*.
+rows. If it returns empty, continue with your own judgment.
 
 For every group they did **not** choose, continue with 1b — and do not quietly split the concept for
 those anyway; they chose.
@@ -181,28 +175,9 @@ those anyway; they chose.
 
 ### 1b. Build the manifest (GAME_DESIGN.md anchor)
 
-> **A LIST OF NAMES IS NOT AN ASSET LIST.** This is where agents reliably go wrong, and the mechanism is exactly
-> that: the things you can name on a screen read like rows, so ten nameable things become ten assets. They are
-> not. Every extra cut buys alignment work, an extra draw call, and a fresh way for two halves to drift apart —
-> field-measured, and caught by the user rather than by any check, because each piece is individually correct.
->
-> Three rules decide a row, and they are worth more than the rest of this section:
-> - **Cut at the ANIMATION seam, not the nameable seam.** A button and its icon are ONE asset unless they move
->   independently. A pressed button whose icon stays put is two; a settings button that only fades is one.
-> - **Ask it PER SCREEN, not per object.** A mascot standing still on a splash is baked into the plate; the same
->   mascot in-game is a rigged model. Not an inconsistency — the question is *"does it move HERE"*, never *"is it
->   the kind of thing that moves"*.
-> - **The unit can be a REGION.** If almost nothing in a card changes, the card is one asset. A victory panel
->   whose frame, ribbon, title and stars never change is one plate; only the button and the reward number are
->   separate, because only they change.
->
-> And two things NOT to cut at all: anything code can do convincingly (meter fills, glows, light shafts, confetti,
-> vignettes — a cut meter fill is frozen at the fraction the concept happened to draw), and **added light**.
-> Generating the lit/glowing form is a MISTAKE, not a default: produce the plain form and add glow in code, because
-> background-removal does not preserve transparency and a baked halo cannot be taken back out.
->
-> Full doctrine, including the state-vs-decoration check and the "regular geometry must be decided before the
-> screen is generated" rule: `knowledge_get({ key: 'pattern:concept-cut' })`.
+> **A LIST OF NAMES IS NOT AN ASSET LIST.** Decide each row by what the engine will do with the piece, not by
+> what you can name on the screen. Call `knowledge_get({ key: 'pattern:concept-cut' })` for how to cut a screen into
+> assets. If it returns empty, continue with your own judgment.
 
 Read `docs/GAME_DESIGN.md`. Write down EVERY visual the game needs. Manifest = a single table;
 each row is an asset. **Do not skip any visual** — screens, HUD, entities, menu.
@@ -239,32 +214,16 @@ the locked palette, the measured atmosphere numbers and what the game must NOT l
 you carry that contract into every prompt, not a fresh invention. If it is missing, write it now rather than
 generating a wave against nobody's agreement — that agreement is free before generation and expensive after.
 
-**Land generation and INTEGRATION as separate steps** — a wave of assets, then wiring them in. This is deliberate:
-an asset can be beautiful on its own and wrong in the scene (scale reads differently, palette fights the lighting,
-silhouette vanishes against the background), and if both land together that failure surfaces late with an
-ambiguous cause — bad asset, bad scene, or bad lighting? Split, and the question is answerable.
+**Land generation and INTEGRATION as separate steps** — a wave of assets, then wiring them in.
 
 Recipe + the reference-measurement procedure: `knowledge_get({ key: 'pattern:art-direction-contract' })`.
 
 
-The main lever for consistency is **prompt engineering**: establish a SINGLE **art-direction
-prefix prompt** and append it **verbatim** to the prompt of EVERY asset in the manifest. Generation
-v1 generates stateless (each call independent) — this shared prefix is the guarantee of a
-single language.
-
-Derive the prefix from GAME_DESIGN's tone and freeze it. It MUST include these three axes:
-
-- **Style:** art direction (e.g. "flat vector, soft rounded shapes, thick clean outline, mobile
-  casual game UI" / "pixel-art 32px" / "hand-painted storybook"). A single style — do not mix.
-- **Palette:** a limited, named color palette (e.g. "palette: warm coral #FF6B6B, teal #4ECDC4,
-  cream #FFF3E0, deep navy #1A2238"). The same colors should recur in every asset.
-- **Light:** light/shadow language (e.g. "soft top-down light, subtle long drop shadow, no harsh
-  speculars, flat ambient").
-
-Also a consistency-discipline: a single background rule ("transparent background, single centered
-subject, no text, no border padding"), a single perspective, a single line-weight. Write this
-prefix at the top of the manifest as **`ART_PREFIX`**; each `prompt` = `ART_PREFIX + ", " +
-asset-specific description`.
+Goal: ONE frozen **`ART_PREFIX`**, derived from GAME_DESIGN's tone and written at the top of the manifest, appended
+**verbatim** to every asset prompt — generation is stateless, so this shared prefix is what keeps a single language.
+Each `prompt` = `ART_PREFIX + ", " + asset-specific description`. Call
+`knowledge_get({ key: "pattern:assets-art-prefix" })` for what the prefix must contain. If it returns empty, continue
+with your own judgment.
 
 ---
 
@@ -297,12 +256,10 @@ return, the client writes them to disk):
 > context yet (e.g. a standalone reference generation).
 
 > **Size/weight (automatic + optional):** every raster output is automatically web-optimized
-> (PNG palette quantization + compression — 70-85% reduction in game art, visual quality preserved).
-> You do NOT need to do anything for this. **`maxDim?`** (px) is optional and is an agent judgment: it
-> crops the asset's maximum edge (NEVER enlarges). Small icon/gem → ~256, button/UI/logo → ~512-1024,
-> **full-screen background → DO NOT pass** (keep full resolution). Defends against oversized upstream output + crops
-> the unnecessarily large asset. If not passed, size is preserved and only the palette is optimized.
-> Ignored for 3D/char.
+> (PNG palette quantization + compression). You do NOT need to do anything for this. **`maxDim?`** (px) is
+> optional and is an agent judgment: it caps the asset's maximum edge (NEVER enlarges); if not passed, size is
+> preserved. Ignored for 3D/char. Call `knowledge_get({ key: "pattern:assets-generation-craft" })` for the size per
+> asset type. If it returns empty, continue with your own judgment.
 
 - **`kind`** — YOU judge which kind:
   - **`2d-static`** — flat 2D visual (UI/HUD/tile/bg/menu). Most assets are this.
@@ -366,9 +323,10 @@ return, the client writes them to disk):
   (normalization happens at delivery), not at submit. Fail-soft: a model that cannot be measured confidently ships
   **untouched with a `warnings` entry** rather than being scaled by a number nobody trusts — read the warnings.
 - **`charParams?`** (3d-char, STATIC MESH ONLY) — `{ targetPolycount, pbr, poseMode, enableSafetyChecker }`.
-  Rigging/animation are NOT here — they're `forge_rig`'s params (§3.5). `poseMode: 't-pose'` still
-  matters at generate time (cleaner base mesh for the rig step to work from): in the prompt, **exact T-pose**
-  (arms straight out to the sides), **isolated single humanoid, no floor/no shadow** + **`transparent: true`**.
+  Rigging/animation are NOT here — they're `forge_rig`'s params (§3.5). The rig step needs a T-pose humanoid mesh,
+  and the mesh keeps the pose of its source image. Set `poseMode` only when the source cannot be put in that pose;
+  call `knowledge_get({ key: "pattern:assets-generation-craft" })` for the T-pose source recipe. If it returns
+  empty, continue with your own judgment.
   `enableSafetyChecker: false` may be set when you judge the content filter to be a false positive on
   legitimate game content (e.g. zombies/monsters/villains); use judgment, don't flip it as a blanket default.
 
@@ -461,38 +419,10 @@ never generated as an independent prompt (independent prompts yield unrelated-lo
 > take exactly ONE reference** (image-to-3d has a single source) — to drive 3D from several references, combine
 > them with a 2D edit first, then pass THAT result's assetId as the 3D `editOf`.
 
-> **EXTRACTION/ISOLATION silently returns MORE than you asked — count, don't eyeball.** When you use `editOf` to
-> pull ONE element out of a busy image ("isolate only the barrel, remove every other object"), the model can hand
-> back the WHOLE SCENE re-laid-out as a tidy asset sheet — flat backdrop, clean silhouettes, nothing in the
-> response saying "I gave you everything". Measured on a real deconstruction run: **3 of 6** parts came back as
-> full sheets, and all three *looked* perfect; the error was invisible until the pixels were counted. Do not accept
-> an isolate on appearance:
-> - **Measure the separated foreground regions, and treat the number as a TRIGGER — not a verdict.** After
->   materializing: transparent output → connected regions of the alpha mask; opaque output → flood inward from the
->   border through pixels that MATCH THE BACKDROP COLOUR (only those — flooding everything border-connected would
->   erase an unwanted object that happens to touch the frame), and the foreground is what the flood cannot reach.
->   Make the measurement reproducible by stating what you used: sample the backdrop from the four corners and
->   require them to agree (if they don't, the backdrop isn't flat — see below); compare with **max per-channel
->   absolute difference in sRGB** against a tolerance you name (~8-12/255 covers JPEG ringing without swallowing
->   art); and ignore regions under a named minimum size (a few percent of the image) so antialiasing fringes are
->   not counted. **More regions than you expected does NOT by itself prove a leak** — go LOOK at the image. The
->   leak has a distinctive signature: the extra regions are recognisably OTHER NAMED ELEMENTS of the source scene,
->   laid out side by side like a catalogue page. That is what you reject. If you want a hard accept/reject gate
->   rather than a trigger, then declare an expected **region** count or range up front — never compare a declared
->   *subject* count against a measured *region* count and call the difference a failure.
-> - **Do NOT infer the expectation from the picture.** Two regions warrants a LOOK when you asked for "the barrel"
->   and warrants nothing at all when you asked for "the pillars" — the expectation lives in YOUR request, not in
->   the image, so the image can never supply it. (Measured: `pillars` really is a legitimate two-region element.)
->   Same rule as 3D normalization: state the expectation, then measure against it; never guess it back out of the
->   output — and where you have not stated one, the measurement is a prompt to inspect, not a result.
-> - **Know exactly what this is and is not.** A region count APPROXIMATES a subject count; it is not the same
->   thing, and it fails in both directions: (a) touching or overlapping subjects merge into ONE region, so a leak
->   glued to the wanted object still counts as 1; (b) a single legitimate subject can be several regions — a
->   floating shield, sparks, a detached shadow — which is the other reason you DECLARE the expected count instead
->   of assuming 1. And the opaque path needs a genuinely flat backdrop: over a textured or gradient background the
->   flood stops immediately and the whole frame reads as one region, which proves nothing. When the backdrop is not
->   flat, or the count disagrees with what you can plainly see, report the asset as **unmeasured** — never as
->   verified. A clean count is evidence of "no *separated* extras", not proof of a single subject.
+> **EXTRACTION/ISOLATION can silently return MORE than you asked** (the whole scene as an asset sheet) — count
+> before accepting an isolate, and report it as unmeasured when you cannot. Call
+> `knowledge_get({ key: "pattern:assets-isolation-check" })` for the measurement procedure. If it returns empty,
+> continue with your own judgment.
 
 **User-shared reference image:** if the user shared a screenshot/artwork the game's look should follow, make IT the
 anchor: copy it into `{gameDir}/assets/reference/` → `forge_reference` (ongame, mints `{uploadUrl, token}`) →
@@ -546,25 +476,18 @@ load real textures. Otherwise the game still renders line-art/placeholder.
    (write them with the same names). Fetch `pattern:sprite-animation` for PixiJS loading and playback,
    or `pattern:unity-sprite-animation` for Unity import. Preserve the frame canvas and pivot, honor one-shot
    versus looping playback, and verify alpha edges, grounding and the loop boundary on the real screen.
-6. **3D (GLB) load — ONLY 3D game:** 3d-static/3d-char `path` = **`.glb`**. gamelabs `AssetManager.load(
-   AssetTypes.GLTF, id, url)` → `GLTFLoader.loadAsync` → `{ scene, animations }`; `world.add(getAsset(id).scene)`
-   (into the Three.js world3d scene). Do not use GLB in a pure 2D game (do not generate 3d-static/char in the first place).
-   - **3d-char animation:** the GLB carries `.animations[]` → `const mixer = new THREE.AnimationMixer(scene);
-     mixer.clipAction(animations[0]).play();` and `mixer.update(dt)` every frame. (gamelabs has no ready anim helper
-     — Three.js AnimationMixer by hand.)
+6. **3D (GLB) load — ONLY 3D game:** 3d-static/3d-char `path` = **`.glb`**. Load it through gamelabs `AssetManager`
+   (`AssetTypes.GLTF`) into the Three.js world3d scene; do not use GLB in a pure 2D game (do not generate 3d-static/char
+   in the first place). Call `knowledge_get({ key: "pattern:3d-animation" })` for GLB loading and driving a rigged
+   character's clips. If it returns empty, continue with your own judgment.
    - **Read `measurements` before placing — do not scale/position a GLB blind.** `assets_materialize`'s result carries
      `measurements`, an array INDEX-ALIGNED with its `paths` (undefined for a non-GLB entry) — for GLB assets
-     (3d-static/3d-char/rig) each is `{bbox, size, groundOffsetY, centerXZ, meshCount, rigged, confidence}`, computed
-     server-side from the mesh geometry (MESH-ONLY bounds — a rigged model's bone/joint nodes are deliberately
-     excluded, so it reflects the visible mesh, not an inflated skeleton box). Read `measurements[i]` for `paths[i]`
-     (a batch>1 3D request yields one per model, not just the first) instead of guessing a `scale`/position:
-     - `size` tells you the model's real dimensions (in its own units) — pick a scale factor from the game's actual
-       unit scale (e.g. "this character should read as ~1.8 world-units tall") instead of a blind `setScalar(N)`.
-     - `groundOffsetY` is the Y offset that rests the model's own bbox on `y=0` — add it (times your chosen scale)
-       to a placed instance's Y so it sits ON the ground/floor instead of floating or sinking into it.
-     - `centerXZ` lets you center the model under its own origin on the X/Z plane, if its authored origin is off-center.
-     - **`confidence:"low"`** (no mesh found / degenerate bounds — rare, but check `note`) means treat the numbers as
-       a hint, not ground truth — fall back to judging placement by eye in the browser check (§7) instead.
+     (3d-static/3d-char/rig) each is `{bbox, size, groundOffsetY, centerXZ, meshCount, rigged, confidence}`, measured
+     from the visible mesh. Read `measurements[i]` for `paths[i]` (a batch>1 3D request yields one per model).
+     **`confidence:"low"`** (no mesh found / degenerate bounds — rare, but check `note`) means treat the numbers as
+     a hint, not ground truth — fall back to judging placement by eye in the browser check (§7) instead.
+     Call `knowledge_get({ key: "pattern:assets-generation-craft" })` for placing a GLB from these numbers. If it
+     returns empty, continue with your own judgment.
 
 > **DO NOT DELETE** the `#stage .layer` (world3d/hud2d) overlay CSS in `index.html` — black-screen
 > bug.

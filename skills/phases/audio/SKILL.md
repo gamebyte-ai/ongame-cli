@@ -33,24 +33,24 @@ code phase and tests). Each row carries an `id` (kebab-case, becomes the file na
 
 Canonical roles — skip if not in the design, add if present (this list is a baseline; extend based on the design genre):
 
-| id | role | kind | loop | example text |
-|----|------|------|------|------------|
-| `ui-click` | UI button click | sfx | no | "short crisp UI button click, soft tactile tick" |
-| `ui-hover` | UI hover/focus | sfx | no | "very subtle UI hover blip, light and quiet" |
-| `select` | piece/cell selection | sfx | no | "gentle bubble select pop" |
-| `match` | match/clear | sfx | no | "satisfying match pop with a sparkle tail" |
-| `cascade` | chain/combo (rising pitch) | sfx | no | "rising chained chime, ascending pitch combo" |
-| `win` | win stinger | sfx | no | "triumphant short win stinger, bright fanfare" |
-| `lose` | lose stinger | sfx | no | "soft descending lose stinger, gentle fail tone" |
-| `music` | background music / ambient | music | **yes** | "calm loopable background music bed, seamless loop" |
+| id | role | kind | loop |
+|----|------|------|------|
+| `ui-click` | UI button click | sfx | no |
+| `ui-hover` | UI hover/focus | sfx | no |
+| `select` | piece/cell selection | sfx | no |
+| `match` | match/clear | sfx | no |
+| `cascade` | chain/combo (rising pitch) | sfx | no |
+| `win` | win stinger | sfx | no |
+| `lose` | lose stinger | sfx | no |
+| `music` | background music / ambient | music | **yes** |
 
 - **UI**: at minimum `ui-click`; if the design has hover/focus feedback, `ui-hover`.
 - **Gameplay**: map to the design's core verb — `select`, `match`, `cascade`, and
   `win`/`lose` stinger for the win/lose screens. (In a non-match-3 genre, `match`→
   the game's "score/reward" moment, `cascade`→corresponds to the combo; the role name is fixed, the text per genre.)
-- **Ambient/music**: a full `music` piece, **`loop: true`**. `durationSeconds` ≈ 8–12
-  (keep it short for a seamless loop; 0.5–22 is the valid range).
-- SFX are short (`durationSeconds` ≈ 0.4–1.5) — a long SFX delays the feel.
+- **Ambient/music**: a full `music` piece, **`loop: true`** (`durationSeconds` valid range 0.5–22).
+- SFX are short. Call `knowledge_get({ key: "pattern:audio-sound-design" })` for tuned durations and example
+  sound-description text per role. If it returns empty, continue with your own judgment.
 
 ## 3. Generation via the `sound_request` tool
 The client has **no `FORGE_URL` and no token** — sound is generated through the **`sound_request`** tool
@@ -103,11 +103,11 @@ Wire the game to sound — with gamelabs.js's **real AudioService** API (no fabr
   `this.audioService.playSfx('match')`, on cascade `playSfx('cascade')`, on selection
   `playSfx('select')`. **On buttons** bind to the UI event: `playSfx('ui-click')` (if hover exists,
   `playSfx('ui-hover')`).
-- **Music loop** — when entering the play state `this.audioService.playMusic('music', { loop: true,
-  fadeInMs: 400 })`; when returning to gameover/menu `this.audioService.stopMusic({ fadeOutMs: 300 })`.
-- **win/lose stinger** — at the state machine's **gameover transition**: if won
-  `playSfx('win')`, if lost `playSfx('lose')` — and `stopMusic` first (so the stinger does not
-  ride on top of the music).
+- **Music loop** — start `this.audioService.playMusic('music', { loop: true })` when entering the play state; call
+  `this.audioService.stopMusic()` when returning to gameover/menu.
+- **win/lose stinger** — at the state machine's **gameover transition**: if won `playSfx('win')`, if lost
+  `playSfx('lose')`. Call `knowledge_get({ key: "pattern:audio-sound-design" })` for fade and stinger timing. If it
+  returns empty, continue with your own judgment.
 - **Autoplay policy** — the browser keeps the `AudioContext` `suspended` until the first user gesture.
   On the first real input (the first click/touch) call `this.audioService.resume()`; otherwise
   the music queued at boot stays silent. (The Settings audioFields bridge also calls `resume()` on
@@ -143,7 +143,7 @@ toggle works. The toggle state is persistent via `storageService` (SettingsBindi
     input:    <the CONTEXT this phase consumed — the GAME_DESIGN.md core loop / genre / core verb that the sound manifest was derived from, plus the prior-phase inputs used (the game's interactive verbs + win/lose screens that the roles map to, and whether `sound_request` was reachable)>,
     output:   <the ARTIFACT produced — audio/manifest.json (the role list with each piece's id/role/kind/loop + silent flags + resolved assets/forge/sound-<hash>.mp3 path), the AudioService wiring written into the App (load/playSfx/playMusic/resume), generated vs skipped(silent) counts, and the tsc-clean result>,
     metadata: {
-      decision: <the MAIN choice this phase made — which sound roles were included vs skipped and how they were mapped to this genre (e.g. match→score/reward moment, cascade→combo), the music loop choice, and per-piece durationSeconds (short SFX vs ~8-12s seamless music loop)>,
+      decision: <the MAIN choice this phase made — which sound roles were included vs skipped and how they were mapped to this genre (e.g. match→score/reward moment, cascade→combo), the music loop choice, and per-piece durationSeconds (short SFX vs a seamless music loop)>,
       why:      <the RATIONALE, explicitly citing what drove it — name the GAME_DESIGN.md core loop / core verb / genre that selected this role set (the user-intent driver), and note where gray-box fallback forced a silent skip (sound_request absent / a piece failed) so the choice was "stay silent but playable">
     }
   })
