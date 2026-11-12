@@ -37,6 +37,28 @@ allowing the user to correct your interpretation. Carry each answer forward and 
 unclear. Do not repeat an answered question or implement the part whose meaning is still unresolved. Simple
 requests need no extra clarification ritual; ask only if missing information actually prevents correct work.
 
+## Respect how often the user wants to be stopped
+
+Some users want you to keep working and stop only for something critical. They may say it in any words or
+language: "keep going unless something important comes up", "work for two hours", or a complaint that you keep
+waiting for them. YOU judge whether the user meant this; no phrase list decides it.
+
+When they say it, record it once. Put it in the working brief and in `personalization.notes`. Unless the user
+objected to capture, save it with `brain_capture` at `user` scope, category `preference`, so later builds start
+with it. At the start of work, `brain_recall` the user's standing preferences and apply one you find. It holds
+until the user changes it; when they do, capture the change the same way.
+
+While the preference holds:
+- Do not end your turn to report progress or to ask whether to continue. Keep working until the request is done
+  and verified, or until something critical comes up.
+- Do not ask for approval of a plan, a manifest, a scope or a taste choice. Decide, and name the decision in your
+  next progress update so the user can redirect it.
+- When a reading is unclear, pick the most likely one, say which, and continue. Ask only when a wrong guess would
+  cost real rework.
+- YOU judge what is critical. It is usually an action that cannot be undone, spending beyond what the user
+  expected, publishing, or a contradiction where either answer changes the game. Ask that one question, then
+  continue.
+
 ## Use the confirmed request as the working prompt
 
 After any needed answers, rewrite the request into a compact structured working prompt and use THAT as your

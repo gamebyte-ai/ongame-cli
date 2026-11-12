@@ -1,8 +1,28 @@
 # Changelog
 
-## 1.7.59 — 2026-11-10
+## 1.7.63 — 2026-11-12
 
 - A paying account that reached its daily limit of know-how entries is now told when the limit resets, instead of being told to retry shortly.
+
+## 1.7.61 — 2026-11-12
+
+- When the user corrects a phase's work, the agent now reports that correction once with `friction_report`: what it did and what the user wanted instead. onGame learns from these reports. It skips a plain clarification, and it skips the report when the user objected to capture.
+
+## 1.7.60 — 2026-11-12
+
+- When a user says to stop only for critical things, the agent records it once and stops asking for routine approvals. It saves the wish with `brain_capture`, so later builds start with it. The asset manifest and the polish scope no longer wait for a yes while it holds.
+
+## 1.7.59 — 2026-11-10
+
+- The polish step's play gate line now names the public `ongame` server, like every other shipped line.
+
+## 1.7.58 — 2026-11-10
+
+- A game is now done only after it was played on record. `/make-game`, `/publish` and the polish step call `play_gate`: it plays the built game by keyboard as a desktop and by touch as a phone, to the win. The agent then looks at the footage and calls `play_review`. A new hook holds `build.done` and `profile_record_build` until that passed. Needs an ongame-cli release that has `play_gate`. An older one has no such hook: it logs a non-blocking hook error and the build finishes as before.
+
+## 1.7.57 — 2026-11-10
+
+- The polish step now plays every feature before the game is reviewed. It opens the built game with `?test=1` and reads one `pass` or `fail` line per feature. It fixes every failing feature and every feature with no line. Then it calls `contact_sheet`, so the review judges a working build as it plays.
 
 ## 1.7.56 — 2026-11-10
 

@@ -37,6 +37,8 @@ from scratch; **compose** what's already in the engine.
      applying full polish (splash→menu→juice→game-over) — say 'stop' and I'll narrow it down."* Do not wait for an answer.
    - **If the history leans toward idea-exploration / minimal signal** → the **core set** (4 HUD + 5 juice +
      9 button feedback), skip splash/menu/settings; a one-sentence confirmation.
+   - **The user asked you to stop only for critical things** (intake: "Respect how often the user wants to be
+     stopped") → do not ask; pick the scope from the game and their history, and state it in one sentence.
    - **No history / unclear (new or contradictory) → ASK.** A single question via `AskUserQuestion`: *"Polish
      scope?"* options: **Full** (1–9) · **Core juice** (4+5+9) · **Juice only** (5).
      If it stays unclear, default = **Core juice.** (NOT a silent autopilot; NOT a survey every
@@ -363,6 +365,28 @@ did not clearly improve, keep its old assets.
        that the build is NOT boot-verified and ask the user whether to publish anyway — publishing unverified is
        the user's call to make, never yours. If they say yes, step 4 publishes it and returns `verify.warning`.
      Scope is boot only — it says nothing about look or feel.
+  1c. **Play every feature — open the built game with `?test=1`.** A game that boots can still have a dead swap or a
+     level that never ends. `preview_start({gameDir, built: true})` serves `dist/`. With the browser
+     tool, navigate to its URL with `?test=1` added. Play each feature the way a player would (tap the control's
+     `__game.hitAreas()` rectangle, or `__game.step()` the clock). Then read the console (`browser_console_messages`):
+     the game prints one `pass <name>` or `fail <name>` line per feature. List the features in `GAME_DESIGN.md`
+     beside the lines.
+     - **Every `fail <name>` line is a bug.** Fix it, rebuild, and run this step again.
+     - **Every feature with no line is a bug too.** It was never checked. Add its `selfCheck('<name>', …)` call where
+       the feature runs, rebuild, and run this step again. The rule and the code: `knowledge_get` key
+       `pattern:gamelabs-self-check` (a Unity game: `pattern:unity-self-check`).
+     - Go on only when every feature has a `pass` line. Report the lines, not a summary: "7 pass, 1 fail
+       (level-complete)". Call `preview_stop` when done.
+     If the browser tool cannot run, say the features were NOT checked; never report them as passing.
+  1d. **Contact sheet — `contact_sheet({gameDir})`**, only after step 1c passes. It records the built
+     game with no input and saves one frame every 2 s, tiled and time-labelled. The polish review judges this sheet, so take it
+     from the working build. Read `status`: `"unverified"` means no sheet was made — do the step in `fix` (build
+     first on `no_dist`) and call it again. If it still cannot run, say the game's look was judged from stills only.
+  1e. **Play gate — `play_gate({gameDir, buildId, desktop, phone})`** (ongame), after 1d, on the build you will
+     publish. It plays the game as a desktop by keyboard and as a phone by touch, from scripts you write that reach
+     the win (`pass goal`). Fix every failed check, rebuild and run it again; waive one only when it is wrong for
+     this game, with the reason. Then open both footage images and call `play_review`. Publish and `build.done` are
+     refused until it passed for this `dist/`.
   2. **Pre-publish check — fix everything it finds before step 3.** Every refusal step 3 can give is findable here.
      - **A build behind the game:** you hold this build's `buildId` from `state_init`, and step 3's `gameId` is the
        one you gave `state_init`. No `buildId` means the build was never opened: call `state_init` for this game now.

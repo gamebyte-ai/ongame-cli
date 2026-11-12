@@ -111,3 +111,18 @@ test('build-marker-write runs after every asset-registering tool', () => {
   }
   assert.ok(!groups.some((g) => new RegExp(g.matcher).test(`${prefix}forge_rig_status`)), 'matcher must be anchored');
 });
+
+// play-gate-finish refuses a build's finish calls until its game was played on record (ongame
+// cli/src/hooks/play-gate-finish.ts, PR 916). It must hold exactly the two finish tools of the shipped server, and run
+// before the call, or a build is recorded done without being played.
+test('play-gate-finish runs before trace_emit and profile_record_build, through the launcher', () => {
+  const groups = (hooks.hooks.PreToolUse ?? []).filter((g) => g.hooks.some((h) => h.args?.join(' ') === 'hook play-gate-finish'));
+  assert.equal(groups.length, 1, 'expected one PreToolUse group for play-gate-finish');
+  const [group] = groups;
+  assert.equal(group.matcher, '^mcp__plugin_ongame_ongame__(trace_emit|profile_record_build)$');
+  for (const hook of group.hooks) assert.equal(hook.command, `${PLUGIN_ROOT_VAR}bin/ongame-launcher`);
+  const prefix = `mcp__plugin_${manifest.name}_ongame__`;
+  const re = new RegExp(group.matcher);
+  for (const tool of ['trace_emit', 'profile_record_build']) assert.ok(re.test(prefix + tool), `${tool} is not held`);
+  for (const tool of ['trace_emit_batch', 'state_init', 'publish_upload']) assert.ok(!re.test(prefix + tool), `${tool} must not be held`);
+});

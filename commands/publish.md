@@ -65,6 +65,10 @@ account has no build of that slug, and `publish_game` would refuse it (`no_such_
 the `gameId` the build started with. If none of their games has it, the game was not built here: say so and offer
 `/make-game`.
 
+**Played on record.** `publish_upload` refuses (`play_gate_missing`, `_failed`, `_unreviewed` or `_stale`) a `dist/`
+that `play_gate` and `play_review` have not passed. If this build was not played yet, do it now, as `/make-game`
+says: `play_gate({gameDir, buildId, desktop, phone})`, fix every failed check, then `play_review`.
+
 **The files.** `Bash`: `node <pluginRoot>/skills/phases/polish/precheck.mjs {gameDir}` → `{ok, files, problems}`.
 - Exit 0: pass `files` to `publish_game` exactly as printed. It holds every file under `dist/` as `{path, size}`.
 - Exit 1: fix every entry in `problems`, rebuild, and run it again. Each `reason` is the one `publish_game` would

@@ -13,6 +13,14 @@
         ]
       }
     ],
+    "PreToolUse": [
+      {
+        "matcher": "^mcp__plugin_ongame_ongame__(trace_emit|profile_record_build)$",
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/ongame-launcher", "args": ["hook", "play-gate-finish"], "timeout": 20 }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit|MultiEdit|.*assets_materialize",
