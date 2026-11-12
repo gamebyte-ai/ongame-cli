@@ -201,6 +201,8 @@ language).
 > of the manifest (how many assets, which groups). The approved manifest determines the generation
 > budget; do not do unnecessary generation (Pareto: generate the visuals the game actually
 > renders).
+> If the user asked you to stop only for critical things (intake: "Respect how often the user wants to be
+> stopped"), show the summary without waiting for approval and continue.
 
 
 ---

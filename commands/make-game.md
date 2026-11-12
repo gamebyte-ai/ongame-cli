@@ -34,6 +34,10 @@ After the needed answers, use a structured working prompt that preserves the use
 goal when the current agent actually supports it and its tool contract permits it. Revisit this guidance for
 substantial follow-up input, not just the initial command.
 
+When the user says to stop only for critical things, YOU judge that they meant it. Then follow the intake skill's
+"Respect how often the user wants to be stopped": record the preference once, recall it on later builds, and stop
+asking for routine approvals.
+
 ## Tools and access
 
 Tools are referred to by short name here; match the available tool's actual namespace and schema.
@@ -96,6 +100,9 @@ advance past a phase whose work did not happen.
 **Redo a phase when the user asks to change its work.** When the user corrects something a phase of this build
 already produced, record the correction as `user.feedback` (below). Right before you redo that work, call
 `record_iteration(buildId, <p>)`; never call it speculatively. It makes `<p>` current again and counts the redo.
+Also call `friction_report(buildId, gameId, phase=<p>, kind, agentDid, userWanted)` once for that correction:
+`agentDid` is what you produced or assumed, and `userWanted` is what the user asked for instead. Skip it for a
+clarification, and when the user objected to capture.
 Then repeat steps 2-4 for `<p>`, starting with `phase.<p>.start`; skip step 1's `state_advance`. Call it once for
 each phase the change reaches. When the corrected request is complete, close the build with `build.done` again.
 
@@ -191,6 +198,16 @@ When the browser check is done, call `browser_close`: an open game keeps the bro
 user's battery.
 Step the clock frame by frame for timing-critical moments, check placement with a numeric probe rather than by
 eye, and reach hard states by seeding the save (`pattern:temporal-capture`, `pattern:visual-polish-loop`).
+
+**A game is done only after it was played on record.** After the last build and before `build.done`, call
+`play_gate({gameDir, buildId, desktop, phone})`. Write both play scripts yourself: the shortest
+keyboard play (desktop) and touch play (phone) from the first screen to the win or goal. The game prints `pass goal`
+there (`pattern:gamelabs-self-check`). `state: "blocked"` names the failed checks: fix the game, rebuild and call it
+again. Waive a check only when it is wrong for this game, with the reason. On `"awaiting_review"`, open both footage
+images, then call `play_review` with what you saw. `build.done` and `profile_record_build` are refused until it passed.
+A game with no web build to play (Unity, a docs-only change) calls `play_gate` with `skip: {reason}`; tell the user it
+was not played. An install with no `play_gate` tool cannot play it either: say the game was not played on record.
+Give the user the check lines and any waiver with its reason.
 
 Use the registered game/build identifiers accepted by each tool. Do not invent phase completion or mark an
 earlier phase build done. Follow the notice and capture choice established before registration; do not repeat
