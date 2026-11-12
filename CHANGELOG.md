@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.59 — 2026-11-10
+
+- The polish step's play gate line now names the public `ongame` server, like every other shipped line.
+
 ## 1.7.58 — 2026-11-10
 
 - A game is now done only after it was played on record. `/make-game`, `/publish` and the polish step call `play_gate`: it plays the built game by keyboard as a desktop and by touch as a phone, to the win. The agent then looks at the footage and calls `play_review`. A new hook holds `build.done` and `profile_record_build` until that passed. Needs an ongame-cli release that has `play_gate`. An older one has no such hook: it logs a non-blocking hook error and the build finishes as before.
