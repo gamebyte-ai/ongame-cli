@@ -31,9 +31,11 @@ directly. State the two conflicting requirements and the consequence, then let t
 Distinguish an intentional game rule or stylization from a physical impossibility; your preference is not a
 contradiction. Do not manufacture questions just to cover every category.
 
-**Ask one focused question at a time and wait for its answer.** Prefer the current agent's native question UI
-when it is available; otherwise ask one short conversational question. Offer choices when they help, while
-allowing the user to correct your interpretation. Carry each answer forward and ask only about what remains
+**Ask one focused question at a time and wait for its answer.** When choices help, ask with `ask_user`
+(ongame): two to four options, the one you would pick marked `recommended`, and a picture as `image` when
+you have one on disk. `ask_in_chat` → show its `text`, then pass the user's reply back as `reply`; `other` is
+their own words, so they can still correct your interpretation. An open question with no useful choices is one
+short conversational question. Carry each answer forward and ask only about what remains
 unclear. Do not repeat an answered question or implement the part whose meaning is still unresolved. Simple
 requests need no extra clarification ritual; ask only if missing information actually prevents correct work.
 
@@ -163,8 +165,10 @@ calibrate to it). This skill is the runtime recipe.
 4. **CONFIRM in one sentence; ASK only when genuinely ambiguous** (never silent autopilot, never over-ask):
    - Clear signal → auto-decide + a one-sentence confirmation: *"This looks like a **<mode>** (<short rationale>) —
      I'm going that way; say 'stop' to change."* Continue without waiting.
-   - New user (`returning=false`) OR ambiguous goal/mode → **ASK** with `AskUserQuestion`, options built from
-     `pathOptions.summary`. One question at a time; if the genre/mechanic is also unclear, one more.
+   - New user (`returning=false`) OR ambiguous goal/mode → **ASK** with `ask_user` (ongame), options built
+     from `pathOptions.summary`, the one you would pick marked `recommended`. One question at a time; if the
+     genre/mechanic is also unclear, one more, and give each genre option a picture when you have one on disk.
+     `ask_in_chat` → show its `text`, then pass the user's reply back as `reply`; `other` is their own words.
 5. **PLAYABLE-AD recipe** (ONLY when mode=playable-ad — a DIFFERENT process from making a game):
    - **Analyze the uploaded materials FIRST:** what is the game, what is the exact playable MOMENT the ad should show,
      what format. The user may have it fully in mind, or need creative direction.

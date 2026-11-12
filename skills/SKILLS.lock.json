@@ -1,5 +1,5 @@
 {
-  "pluginVersion": "1.7.63",
+  "pluginVersion": "1.7.64",
   "generatedAt": "2026-11-12",
   "skills": {
     "art-direction": {
@@ -13,9 +13,9 @@
       "lines": 38
     },
     "intake": {
-      "sha256": "980ab75d5920530deb0451a36d07e1f0c7b634afbff0afdadfb3745e405eec6d",
-      "bytes": 15880,
-      "lines": 201
+      "sha256": "4a02048a51710548b5a08aec1c14bc2faf7e881dcc1b703fe0104c011188fb8f",
+      "bytes": 16304,
+      "lines": 205
     },
     "level-design": {
       "sha256": "b25a09d0f6e791280790081ebf5446100f38062158319fd183e94e1c8b4bf21a",
@@ -28,9 +28,9 @@
       "lines": 122
     },
     "phases/assets": {
-      "sha256": "9f91016f4bcd4318b60c43f83e608ce1d35c892d48203dbfd7098351cc151dc7",
-      "bytes": 41187,
-      "lines": 546
+      "sha256": "21c1f3ba3fb6d6478b30327bce90e18767c87e7d05475eeb6dd4d3841f922e3b",
+      "bytes": 41665,
+      "lines": 552
     },
     "phases/audio": {
       "sha256": "7ceb9416fdb0c8d2534f08d60e43d72d4e9bbc3ac9a493ceffaf447a2dbea6cb",

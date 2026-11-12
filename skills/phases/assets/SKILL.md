@@ -126,6 +126,12 @@ shape of:
 > yapayım — menü, HUD ve karakterler o görsellerden çıkar. İstersen onları ilham olarak bırakıp
 > görselleri sıfırdan üretirim."
 
+Ask it with `ask_user` (ongame), so the user sees the pictures while choosing: two options, **From the
+concept** with `image` set to the absolute path of the concept frame that best shows the look (the menu mock or
+the first in-game frame), and **Fresh visuals** with no picture or a doc-style frame if one exists. Put your
+sentence above in `question`, in the user's language. A partial wish ("keep this menu") comes back as `other`:
+read it exactly like a typed reply below.
+
 Read the answer for **intent**, not keywords — and respect its SCOPE:
 
 - **Whole set** ("aynen böyle olsun") → source every group that the concept covers from the concept.
