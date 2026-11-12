@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.60 — 2026-11-12
+
+- When a user says to stop only for critical things, the agent records it once and stops asking for routine approvals. It saves the wish with `brain_capture`, so later builds start with it. The asset manifest and the polish scope no longer wait for a yes while it holds.
+
 ## 1.7.59 — 2026-11-10
 
 - The polish step's play gate line now names the public `ongame` server, like every other shipped line.

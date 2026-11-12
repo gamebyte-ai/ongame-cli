@@ -37,6 +37,8 @@ from scratch; **compose** what's already in the engine.
      applying full polish (splash→menu→juice→game-over) — say 'stop' and I'll narrow it down."* Do not wait for an answer.
    - **If the history leans toward idea-exploration / minimal signal** → the **core set** (4 HUD + 5 juice +
      9 button feedback), skip splash/menu/settings; a one-sentence confirmation.
+   - **The user asked you to stop only for critical things** (intake: "Respect how often the user wants to be
+     stopped") → do not ask; pick the scope from the game and their history, and state it in one sentence.
    - **No history / unclear (new or contradictory) → ASK.** A single question via `AskUserQuestion`: *"Polish
      scope?"* options: **Full** (1–9) · **Core juice** (4+5+9) · **Juice only** (5).
      If it stays unclear, default = **Core juice.** (NOT a silent autopilot; NOT a survey every
