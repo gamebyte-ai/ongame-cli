@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.66 — 2026-11-12
+
+- The final `phase_review` of the code phase now names the source files for each engine: gamelabs, everything under `src/`; Unity, the C# scripts under `Assets/`; Godot, the `.gd` and `.cs` scripts beside `project.godot`; native, the files the project's own build compiles. A Godot or native game no longer goes to review with an empty or partial artifact.
+
 ## 1.7.65 — 2026-11-12
 
 - In the code phase the agent no longer sends its own notes or a few picked files to `phase_review`. Each code write is already reviewed on the game's whole source. The agent calls `phase_review` once at the end, with every source file, only when code changed after the last feedback. `/make-game` asks for `phase_review` only for concept, docs and levels.
