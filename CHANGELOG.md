@@ -2,7 +2,8 @@
 
 ## 1.7.66 — 2026-11-12
 
-- The final `phase_review` of the code phase now names the source files for each engine: gamelabs, everything under `src/`; Unity, the C# scripts under `Assets/`; Godot, the `.gd` and `.cs` scripts beside `project.godot`; native, the files the project's own build compiles. A Godot or native game no longer goes to review with an empty or partial artifact.
+- The final `phase_review` of the code phase now names the source files for each engine: gamelabs, everything under `src/`; Unity, the C# scripts under `Assets/`; Godot, the `.gd` and `.cs` scripts under the folder that holds `project.godot`; native, the files the project's own build compiles. A Godot or native game no longer goes to review with an empty or partial artifact.
+- `test/code-review-artifact.test.mjs` checks that rule: it names all four engines, and a Godot game with `project.godot` and `scripts/main.gd` sends that script, not zero files.
 
 ## 1.7.65 — 2026-11-12
 
