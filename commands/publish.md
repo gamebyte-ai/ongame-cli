@@ -47,9 +47,9 @@ Without this step the published game reports nothing about how people play it.
    from the source HTML. A failed provision must not leave an old GameAnalytics destination active.
    Telemetry never blocks a publish.
 
-Every published game carries the "Built with onGame" credit. Next
+Every published game opens with the onGame launch card. Next
 `Bash`: `node <pluginRoot>/skills/credit/apply.mjs {gameDir}` — it adds or updates the credit in `index.html`;
-`skills/credit/SKILL.md` covers moving it off the game's own UI.
+`skills/credit/SKILL.md` covers a game that draws its first screen late.
 
 Then `Bash`: `cd {gameDir} && npm run build` → produces `dist/`. **Fix until the build is clean** — a broken build is
 not something to publish around. Finish with
