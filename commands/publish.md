@@ -17,8 +17,9 @@ waiting for.
 1. **Look where you are.** A `package.json` plus a `src/` or `index.html` in the working directory means you are
    standing in the game — publish that, and say which one you picked.
 2. **Otherwise check what they have built** — `games_list` (an `ongame` cloud tool), then `game_summary` to resolve one.
-3. **Only then ask**, with the candidates as options. Never invent a game, and never publish a different one than
-   the user meant because it was the only one you found.
+3. **Only then ask**, with `ask_user` (ongame) and the candidates as options (at most 4, newest first).
+   Give each option a picture of that game as `image` when one is on disk (an image in its `.ongame/screenshots/`).
+   Never invent a game, and never publish a different one than the user meant because it was the only one you found.
 
 **Only a game built through ongame can be published.** If the account has no build for it, publish is refused
 (`no_such_build`) — that is the rule working, not a fault. Say plainly that this game was not built here, and

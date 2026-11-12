@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.62 — 2026-11-12
+
+- `/make-game` intake, the assets phase's art-style question and `/publish`'s game choice now ask with `ask_user`. The user picks from two to four options, with a picture beside each when one is on disk. Needs ongame-cli 0.2.40 or later, which has `ask_user`.
+
 ## 1.7.61 — 2026-11-12
 
 - When the user corrects a phase's work, the agent now reports that correction once with `friction_report`: what it did and what the user wanted instead. onGame learns from these reports. It skips a plain clarification, and it skips the report when the user objected to capture.
