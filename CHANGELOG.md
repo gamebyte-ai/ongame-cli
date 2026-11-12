@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.65 — 2026-11-12
+
+- In the code phase the agent no longer sends its own notes or a few picked files to `phase_review`. Each code write is already reviewed on the game's whole source. The agent calls `phase_review` once at the end, with every source file, only when code changed after the last feedback. `/make-game` asks for `phase_review` only for concept, docs and levels.
+
 ## 1.7.64 — 2026-11-12
 
 - `/make-game` intake, the assets phase's art-style question and `/publish`'s game choice now ask with `ask_user`. The user picks from two to four options, with a picture beside each when one is on disk. A user with one game is asked Publish this game or Cancel. Needs ongame-cli 0.2.40 or later, which has `ask_user`.

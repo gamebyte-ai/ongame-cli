@@ -88,8 +88,11 @@ Never create an ownership record for a game you did not actually work on just to
 1. Before its work, call `state_advance(buildId)` and check that it returned `<p>` as the current phase. Then emit
    `trace_emit(buildId, name="phase.<p>.start")`.
 2. Do the work of that phase.
-3. When `<p>` is `concept`, `docs`, `code` or `levels`, call `phase_review` with `buildId` and `gameId` on what it
-   produced. Its verdict is advice: apply or decline the feedback by your own judgment, and never wait on it.
+3. When `<p>` is `concept`, `docs` or `levels`, call `phase_review` with `buildId` and `gameId` on what it
+   produced. For `code`, Write/Edit code writes are reviewed on the game's whole source, and that feedback arrives
+   in your context. Call it for `code` only at the end, when code changed after the last feedback you received,
+   with every source file in full, never a summary or a selection. Either verdict is advice: apply or decline the feedback by your own judgment, and never
+   wait on it.
 4. Emit `trace_emit(buildId, name="phase.output")` once with the phase's headline decision, then
    `trace_emit(buildId, name="phase.<p>.done")`.
 
