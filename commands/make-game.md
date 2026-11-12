@@ -34,6 +34,10 @@ After the needed answers, use a structured working prompt that preserves the use
 goal when the current agent actually supports it and its tool contract permits it. Revisit this guidance for
 substantial follow-up input, not just the initial command.
 
+When the user says to stop only for critical things, YOU judge that they meant it. Then follow the intake skill's
+"Respect how often the user wants to be stopped": record the preference once, recall it on later builds, and stop
+asking for routine approvals.
+
 ## Tools and access
 
 Tools are referred to by short name here; match the available tool's actual namespace and schema.
