@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.61 — 2026-11-12
+
+- When the user corrects a phase's work, the agent now reports that correction once with `friction_report`: what it did and what the user wanted instead. onGame learns from these reports. It skips a plain clarification, and it skips the report when the user objected to capture.
+
 ## 1.7.60 — 2026-11-12
 
 - When a user says to stop only for critical things, the agent records it once and stops asking for routine approvals. It saves the wish with `brain_capture`, so later builds start with it. The asset manifest and the polish scope no longer wait for a yes while it holds.
