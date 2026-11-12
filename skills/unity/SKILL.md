@@ -8,7 +8,7 @@ description: Unity setup and control — drive the Editor from the terminal with
 Read this when the engine is **unity** (intake judges that — see `skills/intake/SKILL.md` step 3b) or when you
 are standing in a Unity project and have no Unity tools in your tool list.
 
-**Everything below is from Unity's own documentation, not from a run we performed.** Vendor setup changes;
+**The setup steps below are from Unity's own documentation, not from a run we performed.** Vendor setup changes;
 if a step does not match what the user sees, believe their screen over this file, say so, and work from what
 is actually in front of you. Do not insist on a menu path that is not there.
 
@@ -182,12 +182,9 @@ listing flags"* means the **package in that project is older than the CLI** — 
 it. But that writes to the project, so on a project someone else is working in, say so on the bus before you
 run it rather than upgrading a package under them.
 
-*The Editor is running but never becomes `ready`* — on Windows, check for **Administrator** first.
-*(Field-verified — see §5.)* An elevated session makes the Unity GUI stop on an **"Administrator Privileges
-Detected"** modal before it finishes loading, so nothing ever registers. Batchmode is unaffected, which is the
-confusing part: `unity build` keeps working while the Editor sits behind a dialog nobody has dismissed. Ask
-whether the Editor is showing a modal, and whether the shell that launched it was elevated, before you go
-rebuilding config.
+*The Editor is running but never becomes `ready`* — this has a known Windows cause that is not a config
+problem. Call knowledge_get({ key: 'pattern:unity-setup-field-failures' }) for it before you go rebuilding config.
+If it returns empty, continue with your own judgment.
 
 ---
 
@@ -238,110 +235,18 @@ when you are on a machine with no `unity` CLI. Our own iOS station runs this for
   print nothing useful to stdout, so "the command returned" tells you nothing on its own.
 - `-nographics` is right for CI and wrong for anything that must render; do not use it to make a rendering
   problem quiet.
-- **On Windows, make the shell actually wait.** *(Field-verified — see §5.)* `Unity.exe` is a GUI-subsystem
-  binary, so PowerShell's `&` call operator returns the moment it is launched rather than when the build ends.
-  You then read `build.log` while Unity is still writing it, see no errors because the errors have not been
-  printed yet, and report a success that never happened. Use `Start-Process -Wait` (or `-PassThru` plus
-  `WaitForExit()` if you want the exit code) so the log you read is the finished log:
-
-  ```powershell
-  $p = Start-Process -FilePath $editor -ArgumentList $args -Wait -PassThru
-  $p.ExitCode   # now meaningful
-  ```
+- **On Windows, make sure the shell waits for `Unity.exe` to exit before you read the log** — a log read
+  mid-build reports a success that never happened. Call knowledge_get({ key: 'pattern:unity-setup-field-failures' })
+  for how. If it returns empty, continue with your own judgment.
 
 ---
 
-## 5. Seven field-verified failures the docs never mention
+## 5. Failures that pass a clean compile and a clean console
 
-**Provenance matters here, so read it before you weigh these.** Everything else in this file comes from Unity's
-documentation and was not run by us. The seven below are the opposite: they were hit in the field while building
-a real Unity 6 / URP game on Windows. They are not warnings someone anticipated — they are
-things that already cost a build. Trust them accordingly, and if one of them no longer reproduces on the user's
-version, say so rather than quietly assuming it still holds.
-
-**What binds them: every one passes a clean compile and leaves a clean console.** That is precisely why this
-file already refuses to treat a clean console as evidence. None of these announce themselves. Each produces a
-build that is silently missing something — or, in the last case, a confident report of a problem that does not
-exist — and an agent that stops at "it compiled, nothing is red" will ship it.
-
-Two of them are wired into the sections they belong to — **Administrator stopping the Editor from ever
-connecting** in §3, and
-**PowerShell not waiting for `Unity.exe`** in §4 — because that is where you will be standing when they bite.
-The rest:
-
-**Shader stripping kills a code-built world.** If every material is created at runtime through `Shader.Find`,
-then no scene asset references the URP shader, the build pipeline sees nothing referencing it and strips it out.
-`Shader.Find` returns `null` in the player, materials get no shader, and the world is never drawn. It works
-perfectly in the Editor, because the Editor does not strip — so an Editor play-mode test proves nothing about
-this class of bug. Add the shader to the always-included list in **Project Settings > Graphics** so it survives
-the build, and then **assert it at startup** rather than trusting the setting stayed put:
-
-```csharp
-var shader = Shader.Find("Universal Render Pipeline/Lit");
-if (shader == null) throw new System.Exception("URP shader stripped from build");
-```
-
-**glTFast silently refuses WebP-carrying GLBs.** A GLB that lists `EXT_texture_webp` in `extensionsRequired`
-will be rejected outright by glTFast when no WebP decoder is present — and *rejected* means **0 meshes imported
-with no error raised**. You get an empty result and a clean console, so the natural reading is "the model has no
-geometry" and you go debugging the wrong thing. Check `extensionsRequired` in the GLB before you believe an
-empty import.
-
-That the extension is the *whole* cause is measured, not inferred: the same generated models, transcoded out of
-WebP and re-imported, came back `models=7/7 missing=0 noMesh=0` with real triangle counts on every one. Geometry
-and hierarchy were intact the entire time — nothing was wrong with the models. Only the textures are lost by
-stripping, which is free if you assign your own materials and expensive if you wanted the generated ones. The
-generation tools disclose the requirement in their `warnings` field; until you have an importable file in hand,
-transcode before importing.
-
-**Reading the wrong render-pipeline property reports "Built-in" on a URP project.**
-`GraphicsSettings.defaultRenderPipeline` is **null** in Unity's own URP template — the asset lives on the
-quality-level override instead — so an audit that reads it concludes the project is Built-in and sends you
-chasing a pipeline migration that was never needed. Read `GraphicsSettings.currentRenderPipeline`. This one is
-the inverse of the others: not a silent failure but a **false alarm**, and it costs exactly as much time.
-
-**`GameObject.CreatePrimitive` always adds a Collider.** Always — you cannot ask it not to. If the scene has no
-physics, the build strips the Physics module, and every one of those calls then logs *"Can't add component"* and
-you are left with primitives that may or may not be what you wanted. Build the mesh yourself instead, which
-costs one extra line and depends on nothing:
-
-```csharp
-var go = new GameObject("cube");
-go.AddComponent<MeshFilter>().sharedMesh = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
-go.AddComponent<MeshRenderer>();
-```
-
-**The sneakiest one: auditing the intent instead of the artefact.** If your verification reads a *source of
-intent* — a colour constant in `Palette.cs`, a value in a config, the line of code that was supposed to set
-something — while the game actually renders from a **baked artefact** such as a material that was dirtied at
-edit time, the two can disagree completely and your audit will never notice. In the field this produced 1233
-checks passing green while not one pixel on screen changed. The rule is blunt: **assert the baked artefact, not
-the intent.** Read the material's serialized colour, the built asset, the thing the renderer will actually
-consume. A constant proves what someone meant; only the artefact proves what will be drawn.
-
----
-
-### UI: four more that pass a clean console
-
-Reported after placing 34 cut assets into a real Unity UI. Every one of them renders without an error.
-
-**`Image.preserveAspect` does not change the RectTransform — only the drawn quad.** The rect keeps its original
-size, so anything anchored *inside* that rect is positioned against a box the player cannot see and drifts off the
-art. Use an **`AspectRatioFitter`** when the layout has to follow the image, and reach for `preserveAspect` only
-when nothing is anchored to it.
-
-**`RawImage` has no `preserveAspect` at all.** A render texture assigned to one is silently stretched to whatever
-the rect happens to be. There is no warning and no visual cue in the inspector — you find it by looking at the
-game.
-
-**`ScreenCapture` grabs at the END of the frame.** Change a UI element in the same frame you capture and the
-capture contains the change, not the state you meant to record. Any "before" shot has to be taken a frame earlier,
-which matters directly for the visual-verification chain in §6: a screenshot that quietly captured the wrong frame
-is evidence of nothing.
-
-**Anything drawn over an Overlay canvas must itself be overlay UI.** A `ParticleSystem` placed "on top of" an
-overlay card renders *under* it — Screen Space Overlay is composited last, so world-space effects cannot reach
-above it regardless of sort order or Z.
+Some Unity failures produce a build that is silently missing something while nothing turns red, so "it compiled,
+nothing is red" is not a stopping point. Call knowledge_get({ key: 'pattern:unity-setup-field-failures' }) for the
+field-verified list (build stripping, render-pipeline checks, primitives, uGUI aspect and capture traps, auditing
+intent instead of the artefact). If it returns empty, continue with your own judgment.
 
 ---
 
@@ -415,29 +320,6 @@ confident summary, and it is the same rule the web path already holds itself to.
 
 ### A doctor check, run before every build
 
-Every failure in §5 is the same shape: **the tool reported success without ever looking at what the player would
-see.** You cannot catch that class by being careful, because being careful is what produces the clean console.
-You catch it by asserting each one explicitly, every time, before the build — a *doctor*.
-
-The field build runs one (`Assets/Editor/BomberCI.cs`, a single static method, ~22s under
-`-batchmode -executeMethod`). What it asserts, and why each line exists:
-
-| Assertion | Why it is there |
-|---|---|
-| Unity version, quality level, colour space | Cheap provenance — a report is worthless without knowing which Editor produced it |
-| **Active build target** | Building against the wrong target is silent lost time, not an error |
-| **`currentRenderPipeline`** | Reads the property that is actually populated (see §5) |
-| **glTF importer type present** (found by reflection) | Its absence is exactly the 0-mesh/no-error import |
-| **Scenes in build settings** | Forgetting to add the scene is the classic, and it fails quietly |
-
-Two details are what make it usable rather than decorative. Every field prints as **a single line with a
-sentinel**, so grepping the log distinguishes *"the method genuinely ran"* from *"Unity exited 0 and did
-nothing"* — an empty log otherwise reads as a pass. And it ends with a **`DOCTOR-OK` sentinel**, so the absence
-of the verdict is itself a failure signal rather than a gap you have to notice.
-
-Worth adding on Unity: is the always-included shader list empty, is the active target's module actually
-installed, is the licence valid.
-
-**The pattern generalises past Unity.** Every engine has a "the tool said fine, the player saw nothing" class,
-and the members differ per engine while the shape does not. When you work on an engine this file does not
-cover, write its doctor from its own failures — one method, one sentinel per assertion, run before every build.
+Before every build, run a *doctor*: one Editor method that explicitly asserts each silent-failure class and prints
+a verdict whose absence counts as a failure. Call knowledge_get({ key: 'pattern:unity-setup-field-failures' }) for
+what it asserts and how to make its output trustworthy. If it returns empty, continue with your own judgment.

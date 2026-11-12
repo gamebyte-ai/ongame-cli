@@ -32,7 +32,7 @@ change the curve with measured reasons; that is not hand-tuning.)
    levels_generate({ mechanic: "<core-mechanic>", targetLevels: 30, difficultyProfile: "d30" })
    ```
    - `targetLevels`: 15–30 in prototype, 30–50 is enough in production (default 30).
-   - `difficultyProfile`: choose based on the D1/D7/D30 logic below (default `d30`).
+   - `difficultyProfile`: choose based on the profile selection below (default `d30`).
    - Returned shape: `{ levels: [{ index, difficulty(0..1), goal, params:{moves,target,reward,spike}, isRelief }] }`.
    - **The tool is deterministic and pure** — same input, same curve; do not make up the numbers, trust the tool.
 
@@ -46,12 +46,11 @@ change the curve with measured reasons; that is not hand-tuning.)
      // level.params.moves / .target → this level's move budget & target score
      // (a game WITHOUT a fail state does not turn params.moves into a limit — see the level-design step)
      // level.goal → the goal text to show in the HUD
-     // level.isRelief → relief level: a "breather" tone in the UI, more generous reward
-     // level.params.spike → challenge peak: show a "Boss/Challenge" badge
+     // level.isRelief → relief level; level.params.spike → challenge peak
      ```
    - **If the `code` phase is already written**, refactor the game's level-loading block to read this
      config (instead of a hardcoded single-level start, use `levelsConfig.levels`).
-   - `params.reward` → that level's reward multiplier (high in onboarding & relief = dopamine).
+   - `params.reward` → that level's reward multiplier.
    - Fix until `npx tsc --noEmit` is clean (config import + type usage).
 
 4b. **Level design (required for a level-based game):** follow `skills/level-design/SKILL.md` — or, where that file is
@@ -86,23 +85,10 @@ change the curve with measured reasons; that is not hand-tuning.)
 
 ## D1 / D7 / D30 logic (profile selection)
 
-The curve is **generally-increasing but NOT monotonic** in every profile (relief dips + spike peaks):
-
-- **D1 — first session / onboarding (`difficultyProfile: "d1"`):**
-  The first levels are **easy + high-reward** (so the player gets an "I won" feeling), an almost-linear
-  smooth ramp, **no wall**. For short/casual games or prototypes.
-
-- **D7 — sticky for a week (`difficultyProfile: "d7"`):**
-  Onboarding + **plateau segments** (a "mastery plateau" instead of a sudden jump) +
-  **periodic relief** (a breather every ~7 levels → no burnout). Mid-term retention target.
-
-- **D30 — long-term meta (`difficultyProfile: "d30"`, default):**
-  Everything from D7 + **periodic challenge spikes** (params.spike) and a **steeper finale** →
-  sticky meta-progression. For production/full games.
-
-> The tool applies this teaching internally: early easy+rewarding (D1), gradual no-wall ramp, periodic
-> relief (no burnout), plateau+spike balance (D7/D30). You just select the right profile and wire the
-> resulting config into the game.
+Pick the profile by the retention horizon the game is built for: `d1` for a short/casual game or a prototype, `d7`
+for a mid-term target, `d30` (default) for a production/full game. Call
+`knowledge_get({ key: 'pattern:levels-retention-profiles' })` for what each profile shapes and how relief and spike
+levels are presented in the game. If it returns empty, continue with your own judgment.
 
 > **Correction-learning:** if this phase is re-running because the user **corrected** the difficulty (rejected the
 > curve as too hard/easy, redirected the profile/level count, or hand-edited `levels.config.json`), call

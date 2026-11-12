@@ -1,8 +1,12 @@
 # Changelog
 
-## 1.7.62 — 2026-11-12
+## 1.7.63 — 2026-11-12
 
 - `/make-game` intake, the assets phase's art-style question and `/publish`'s game choice now ask with `ask_user`. The user picks from two to four options, with a picture beside each when one is on disk. Needs ongame-cli 0.2.40 or later, which has `ask_user`.
+
+## 1.7.62 — 2026-11-12
+
+- The phase skills are shorter. Tuned recipes (art prefix, asset sizes, sound timings, juice timings, level profiles, phone checks, Unity setup failures) now come from `knowledge_get` when a phase needs them. If that returns nothing, the agent continues with its own judgment.
 
 ## 1.7.61 — 2026-11-12
 
