@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.67 — 2026-11-12
+
+- The final `phase_review` of the code phase now names the source files for each engine: gamelabs, everything under `src/`; Unity, the C# scripts under `Assets/`; Godot, the `.gd` and `.cs` scripts under the folder that holds `project.godot`; native, the files the project's own build compiles. A Godot or native game no longer goes to review with an empty or partial artifact.
+- `test/code-review-artifact.test.mjs` checks that rule: it names all four engines, and a Godot game with `project.godot` and `scripts/main.gd` sends that script, not zero files.
+
 ## 1.7.66 — 2026-11-12
 
 - The code phase installs a new game's packages with `deps_install` instead of a shell `npm install`, so a sandboxed agent without network can still build. On a lost level the game now calls `trackLevelFail(n)`.
