@@ -14,14 +14,9 @@ description: Game concept — vision, core loop, target audience + visual placeh
 > in the room. Report the gap up to the orchestrator so the final summary names it. See the refusal rule in
 > `/make-game` for the full reasoning.
 
-2. Read RESEARCH.md and shape the concept to the **anti-slop + intent bar**:
-   - **Originality — find the INEVITABLE version, not the obvious-first.** The concept needs a specific twist that
-     breaks the "yet another `<genre>`" comparison. **Argue the opposite** before accepting your first idea: if a
-     player could call it "a generic `<genre>`" without losing anything, push harder — name the comparison and break
-     it. (The first idea that sounds coherent is rarely the strongest.)
-   - **Fun-promise — name the specific recurring MOMENT** that is the reward (e.g. "the moment all six tiles link and
-     one move clears the board"), not a category ("relaxing", "fast-paced"). The rest of the concept exists to deliver
-     that moment reliably.
+2. Read RESEARCH.md and shape the concept: a specific twist that breaks the "yet another `<genre>`" comparison, and
+   the specific recurring moment that is the reward. Call `knowledge_get({ key: "pattern:concept-shaping" })` for the
+   originality and fun-promise bar. If it returns empty, continue with your own judgment.
    - **PRIORITY RULE — the user's explicit request OUTRANKS research's angle.** Research's "out-of-the-box angle"
      is a SUGGESTION; the user's stated concept/materials are the BRIEF. When the user asked for something specific
      (e.g. "rebuild this game 1:1", a named mechanic set, shared materials), the concept's identity/name/hook must
@@ -43,21 +38,9 @@ description: Game concept — vision, core loop, target audience + visual placeh
    - **(b) 2-3 in-game KEY MOMENTS** — gameplay-camera frames **with the HUD visible**, in the game's real
      camera/scene language (they should read as screenshots of the finished game, not poster art).
 
-   **Order the set so consistency is CHECKABLE, not remembered** (field-verified: a dressing pass rejected as
-   "doesn't look like the concept" was accepted in ONE round after being regenerated in this order):
-   - **UI KIT FIRST, before any screen** — button states, icons, pips, panel/card, typography, palette with HEX.
-     Without it, every screen is judged against a memory instead of an artefact.
-   - **Then chain**: kit → the ANCHOR screen (the in-game HUD) → everything else. Each new screen is generated
-     against the anchor, so the set speaks one language by construction rather than by luck.
-   - **Say the SCALE difference out loud and author for it.** Concept art reads at roughly 100px per cell; the game
-     renders at ~34px. Assets need **bold silhouettes** — detail that looks beautiful in the concept disappears at
-     play size, and the result then looks nothing like what the user approved.
-   - **Small batches of 2-3**, not one big fan-out: a wrong direction costs three images instead of twelve.
-   - **NOTHING ships from this phase.** Functional verification (does it load, is the draw call there) and visual
-     quality are independent axes; unless the mockup and the screenshot are put side by side, only one is being
-     measured — and it is never the one the user is judging.
-
-   Full procedure: `knowledge_get({ key: 'pattern:concept-art-procedure' })`.
+   **Order the set so consistency is checkable, not remembered.** Call
+   `knowledge_get({ key: "pattern:concept-art-procedure" })` for the generation order, scale and batch size. If it
+   returns empty, continue with your own judgment. Nothing ships from this phase.
 
    **Decide the set before generating it.** When the game has more than one scene or a recurring character,
    write `docs/STORYBOARD.md` first — `skills/storyboard/SKILL.md`, or
@@ -82,21 +65,10 @@ description: Game concept — vision, core loop, target audience + visual placeh
    remake of the shared game → derive visuals that MATCH the reference ("recreate this exact scene and style"); if
    they want their own game inspired by it → ADAPT ("in the style of the reference, but <our game's own identity>").
    Asset generation gated/unavailable → gray-box placeholder (flag it; never present gray-box as done).
-3b. **LOCK THE LOOK before any asset wave — write `docs/ART_DIRECTION.md`.** Palette, **atmosphere numbers**
+3b. **LOCK THE LOOK before any asset wave — write `docs/ART_DIRECTION.md`.** Palette, atmosphere numbers
    (fog colour / start / end, ambient, exposure), silhouette rules, material language, and what the game must NOT
-   look like. Where a visual reference exists — the user's screenshot, the anchor you just generated — take those
-   numbers **by measurement at a fixed, recorded viewport**, not by eye: *"doesn't look like it"* is unfalsifiable
-   and two people never mean the same thing by it, while a number is a diff.
-
-   This is decision-LOCKING, not documentation: it forces the disagreement while it is still free — one text file
-   — instead of after twelve generated assets and a user who does not recognise their own game. A contract written
-   afterwards is just a description of what you already made.
-
-   **And atmosphere is IDENTITY, not polish.** With the fog off or wrong, the game reads as a *different game*. So
-   when fidelity is ever questioned, check atmosphere BEFORE proposing to regenerate art — regenerating assets to
-   fix a fog parameter is the most expensive way to not solve the problem.
-
-   Full recipe, including the extraction procedure: `knowledge_get({ key: 'pattern:art-direction-contract' })`.
+   look like. Call `knowledge_get({ key: "pattern:art-direction-contract" })` for how to measure those numbers from a
+   reference and what to check first when fidelity is questioned. If it returns empty, continue with your own judgment.
 
 4. Output: `docs/CONCEPT.md`.
 5. **Observability — headline decision** (one emit, before `state_advance`): `trace_emit(buildId, name="phase.output", payload={ input:<context consumed: the `brain_recall` retention signal(s), any `knowledge_get` key(s), and the RESEARCH.md findings + user intent this phase used>, output:<artifact produced: `docs/CONCEPT.md` written + the key concept values — core loop, hook, target audience, key-art path>, metadata:{ decision:<the concept direction chosen — core loop / fantasy / hook>, why:<the rationale, explicitly citing what drove it: the `brain_recall` retention signal (e.g. "cascade match-3 retains D1=0.6"), the relevant knowledge, and the user's stated intent> } })` — becomes a `generation` observation nested under the phase span (context→artifact→why; no-op if buildId is absent).

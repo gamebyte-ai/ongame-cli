@@ -19,7 +19,7 @@ as inspiration; do not copy blindly. Every unit is **single-responsibility**, No
 > mode-filtered (PHASES_BY_PATH); this is the DEPTH *within* the code phase:
 > - **`prototype`** → FIRST-OUTPUT FAST (priority #1): a playable graybox with **MINIMAL feel** (readability only —
 >   basic tap/hit response). SKIP deep systems and polish; the loop must WORK and READ. Speed + cost are the constraint.
-> - **`production`** → the FULL bar: full **FEEL-WIRING** (the 8 layers, §6.5), clean architecture, all systems.
+> - **`production`** → the FULL bar: full **FEEL-WIRING** (§6.5), clean architecture, all systems.
 > - **`playable-ad`** → the HOOK moment + the core interactive moment, short and conversion-shaped; the user's uploaded
 >   assets may already be dressing it (dress runs early for playable-ad).
 > Whatever the mode, the #1 rule holds: get to a RUNNABLE playable as fast as the mode allows (`first-working-output`).
@@ -220,7 +220,7 @@ Rule: state does not leak into the View, render does not leak into the Board. If
   through `transition(to)`; do not set `current` by hand.
 - `transition` is idempotent + listened to from a single point (`onChange`). Side effects on transition (startGame /
   showGameOver) live in the listener.
-- **Gameover → restart wait period (~500ms):** so an accidental tap does not start a new game.
+- **Gameover → restart wait period:** so an accidental tap does not start a new game (timing: `pattern:game-loop`).
 - **If the game has levels, mark the two moments WHILE you write them** — `trackLevelStart(n)` where the level
   actually begins for the player (after any intro/countdown, not at load) and `trackLevelComplete(n, {...})` on a
   genuine WIN only. They come from `src/telemetry.ts` in the scaffold, they are no-ops until the finished game is
@@ -268,16 +268,9 @@ Rule: state does not leak into the View, render does not leak into the Board. If
 from the start — the jury scores this as **FEEL-WIRING**, and the bar is the **Mute Test**: *with sound off and score
 hidden, the core mechanic must still feel good to perform.*
 
-- **Never one layer.** The core verb (tap/swap/match/jump/shoot) needs **≥3 feedback layers** at once — e.g. a scale
-  tween (squash/stretch) + a particle burst + a sound/score-pop. A button needs ≥2 (scale tween + sound). A "dead"
-  interaction with no feedback is the #1 quality failure.
-- **The 8 layers** (use the ones that fit, scaled to significance): animation (squash/stretch) · particles
-  (directional, matching strength) · sound · hit-stop (a 3–8 frame freeze on impact = perceived weight) · hit-pause ·
-  camera (shake/zoom — a light tap ≠ an explosion) · HUD (score pop, bar shake) · haptic.
-- **Scale to significance + anticipation→action→recovery:** the player's action feels instant; weight comes from
-  hit-stop + particles converging on impact, NOT from slowing the input.
-- **Anti-pattern:** "feels flat → add a mechanic." WRONG — flat means the EXISTING verb needs more feel, not more
-  systems. Don't spray uniform shake/particles everywhere either; scale intensity to the action.
+- **Goal:** no player action is a dead interaction — the core verb answers on several channels at once, scaled to
+  how much it matters. Call `knowledge_get({ key: 'pattern:code-feel-wiring' })` for the layers and how many each
+  action needs. If it returns empty, continue with your own judgment.
 - **Graybox note:** the visuals here are placeholders, but the FEEL hooks (tween/particle/shake/sound) are wired NOW —
   the later `assets`/`audio` phases swap the look, they do not add the feel. Use the gamelabs particle / timeline /
   camera modules (see knowledge), not hand-rolled.
@@ -285,18 +278,12 @@ hidden, the core mechanic must still feel good to perform.*
   `feel:<id>` recipe for the moment and the code to start from (`template:feel-core` and the recipe and probe templates it lists).
 
 ## 7. Input lock (during cascade / animation)
-- Keep an `inputLocked` flag (or `state === 'resolving'/'busy'`) in the Controller.
-- During **match-3 cascade, tile falling, transition animation, gameover wait**, **reject** new input
-  (early-return). Release the lock when the animation/cascade ends. Otherwise a double-tap
-  corrupts the state (double-resolve bug).
-- Keyboard + touch are unified behind a single interface; the lock applies to both sources.
+- **Goal:** input arriving while the game is resolving or animating is rejected, from every input source.
 
 ## 8. Restart cleanup (no dangling state/listener/timer remains)
-- Single restart path: **board/score `reset()` → rebuild entities → `transition('play')`**.
-- On restart: **clear** all `setTimeout`/animation handles, remove old subscriptions with
-  `UnsubscribeBag.flush()`, return pools to the pool, reset `inputLocked`. A half-finished
-  cascade/tween must not leak into the restart (memory leak + ghost-entity bug).
-- View `destroy()` cleans up children + listeners.
+- **Goal:** one restart path, and nothing from the previous run (timer, listener, tween, pooled entity) survives it.
+- Call `knowledge_get({ key: 'pattern:code-state-hygiene' })` for the input lock and the restart cleanup. If it
+  returns empty, continue with your own judgment.
 
 ## 9. window.__game test-global (for Playwright verification)
 - After the app is set up in `main.ts`, expose **`window.__game`**; containing at least:
@@ -308,37 +295,17 @@ hidden, the core mechanic must still feel good to perform.*
 - **`__game.diagnostics` — the silent-failure surface (required whenever the game binds content by
   name or animates a subject).** Two things fail with a completely clean console and a clean `tsc`,
   so they are unknowable from outside and the game itself must report them:
-  - `diagnostics.bindings: [{ requested, kind, status:'pending'|'resolved'|'failed', resolved:string|null }]`
-    — **pre-register every expected binding as `pending` when you REQUEST it**, not when it resolves
-    (an empty array inspected before a lazy load lands would vacuously "pass"), and flip it to
-    `resolved`/`failed` when the load settles. Also expose `diagnostics.registrationComplete: boolean`,
-    flipped true once you have registered every binding this game will ever ask for, and define
-    `diagnostics.bindingsSettled = registrationComplete && nothing is pending`. Without the
-    registration flag an empty table between request waves reads as "settled" and vacuously passes;
-    with it, a verifier can wait rather than sample a half-loaded game.
-  - `diagnostics.subjects: { <subjectId>: { poseChanges: number } }` — a **per-subject cumulative
-    counter that increments only when THAT subject's rendered pose/frame actually changed** (bump it
-    where you apply the pose, not on the generic tick — a frame counter advances happily while the
-    character stands frozen, and clip time wraps every loop, so neither can be trusted).
+  - `diagnostics.bindings: [{ requested, kind, status:'pending'|'resolved'|'failed', resolved:string|null }]`,
+    plus `diagnostics.registrationComplete: boolean` and
+    `diagnostics.bindingsSettled = registrationComplete && nothing is pending`.
+  - `diagnostics.subjects: { <subjectId>: { poseChanges: number } }` — counts only real changes of THAT
+    subject's rendered pose/frame.
   - `diagnostics.hitAreas` — the **interactive controls' hit rectangles in CSS pixels, in VIEWPORT
-    coordinates** (the same space `getBoundingClientRect()` reports). A gamelabs HUD draws its buttons
-    INTO THE CANVAS, so they are not DOM elements: `document.querySelector` finds nothing to measure and
-    a touch-target check would score an empty set as a pass. Three properties make this surface
-    trustworthy rather than another thing to keep in sync:
-    - **Derive it from the input registry, never hand-maintain a list.** Build it by mapping over the
-      SAME collection your hit-testing already consults, so a control that accepts input is
-      structurally incapable of being missing from it. Use each control's own stable id.
-    - **Compute it ON READ (a getter), not on a resize event.** Scroll, pinch-zoom (`visualViewport`)
-      and layout all invalidate a cached rect, and a stale rect is worse than none — it reads as precise.
-    - **Convert Pixi coordinates properly — scale by the CANVAS, not by `resolution`.** Bounds come back in
-      the renderer's SCREEN space (logical units, "relative to the top-left of the screen"), while
-      `resolution` maps logical→framebuffer — so dividing bounds by `resolution` shrinks every rect on a
-      HiDPI display. Derive the factor from the element itself, which is resolution-agnostic AND survives a
-      CSS-scaled/letterboxed canvas: `sx = canvasRect.width / renderer.screen.width` (same for `y`), then
-      `viewportX = canvasRect.left + bounds.x * sx`, `viewportW = bounds.width * sx`. (Pixi v8 note:
-      `getBounds()` returns a **Bounds** — take `.rectangle`.) Getting this wrong is the dpr-style error
-      where every number looks plausible and is wrong.
-    A genuinely DOM-based UI may skip this surface — its controls are already measurable as elements.
+    coordinates** (the same space `getBoundingClientRect()` reports). A genuinely DOM-based UI may skip this
+    surface — its controls are already measurable as elements.
+  - Pull `template_get({ key: 'template:core-diagnostics' })` and `template_get({ key: 'template:platform-ui-registry' })`
+    for how to fill these so they cannot go stale or vacuously pass. If they return empty, continue with your own
+    judgment.
 
 ## 9.5 Framework-grounding — read the REAL gamelabs.js API before calling it (mandatory)
 Before writing or editing ANY line that calls a gamelabs.js API (`@gamebyte/gamelabsjs` — PixiJS 2D + Three.js 3D),

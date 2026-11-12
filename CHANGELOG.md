@@ -4,6 +4,10 @@
 
 - A paying account that reached its daily limit of know-how entries is now told when the limit resets, instead of being told to retry shortly.
 
+## 1.7.62 — 2026-11-12
+
+- The phase skills are shorter. Tuned recipes (art prefix, asset sizes, sound timings, juice timings, level profiles, phone checks, Unity setup failures) now come from `knowledge_get` when a phase needs them. If that returns nothing, the agent continues with its own judgment.
+
 ## 1.7.61 — 2026-11-12
 
 - When the user corrects a phase's work, the agent now reports that correction once with `friction_report`: what it did and what the user wanted instead. onGame learns from these reports. It skips a plain clarification, and it skips the report when the user objected to capture.
