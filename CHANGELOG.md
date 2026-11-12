@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.7.66 — 2026-11-12
+
+- The code phase installs a new game's packages with `deps_install` instead of a shell `npm install`, so a sandboxed agent without network can still build. On a lost level the game now calls `trackLevelFail(n)`.
+- At the end of a phase the agent confirms each recalled lesson that held up with `brain_reinforce`.
+- `/make-game` asks for the scene-transitions procedure for games with more than one big screen. It writes `docs/TRANSITIONS.md`. Where `skills/scene-transitions/SKILL.md` is not on disk, the agent reads `pattern:scene-transitions` through `knowledge_get`.
+- Needs ongame-cli 0.2.35 or later, which has `deps_install` and `brain_reinforce`.
+
+## 1.7.65 — 2026-11-12
+
+- In the code phase the agent no longer sends its own notes or a few picked files to `phase_review`. Each code write is already reviewed on the game's whole source. The agent calls `phase_review` once at the end, with every source file, only when code changed after the last feedback. `/make-game` asks for `phase_review` only for concept, docs and levels.
+
 ## 1.7.64 — 2026-11-12
 
 - `/make-game` intake, the assets phase's art-style question and `/publish`'s game choice now ask with `ask_user`. The user picks from two to four options, with a picture beside each when one is on disk. A user with one game is asked Publish this game or Cancel. Needs ongame-cli 0.2.40 or later, which has `ask_user`.

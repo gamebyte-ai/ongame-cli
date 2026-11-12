@@ -88,8 +88,11 @@ Never create an ownership record for a game you did not actually work on just to
 1. Before its work, call `state_advance(buildId)` and check that it returned `<p>` as the current phase. Then emit
    `trace_emit(buildId, name="phase.<p>.start")`.
 2. Do the work of that phase.
-3. When `<p>` is `concept`, `docs`, `code` or `levels`, call `phase_review` with `buildId` and `gameId` on what it
-   produced. Its verdict is advice: apply or decline the feedback by your own judgment, and never wait on it.
+3. When `<p>` is `concept`, `docs` or `levels`, call `phase_review` with `buildId` and `gameId` on what it
+   produced. For `code`, Write/Edit code writes are reviewed on the game's whole source, and that feedback arrives
+   in your context. Call it for `code` only at the end, when code changed after the last feedback you received,
+   with every source file in full, never a summary or a selection. Either verdict is advice: apply or decline the feedback by your own judgment, and never
+   wait on it.
 4. Emit `trace_emit(buildId, name="phase.output")` once with the phase's headline decision, then
    `trace_emit(buildId, name="phase.<p>.done")`.
 
@@ -148,6 +151,12 @@ hybrid-casual stages — consult `skills/level-design/SKILL.md` — or, where th
 `knowledge_get({ key: 'pattern:level-design' })`. For such games it is required. It is a working artifact, not a
 phase or an approval gate. Carry the resulting `docs/LEVEL_DESIGN.md` into later work and re-runs; skip it for
 games without a level sequence.
+
+When a game has more than one big screen — a lobby and play, or levels with a result between them — consult
+`skills/scene-transitions/SKILL.md` before wiring how they connect — or, where that file is not on disk, the same
+procedure as `knowledge_get({ key: 'pattern:scene-transitions' })`. For such games it is required. It maps every edge
+(lobby, next level, retry, home), picks a style per edge and routes every path through one entry. Carry the
+resulting `docs/TRANSITIONS.md` into later work and re-runs; skip it for single-screen games.
 
 When an existing game must look consistent or holistic, match a reference game's quality, or the user asks you to work
 as an art director, consult `skills/art-direction/SKILL.md` — or, where that file is not on disk, the same procedure as
@@ -217,7 +226,8 @@ and `payload.output`; preserve later corrections with `name="user.feedback"`. Th
 execution but never overwrites that original source. Do not assign these events to phases that did not run.
 
 When the actual work yields a useful lesson, use `brain_capture` with the real `buildId` and appropriate `user`
-or `game` scope, respecting any objection to capture; do not invent a lesson. When the CURRENT direct-work
+or `game` scope, respecting any objection to capture; do not invent a lesson. When a recalled lesson you applied
+held up, call `brain_reinforce` once with the ref on its `[lesson ref: …]` line, at the end of the phase that used it. When the CURRENT direct-work
 request is complete and verified, record `trace_emit(buildId, name="build.done", payload={path: plan.path})` and
 its real `profile_record_build` entry. That is a work outcome, not a claim that the retained phase sequence ran.
 Do not manufacture approvals, phase outputs, scores or completed phase states.
