@@ -187,6 +187,39 @@ const SPLIT_SCHEMA = {
   },
 };
 
+/**
+ * What a builder hands back. Whether the phase was BLOCKED is the builder's own answer in `ok`, read as a field —
+ * never a word found in its prose. A word pattern over free text called "the blocked tile in the menu now opens" a
+ * tooling failure and missed "could not reach ongame" (audit 2026-10-18).
+ */
+const BUILDER_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['phase', 'task', 'ok', 'artifacts'],
+  properties: {
+    phase: { type: 'string' },
+    task: { type: 'string' },
+    ok: {
+      type: 'boolean',
+      description:
+        'false ONLY when an ongame tool this part needed was absent, erroring or unreachable, so the part did not run ' +
+        'on ongame. A handoff, an ownership stop or a fixed bug is still true.',
+    },
+    artifacts: { type: 'array', items: { type: 'string' } },
+    handoff: { type: 'string', description: 'What another owner must change, if you had to leave it undone.' },
+    blocked: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['tool', 'what'],
+      description: 'Only with ok:false: the ongame tool that failed.',
+      properties: {
+        tool: { type: 'string' },
+        what: { type: 'string', enum: ['absent', 'error', 'unreachable'] },
+      },
+    },
+  },
+};
+
 const CRITIC_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -295,6 +328,27 @@ function chunk(list) {
  * owner returning, so putting the round in the token would make every repair builder read its own predecessor's
  * token as a foreign one and stand down — the phase would go quiet on exactly the path the critic loop exists for.
  */
+/**
+ * One builder's result: `report` is the structured answer (the schema makes the runtime hand back an object), `out`
+ * its one-line text for logs and the critic. A string is accepted only as JSON — syntax, not meaning — so a runtime
+ * that returns the object serialised still counts; any other text has no report, and `raw` keeps it for the reader.
+ */
+const builderOut = (task, value, raw) => {
+  let report = value;
+  if (typeof value === 'string') {
+    try {
+      report = JSON.parse(value);
+    } catch {
+      report = null;
+    }
+  }
+  if (!report || typeof report !== 'object' || typeof report.ok !== 'boolean') {
+    return { task, report: null, out: value == null ? '' : String(value) };
+  }
+  const out = JSON.stringify(report) + (raw ? ` (builder wrote: ${String(raw).slice(0, 300)})` : '');
+  return { task, report, out };
+};
+
 const runTokenFor = (phaseKey, task) => `${buildId ?? 'nobuild'}:${phaseKey}:${task.id}`;
 
 const ownershipRules = (task, tasks, phaseKey) =>
@@ -479,19 +533,18 @@ for (const phaseKey of toRun) {
                   : '') +
                 `\n${ownershipRules(task, tasks, phaseKey)}\n${checkpointRules(phaseKey, task, tasks)}\n` +
                 `${TOOLING_RULES}\n` +
-                `When done, return a single-line JSON summary: {"phase":"${phaseKey}","task":"${task.id}",` +
-                `"ok":true,"artifacts":[...]} — add "handoff":"<what another owner must change>" if you had to leave ` +
-                `something outside your surface undone. Use "ok":false and "blocked" ONLY for the tooling case above: ` +
-                `{"phase":"${phaseKey}","task":"${task.id}","ok":false,"blocked":{"tool":"<name>",` +
-                `"what":"<absent|error|unreachable>"}}. That word is reserved — it tells the user the build did not ` +
-                `run on ongame, so spending it on a handoff or an ownership stop raises a false alarm about the ` +
-                `product.`,
+                `When done, return the structured result: phase "${phaseKey}", task "${task.id}", ok true and the ` +
+                `artifacts you wrote — add "handoff" if you had to leave something outside your surface undone. Set ` +
+                `ok false, with "blocked" naming the tool and whether it was absent, error or unreachable, ONLY for the ` +
+                `tooling case above. ok false is reserved — it tells the user the build did not run on ongame, so ` +
+                `spending it on a handoff or an ownership stop raises a false alarm about the product.`,
               {
                 label: `${phaseKey}/${task.id}${round ? `#r${round}` : ''}`,
                 phase: 'Build',
+                schema: BUILDER_SCHEMA,
                 ...modelOpt(phaseKey),
               }
-            ).then((out) => ({ task: task.id, out }))
+            ).then((report) => builderOut(task.id, report))
           )
         );
         // A builder that died, or was skipped, comes back as null (or with no output). That is not a quiet zero —
@@ -499,13 +552,20 @@ for (const phaseKey of toRun) {
         // because the tasks that DID run all reported success.
         for (let i = 0; i < group.length; i++) {
           const r = done[i];
-          if (r && r.out !== null && r.out !== undefined && String(r.out).trim()) {
+          if (r && r.report) {
             outs.push(r);
             continue;
           }
           const id = group[i].id;
+          if (r && r.out) {
+            // Text with no report in it: the builder never answered the one question that matters here. That is
+            // surfaced like a builder that died, not guessed from the words it did write.
+            log(`${phaseKey}: builder ${id} returned no structured report — its part of the phase is unconfirmed`);
+            outs.push(builderOut(id, { phase: phaseKey, task: id, ok: false, artifacts: [], blocked: { tool: 'builder', what: 'no report' } }, r.out));
+            continue;
+          }
           log(`${phaseKey}: builder ${id} returned nothing — its part of the phase did not get built`);
-          outs.push({ task: id, out: `{"phase":"${phaseKey}","task":"${id}","ok":false,"blocked":{"tool":"builder","what":"no result"}}` });
+          outs.push(builderOut(id, { phase: phaseKey, task: id, ok: false, artifacts: [], blocked: { tool: 'builder', what: 'no result' } }));
         }
       }
     }
@@ -608,17 +668,15 @@ for (const phaseKey of toRun) {
     log(`${phaseKey}: critic round ${round} — reworking ${pending.map((t) => t.id).join(', ')}`);
   }
 
-  // `out` stays the builders' own raw text so the blocked-detection below reads exactly what it always read; the
-  // critique travels alongside it rather than inside it, so a finding that happens to contain the word "blocked"
-  // cannot masquerade as a tooling failure.
+  // The blocked check below reads `reports` only: each task's structured report from the latest round that task ran
+  // in, and its `ok` field. `out` and `final` are display text: for a reader, and `final` for the blocked notice's
+  // detail. The blocked decision never reads them, so a builder or critic that writes the word "blocked" cannot mark
+  // the phase blocked. The critique travels in its own field for the same reason.
   //
-  // `final` is the LAST round only, and that is what the tooling-blocked detector reads. A tool that was missing in
-  // round 0 and answered in round 1 must not leave the phase marked "did not run on ongame" forever — the repair path
-  // is exactly what the critic loop was added for, and a channel that cries wolf on its own recovery is worse than
-  // no channel.
-  // The LATEST result per task, not the last round's — a repair round only re-runs what the critic named, so reading
-  // just that round hides a task that failed early and was never re-dispatched. Its tooling failure would vanish from
-  // the honesty channel exactly because a DIFFERENT task succeeded afterwards.
+  // Latest per task, not the last round: a repair round re-runs only the tasks the critic named and the tasks built
+  // on top of them. Reading only that round would hide a task that failed early and was never re-dispatched, because
+  // a DIFFERENT task succeeded afterwards. A task that failed in round 0 and succeeded in round 1 is read from round 1,
+  // so a repaired tool does not leave the phase marked "did not run on ongame".
   const latest = new Map();
   for (const r of rounds) for (const o of r.outs) latest.set(o.task, o);
   const finalOuts = [...latest.values()];
@@ -626,6 +684,8 @@ for (const phaseKey of toRun) {
     phase: phaseKey,
     out: rounds.flatMap((r) => r.outs.map((o) => `[${o.task}] ${o.out}`)).join('\n'),
     final: finalOuts.map((o) => `[${o.task}] ${o.out}`).join('\n'),
+    // The builders' own answer, per task, from the latest round each ran in. The blocked check reads only this.
+    reports: finalOuts.map((o) => ({ ...o.report, task: o.task })), // the runner's task id, whatever the builder wrote
     tasks: tasks.map((t) => ({ id: t.id, label: t.label, owns: t.owns })),
     rounds: rounds.length,
     critique: verdict
@@ -645,23 +705,21 @@ for (const phaseKey of toRun) {
 /**
  * A phase that reported itself BLOCKED must not be able to disappear into a wall of successful-looking output.
  * The phase prompt promises the orchestrator surfaces it, so the orchestrator has to actually do that rather than
- * leave it as a string somewhere in `results` for a reader to notice. Parsed leniently — an agent that writes prose
- * around its JSON, or writes `ok: false` with a space, still gets heard, because the cost of missing this is the
- * exact failure it exists to prevent: a build that quietly was not an ongame build.
+ * leave it as a string somewhere in `results` for a reader to notice. Blocked is the builder's own `ok: false` —
+ * a field it set, never a word in what it wrote — and a builder that gave no report at all counts too, because the
+ * cost of missing this is the exact failure it exists to prevent: a build that quietly was not an ongame build.
  */
-const isBlockedText = (s) => typeof s === 'string' && /"ok"\s*:\s*false|\bblocked\b/i.test(s);
-
 const blocked = results
-  .filter((r) => isBlockedText(r.final))
-  .map((r) => {
-    // Show the builder that actually reported it. A fixed 400-char window over a concatenation of several builders'
-    // summaries shows whichever one happened to finish first — usually a success — and the user is handed a
-    // "blocked" headline over evidence of something working.
-    const culprit = (r.final ?? '')
+  .map((r) => ({ r, culprits: (r.reports ?? []).filter((rep) => rep.ok === false) }))
+  .filter(({ culprits }) => culprits.length)
+  .map(({ r, culprits }) => {
+    // Show the builder that actually reported it, not the first one that happened to finish.
+    const tasks = new Set(culprits.map((c) => c.task));
+    const detail = (r.final ?? '')
       .split('\n')
-      .filter((line) => isBlockedText(line))
+      .filter((line) => [...tasks].some((t) => line.startsWith(`[${t}] `)))
       .join('\n');
-    return { phase: r.phase, detail: (culprit || String(r.final)).slice(0, 600) };
+    return { phase: r.phase, detail: (detail || String(r.final)).slice(0, 600), tools: culprits.map((c) => c.blocked ?? { tool: 'unnamed', what: 'unnamed' }) };
   });
 
 if (blocked.length) {

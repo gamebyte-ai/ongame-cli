@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.69 — 2026-11-13
+
+- `/make-game`'s build workflow reads each builder's answer as a structured report. A phase counts as blocked only when a builder sets `ok` to false, or gives no report. The word "blocked" in a builder's text no longer marks a phase blocked. A blocked phase now names the ongame tool that failed.
+- `test/build-report.test.mjs` runs `workflows/build.js` with fake builders and checks that rule.
+
 ## 1.7.68 — 2026-11-13
 
 - Sound effects fit the game and feel good. `/make-game` and the audio phase ask for soft, tactile, short sounds (taps, pops, slides, chimes) that name the game's material. 8-bit beeps and chiptune are used only for a retro or pixel game.
