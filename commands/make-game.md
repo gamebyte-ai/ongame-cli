@@ -69,7 +69,8 @@ game" is no such signal. Say the choice in one sentence; the maker can redirect 
 `concept-to-game` registers `plan.phases: ["research", "concept", "assets", "docs"]`, in that order:
 1. `research`: research the genre and write `docs/RESEARCH.md`.
 2. `concept`: make the concept screens, a main menu and 2-3 in-game moments in one visual language.
-3. `assets`: cut those screens into game-ready assets with `assets_materialize`, and use their returned paths.
+3. `assets`: cut those screens into game-ready assets. Read `knowledge_get({ key: 'pattern:concept-cut' })` for how,
+   then write the cut assets to the game with `assets_materialize` and use their returned paths.
 4. `docs`: write the game's docs from the concept screens and the assets.
 
 Then close the build and stop for the maker's review before any code. Show the screens, the assets and the docs, and
@@ -79,7 +80,8 @@ code before the maker answers. When they say to build, register the code work as
 `gameId`, `entry: "continue"`, the `intent` you judge, `continues` set to this `buildId`, and `path: "concept-to-game"`.
 A maker who said not to stop for reviews asked for another mode; judge which.
 
-A continuation keeps its game's `path`. Never switch an existing game to `concept-to-game`.
+A continuation keeps its game's `path`. The exception is a derived artifact, such as a playable ad cut from the game:
+it takes that artifact's path with `intent: "derive"`. Never switch an existing game to `concept-to-game`.
 
 ## Keep the game's identity and record its phases
 

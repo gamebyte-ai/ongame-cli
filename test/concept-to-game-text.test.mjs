@@ -33,12 +33,15 @@ test('concept-to-game registers research, concept, assets, docs in order and sto
   for (const s of steps) { const k = block.indexOf(s); assert.ok(k > at, s); at = k; }
   assert.ok(block.includes('Write no game\ncode before the maker answers.'));
   assert.ok(block.includes('`skip: {reason}`'));
+  assert.ok(block.includes('pattern:concept-cut') && block.indexOf("pattern:concept-cut") < block.indexOf('`assets_materialize`'), 'cut the screens before materializing');
 });
 
 test('a continuation keeps its game\'s path', () => {
   const block = section();
   assert.ok(block.includes('`entry: "continue"`') && block.includes('`continues` set to this `buildId`'));
-  assert.ok(block.includes('A continuation keeps its game\'s `path`. Never switch an existing game to `concept-to-game`.'));
+  assert.ok(block.includes('A continuation keeps its game\'s `path`.'));
+  assert.ok(block.includes('`intent: "derive"`'), 'a derived playable ad may still change the path');
+  assert.ok(block.includes('Never switch an existing game to `concept-to-game`.'));
 });
 
 test('the intake reference lists concept-to-game as the fifth mode', () => {
