@@ -188,6 +188,10 @@ runner does not need it. Gated/unavailable → handle exactly as in Sub-phase 9.
 improvise a half-version), and continue.
 
 ## Sub-phase 6 — Transitions (screen transitions + tween easing)
+- **First, the edge map:** follow `skills/scene-transitions/SKILL.md` — the same procedure as
+  `knowledge_get({ key: 'pattern:scene-transitions' })`. It decides which style each edge gets (lobby → play, next
+  level, retry, home) and its budget; the `createScreen` types below are the mechanism for the cheap edges, not a
+  substitute for that choice.
 - Between screens: `UIEvents.createScreen(id, {type: SCREEN_TRANSITION_TYPES.FADE_IN |
   SLIDE_IN_LEFT | SLIDE_IN_RIGHT | SLIDE_IN_UP | SLIDE_IN_DOWN, durationMs})`. Splash→menu FADE,
   menu→game SLIDE. Collect into the scaffold's `<GameName>Config.transitions` (the renamed `MyGameConfig` from the
@@ -335,8 +339,9 @@ did not clearly improve, keep its old assets.
        (level-complete)". Call `preview_stop` when done.
      If the browser tool cannot run, say the features were NOT checked; never report them as passing.
   1d. **Contact sheet — `contact_sheet({gameDir})`**, only after step 1c passes. It records the built
-     game with no input and saves one frame every 2 s, tiled and time-labelled. The polish review judges this sheet, so take it
-     from the working build. Read `status`: `"unverified"` means no sheet was made — do the step in `fix` (build
+     game and saves one frame every 2 s, tiled and time-labelled. The polish review judges this sheet, so take it
+     from the working build. If the game opens on a menu, pass `tap` with the `window.__game.hitAreas()` ids that start
+     play (for example `["play"]`); without it the sheet shows only the menu. Read `status`: `"unverified"` means no sheet was made — do the step in `fix` (build
      first on `no_dist`) and call it again. If it still cannot run, say the game's look was judged from stills only.
   1e. **Play gate — `play_gate({gameDir, buildId, desktop, phone})`** (ongame), after 1d, on the build you will
      publish. It plays the game as a desktop by keyboard and as a phone by touch, from scripts you write that reach
@@ -352,19 +357,21 @@ did not clearly improve, keep its old assets.
        exactly as printed. Exit 1 → fix every entry in `problems`, rebuild, run it again; each `reason` is the one
        step 3 would refuse with. Step 3 names only the first bad file; this names them all. Exit 2 → no `dist/`.
      **Do NOT send a content type** — it is derived from the file itself, and anything you assert is ignored.
-  3. `publish_game({gameId: <game slug>, files: [{path, size}, ...]})` → returns `{uploads, publicUrl, signing}`.
-     Upload slots only; no bytes move here.
+  3. `publish_game({gameId: <game slug>, files: [{path, size}, ...]})` → returns
+     `{publishId, publicUrl, signing, fileCount, source}` on current CLI clients; older clients
+     return `{uploads, publicUrl, signing, source}`. No upload happens here.
      **It can REFUSE, as a typed result** — `{refused: true, reason, detail, path?}`. Every reason means *fix the
      build*, never *retry the call*: `no_such_build` (this account has no build of that game — it was not built
      here, so offer `/make-game` instead), `disallowed_file_type` (a file type a game cannot publish, named in
      `path` — drop it and rebuild), `no_entry_point` (no `index.html` at the root of `dist/`), `too_many_files` /
      `payload_too_large` (trim the build). Surface the refusal to the user in those words; do not route around it.
-  4. `publish_upload({gameDir, uploads, source})` — `uploads` and `source` are both straight from `publish_game` →
-     reads each built file from `dist/` and PUTs it to its upload slot, then keeps a private copy of the game's source,
-     readable by every member of the gamebyte-ai organization.
-     Returns `{uploaded:[{path,status}], skipped?, failed?, source, repo}`. **Pass each slot through UNCHANGED** — a slot carries
-     headers that were signed for that exact file, so editing or dropping a field makes the PUT fail. (The build
-     directory is fixed; there is no `subdir` argument.)
+  4. `publish_upload({gameDir, publishId})` using the ID from step 3 in this same session. Do not copy upload URLs
+     or source slots. If `reason: "publish_session_unavailable"`, call `publish_game` again and use its new ID;
+     IDs last up to one hour. Only when step 3 returned raw `uploads` instead of an ID, use the legacy
+     `publish_upload({gameDir, uploads, source})` form and pass the slots unchanged. Never mix both forms.
+     This reads each built file from `dist/` and uploads it, then keeps a private copy of the game's source,
+     readable by every member of the gamebyte-ai organization. Returns
+     `{uploaded:[{path,status}], skipped?, failed?, source, repo}`. There is no `subdir` argument.
      It boots the build again (step 1b's check) before the first PUT. `refused` with `reason: "boot_failed"` → nothing
      was uploaded and the live game is unchanged: fix what `failures` names, rebuild, and start again from step 1b.
      `verify.status: "unverified"` → the check could not run and the game IS published: tell the user `verify.warning`

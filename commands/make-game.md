@@ -194,6 +194,14 @@ change — call `mechanic_find({ need })` with the need in the game's own words.
 code with tests and licence; read `notFor` and `whenNot` before `mechanic_get({ id })`, and carry the licence note
 with any code you copy. Nothing fits → write it yourself; the tool's description says when one re-phrasing is worth it.
 
+**Sound fits the game and feels good.** Every sound effect, generated or written in code, matches the game's
+look and material and is satisfying to hear, ASMR-like: soft, tactile, short, layered. Examples: tap → soft
+wooden tap or bubble pop; slide → smooth whoosh or felt slide; match → juicy pop with a sparkle tail; coin →
+warm clink; win → short warm chime flourish. Name the game's material in each sound text. No 8-bit sound:
+no square-wave beeps or chiptune, unless the game's style is retro or pixel. In code, use sine or triangle
+tones and filtered noise with smooth envelopes. Listen to each sound and replace any that sounds like an old
+console. When `knowledge_get` is available, `pattern:audio-sound-design` has the full list and checks.
+
 Verify the behavior the user asked for in the relevant runtime. A preview URL, clean compile or empty console
 alone is not proof that a game works. Inspect actual rendering and interaction in a browser or the engine.
 If verification is unavailable, state what remains unverified. Do not mark a native goal complete without that
@@ -214,8 +222,10 @@ keyboard play (desktop) and touch play (phone) from the first screen to the win 
 there (`pattern:gamelabs-self-check`). `state: "blocked"` names the failed checks: fix the game, rebuild and call it
 again. Waive a check only when it is wrong for this game, with the reason. On `"awaiting_review"`, open both footage
 images, then call `play_review` with what you saw. `build.done` and `profile_record_build` are refused until it passed.
-A game with no web build to play (Unity, a docs-only change) calls `play_gate` with `skip: {reason}`; tell the user it
-was not played. An install with no `play_gate` tool cannot play it either: say the game was not played on record.
+A Unity game is played the same way: build it for WebGL into `{gameDir}/dist` (`-buildTarget WebGL`). It prints
+`pass boot` when its first scene is ready and `pass goal` at the win (`pattern:unity-self-check`); tap by `tapAt`.
+A game with no web build to play (Unity with no WebGL build support, a docs-only change) calls `play_gate` with
+`skip: {reason}`; tell the user it was not played. An install with no `play_gate` tool cannot play it either: say the game was not played on record.
 Give the user the check lines and any waiver with its reason.
 
 Use the registered game/build identifiers accepted by each tool. Do not invent phase completion or mark an
