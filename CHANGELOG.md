@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.68 — 2026-11-13
+
+- `/make-game` starts a new game in the new `concept-to-game` mode unless the maker clearly asked for a prototype, a full game, a playable ad or docs only. The build researches the genre, makes concept screens, cuts them into game-ready assets and writes the docs. Then it stops for the maker's review before any code. The code work that follows is a continuation that keeps `concept-to-game`.
+- Needs the ongame server that accepts `path: "concept-to-game"` (ongame card i_81m80wlu). Until then `state_init` refuses the new path.
+
 ## 1.7.67 — 2026-11-12
 
 - The final `phase_review` of the code phase now names the source files for each engine: gamelabs, everything under `src/`; Unity, the C# scripts under `Assets/`; Godot, the `.gd` and `.cs` scripts under the folder that holds `project.godot`; native, the files the project's own build compiles. A Godot or native game no longer goes to review with an empty or partial artifact.
