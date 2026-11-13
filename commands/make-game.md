@@ -194,6 +194,14 @@ change — call `mechanic_find({ need })` with the need in the game's own words.
 code with tests and licence; read `notFor` and `whenNot` before `mechanic_get({ id })`, and carry the licence note
 with any code you copy. Nothing fits → write it yourself; the tool's description says when one re-phrasing is worth it.
 
+**Sound fits the game and feels good.** Every sound effect, generated or written in code, matches the game's
+look and material and is satisfying to hear, ASMR-like: soft, tactile, short, layered. Examples: tap → soft
+wooden tap or bubble pop; slide → smooth whoosh or felt slide; match → juicy pop with a sparkle tail; coin →
+warm clink; win → short warm chime flourish. Name the game's material in each sound text. No 8-bit sound:
+no square-wave beeps or chiptune, unless the game's style is retro or pixel. In code, use sine or triangle
+tones and filtered noise with smooth envelopes. Listen to each sound and replace any that sounds like an old
+console. When `knowledge_get` is available, `pattern:audio-sound-design` has the full list and checks.
+
 Verify the behavior the user asked for in the relevant runtime. A preview URL, clean compile or empty console
 alone is not proof that a game works. Inspect actual rendering and interaction in a browser or the engine.
 If verification is unavailable, state what remains unverified. Do not mark a native goal complete without that

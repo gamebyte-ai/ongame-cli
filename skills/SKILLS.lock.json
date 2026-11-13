@@ -1,6 +1,6 @@
 {
-  "pluginVersion": "1.7.67",
-  "generatedAt": "2026-11-12",
+  "pluginVersion": "1.7.69",
+  "generatedAt": "2026-11-13",
   "skills": {
     "art-direction": {
       "sha256": "4fb82004119bfc33672560fdea3da9ad11d71d2eb9a535574f0a8ac522beb1c0",
@@ -33,9 +33,9 @@
       "lines": 552
     },
     "phases/audio": {
-      "sha256": "7ceb9416fdb0c8d2534f08d60e43d72d4e9bbc3ac9a493ceffaf447a2dbea6cb",
-      "bytes": 11979,
-      "lines": 155
+      "sha256": "77b3452f65fbcde5c5962a59ff8b532c65e739cb4a8ae1e8599c9e6942f6778e",
+      "bytes": 12301,
+      "lines": 158
     },
     "phases/code": {
       "sha256": "e5d5d4739e20d88c90e33f4573a127b6a44d10900ae508b3c02ef03bfadb8069",
@@ -58,9 +58,9 @@
       "lines": 100
     },
     "phases/polish": {
-      "sha256": "b7a8767cdcae4ebb73a4d4846f242d020bb85a7ac3801a44d8f6e2cb5d9e146b",
-      "bytes": 46901,
-      "lines": 469
+      "sha256": "563989af4ef66d5b6a089c0b216c858f06b8aaed030531fcad52ecfb38bd32d3",
+      "bytes": 47621,
+      "lines": 476
     },
     "phases/research": {
       "sha256": "121ee95275b701a4d80ed7535013c015780c280bd37542608a2a65d24f4bcbe5",
@@ -76,6 +76,16 @@
       "sha256": "af63e8956f6d13c88c651082c3eb63f381ac21e4286701941a42bf72ef91ebd3",
       "bytes": 1838,
       "lines": 27
+    },
+    "scene-transitions": {
+      "sha256": "bc59ffdb7992312e6c3a0fde9aaf42401ef45307d10e35d3c809480015088d69",
+      "bytes": 1558,
+      "lines": 25
+    },
+    "store-prep": {
+      "sha256": "ffd68f014fb1b4b4ab92fe752c7728fbb57f8638230b12772eae147b66903747",
+      "bytes": 1551,
+      "lines": 24
     },
     "storyboard": {
       "sha256": "35472fdb1abd04b54ad371d96a7651ba3bdfaa591f6948e52df5fdab38bd6ccc",
