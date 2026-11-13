@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.68 — 2026-11-13
+
+- Wins look rich and rewards look like the game. `/make-game` and the concept, assets and polish phases ask for layered, realistic celebration particles (glow, burst, confetti, sparkle, with depth, light and physical motion), never flat primitive particles. Coins and rewards are drawn in the game's own style with depth and shine, never a flat `$` coin, and the same coin art is used everywhere. Praise words sit tilted with their ribbon as one banner. The agent freezes the win celebration at its peak and looks at it before calling it done.
+- `test/celebration-reward-rule.test.mjs` checks that all four files carry the rule.
+
 ## 1.7.67 — 2026-11-12
 
 - The final `phase_review` of the code phase now names the source files for each engine: gamelabs, everything under `src/`; Unity, the C# scripts under `Assets/`; Godot, the `.gd` and `.cs` scripts under the folder that holds `project.godot`; native, the files the project's own build compiles. A Godot or native game no longer goes to review with an empty or partial artifact.

@@ -167,6 +167,11 @@ Resolve `ParticleManager` and `TimelineManager` from DI and tick them in `onStep
 response: match explosion (particle
 burst), score pop-up + total-score punch, screenshake scaled to match size, impact (zoom punch / hit-stop) on big
 combos, glow/sparkle, cascade multiplier animation with rising sfx pitch.
+**Every burst, firework and confetti is rich and realistic, never flat primitive particles:** stack layers
+(glow, a burst of the game's own shapes, two-faced confetti, sparkle), with depth, light, varied size and spin, and
+physical motion. Praise words (Great!, Superb!) sit tilted together with their ribbon as one banner. Call
+`knowledge_get({ key: "pattern:celebration-and-reward-art" })` for the layers and the frozen-frame check. If it
+returns empty, continue with your own judgment.
 Call `knowledge_get({ key: "pattern:polish-juice-recipes" })` for the tuned juice/motion recipes (burst counts, durations, easings, amplitudes, mobile-safe glow). If it returns empty, continue with your own judgment.
 
 > All these effects are triggered in the **Controller** (when Board state changes), the **View** only renders.
@@ -203,6 +208,8 @@ improvise a half-version), and continue.
 - **Win and lose are ONE screen with two moods.** Build the card on `template:ui-popup`. Call `knowledge_get({ key: "pattern:shell-contract" })` for the result-card rules. If it returns empty, continue with your own judgment.
 - `GameOverView extends PopupView` (`HudLayer.Popup`): scrim + framed panel, final score with a count-up,
   high-score comparison (`StorageService`), confetti on open whose intensity follows win/loss.
+- **The win screen always has a full layered celebration** (Sub-phase 5), the tilted praise banner, and rewards in
+  the game's own coin art. Freeze it at its peak, take a screenshot and look at it before calling it done.
 - Buttons: `ButtonComponent({label:'RETRY'})` → state reset + `createScreen(GameScreen)`;
   `ButtonComponent({label:'MENU'})` → `createScreen(MainMenu)`. Panel gsap pop-in in `onOpen`.
 

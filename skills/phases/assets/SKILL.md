@@ -194,6 +194,7 @@ Scan the categories (drop the ones that do not apply based on the game's genre):
 | --- | --- |
 | **UI** | button (idle/hover/pressed/disabled variants), panel/dialog frame, icon (sound/settings/pause/restart/close), badge, progress fill |
 | **HUD** | score/health/timer frames, multiplier badge, coin/token icon, heart/life icon |
+| **Rewards + celebration** | the coin and reward icons drawn in the game's own style and material with depth and shine (never a flat `$` coin; one coin art reused in counter, rewards, shop, prices), particle textures in the game's shapes (splash, petal, bubble, confetti), praise ribbon |
 | **Gameplay** | tile/gem types (each type separate), character/char sprites, enemy, collectible item, effect visual |
 | **Background (bg)** | play-area floor, parallax layers, board frame |
 | **Menu visuals** | title/logo, main-menu background, splash, gameover panel, button tray |

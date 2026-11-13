@@ -37,6 +37,9 @@ description: Game concept — vision, core loop, target audience + visual placeh
    - **(a) a main-menu mock** (logo, PLAY button — how the menu will really look), and
    - **(b) 2-3 in-game KEY MOMENTS** — gameplay-camera frames **with the HUD visible**, in the game's real
      camera/scene language (they should read as screenshots of the finished game, not poster art).
+   - **The win moment is one of them.** Show a rich, realistic celebration at its peak (layered particles with
+     depth and light, never flat primitive ones), the coin drawn in the game's own style (never a flat `$` coin),
+     and praise words tilted with their ribbon. `pattern:celebration-and-reward-art` has the details.
 
    **Order the set so consistency is checkable, not remembered.** Call
    `knowledge_get({ key: "pattern:concept-art-procedure" })` for the generation order, scale and batch size. If it
