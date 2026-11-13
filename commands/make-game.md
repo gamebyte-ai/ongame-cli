@@ -222,10 +222,8 @@ keyboard play (desktop) and touch play (phone) from the first screen to the win 
 there (`pattern:gamelabs-self-check`). `state: "blocked"` names the failed checks: fix the game, rebuild and call it
 again. Waive a check only when it is wrong for this game, with the reason. On `"awaiting_review"`, open both footage
 images, then call `play_review` with what you saw. `build.done` and `profile_record_build` are refused until it passed.
-A Unity game is played the same way: build it for WebGL into `{gameDir}/dist` (`-buildTarget WebGL`). It prints
-`pass boot` when its first scene is ready and `pass goal` at the win (`pattern:unity-self-check`); tap by `tapAt`.
-A game with no web build to play (Unity with no WebGL build support, a docs-only change) calls `play_gate` with
-`skip: {reason}`; tell the user it was not played. An install with no `play_gate` tool cannot play it either: say the game was not played on record.
+A game with no web build to play (Unity, a docs-only change) calls `play_gate` with `skip: {reason}`; tell the user it
+was not played. An install with no `play_gate` tool cannot play it either: say the game was not played on record.
 Give the user the check lines and any waiver with its reason.
 
 Use the registered game/build identifiers accepted by each tool. Do not invent phase completion or mark an
