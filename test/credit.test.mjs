@@ -96,15 +96,22 @@ test('--wait ready is kept on a later run, and the block exposes ready() to the 
   expect(run(dir, '--wait', 'soon').status).toBe(2);
 });
 
-test('a v2 block (caption + pill) becomes the logo-only card and keeps its --wait choice', () => {
-  const v2 = '<!-- ongame:brand-credit v2 -->\n<div id="ogc-card" class="ogc-play" data-wait="ready" hidden lang="en" aria-label="Built with onGame"><div class="ogc-cap">Built with</div></div>\n<div id="ogc-badge" data-pos="top" hidden></div>\n<!-- /ongame:brand-credit -->\n';
-  const dir = game(PAGE.replace('<body>\n', '<body>\n' + v2));
-  execFileSync(process.execPath, [APPLY, dir]);
-  const html = read(dir);
-  expect(html).toContain('<div id="ogc-card" data-wait="ready" hidden ');
-  expect(html).not.toContain('ogc-badge');
-  expect(html).not.toMatch(/built with/i);
-});
+// The card and pill tags exactly as the v1 (2026-09-28) and v2 (2026-09-29) scripts wrote them, here with --wait ready.
+const OLD_TAGS = {
+  v1: '<div id="ogc-card" class="ogc-play" data-wait="ready" hidden aria-label="Built with onGame"><div class="ogc-cap">Built with</div></div>\n<div id="ogc-badge" data-pos="top" hidden aria-label="Built with onGame"><div class="ogc-cap">Built with</div></div>',
+  v2: '<div id="ogc-card" class="ogc-play" data-wait="ready" hidden lang="en" aria-label="Built with onGame"><div class="ogc-cap">Built with</div><div class="ogc-wait">LOADING</div></div>\n<div id="ogc-badge" data-pos="top" hidden lang="en" aria-label="Built with onGame"><div class="ogc-cap">Built with</div></div>',
+};
+for (const [v, tags] of Object.entries(OLD_TAGS)) {
+  test(`a ${v} block (caption + pill) becomes the logo-only card and keeps its --wait choice`, () => {
+    const dir = game(PAGE.replace('<body>\n', `<body>\n<!-- ongame:brand-credit ${v} -->\n${tags}\n<!-- /ongame:brand-credit -->\n`));
+    execFileSync(process.execPath, [APPLY, dir]);
+    const html = read(dir);
+    expect(html).toContain('<div id="ogc-card" data-wait="ready" hidden ');
+    expect(count(html, 'ongame:brand-credit v')).toBe(1);
+    expect(html).not.toContain('ogc-badge');
+    expect(html).not.toMatch(/built with/i);
+  });
+}
 
 test('leave() stays callable for games written against the pill, and does nothing', () => {
   const dir = game();
@@ -165,6 +172,27 @@ test('--check fails a build that kept the markers but lost the script', () => {
   const r = run('--check', file);
   expect(r.status).toBe(1);
   expect(r.stdout).toContain('missing');
+});
+
+test('--check fails a block that lost its logo or its ready() hook', () => {
+  for (const [strip, piece] of [[/<svg class="ogc-logo"[\s\S]*?<\/svg>/, 'class="ogc-logo"'], [/ready: function \(\) \{[^}]*\}, /, 'ready: function']]) {
+    const dir = game();
+    execFileSync(process.execPath, [APPLY, dir]);
+    const file = path.join(dir, 'index.html');
+    fs.writeFileSync(file, read(dir).replace(strip, ''));
+    const r = run('--check', file);
+    expect(r.status).toBe(1);
+    expect(r.stdout).toContain(piece);
+  }
+});
+
+test('the script takes over from the CSS-only exit last, once its clock and API exist, and a ready card waits for ready() alone', () => {
+  const dir = game();
+  execFileSync(process.execPath, [APPLY, dir]);
+  const html = read(dir);
+  expect(html.indexOf('window.ongameCredit = {')).toBeLessThan(html.indexOf("card.classList.add('ogc-live')"));
+  expect(html).toContain('function clear() { return hold ? ready : loaded; }');
+  expect(html).toMatch(/function dismiss\(\) \{[^}]*clearInterval\(poll\);/);
 });
 
 test('--check fails a block that lost leave(), so a game calling it cannot ship a broken credit', () => {

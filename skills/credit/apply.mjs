@@ -12,7 +12,8 @@
  *
  * What the block does, with no hook into the game's code, so it fits any engine:
  * - a dark card with the onGame logo alone (no caption, no motion) shows from the first paint;
- * - the card fades out once the page has loaded and the logo has been on screen for 1.2 s, or on a tap after load;
+ * - the card fades out once the logo has been on screen for 1.2 s and the page has loaded (a "ready" card: once the
+ *   game has called ready()), or on a tap from then on;
  * - a "load" card goes at 6 s at the latest, so a slow or broken boot is never hidden behind it; a "ready" card stays
  *   until the game's first screen is drawn and says LOADING past 6 s, because lifting it early shows an empty stage
  *   (a CSS-only exit at 6.5 s covers a page whose scripts never run: a blocking CSP, a syntax error);
@@ -56,10 +57,12 @@ const BLOCK_TEMPLATE = `${OPEN}
   if (document.querySelector('script[src$="/@vite/client"]')) { card.remove(); return; }
   // Inline styles blocked (a strict CSP): the card never showed (it starts [hidden]); take the block away quietly.
   if (getComputedStyle(card).position !== 'fixed') { card.remove(); return; }
-  card.classList.add('ogc-live');
   var loaded = document.readyState === 'complete', gone = false;
   // data-wait="ready": the game says when its first screen is drawn; "load" (default): the page load event is enough.
   var hold = card.getAttribute('data-wait') === 'ready', ready = !hold;
+  // What lets the card go: a "ready" card waits for the game's ready() alone (a slow unrelated resource can hold back
+  // the load event long after the first screen is drawn); a "load" card waits for the load event.
+  function clear() { return hold ? ready : loaded; }
   var cap = window.Capacitor, splash = cap && cap.isNativePlatform && cap.isNativePlatform() && cap.Plugins && cap.Plugins.SplashScreen;
   // When the logo was first seen. In an app the page paints under the launch splash, so the clock starts only once
   // the splash is gone; on the web it is now, when the card is first in the page.
@@ -71,21 +74,25 @@ const BLOCK_TEMPLATE = `${OPEN}
   function dismiss() {
     if (gone) return;
     gone = true;
+    clearInterval(poll);
     console.log('[credit] dismiss ' + Math.round(performance.now()) + 'ms loaded=' + loaded + ' ready=' + ready + ' shown=' + (started === Infinity ? 'none' : Math.round(started) + 'ms'));
     card.classList.add('ogc-done');
     setTimeout(function () { card.remove(); }, FADE);
   }
-  card.addEventListener('pointerdown', function () { if (loaded && ready) dismiss(); });
+  card.addEventListener('pointerdown', function () { if (clear()) dismiss(); });
   var poll = setInterval(function () {
     var now = performance.now(), t = now - started, late = t >= MAX || (started === Infinity && now >= MAX);
     // A data-wait="ready" card goes only once the game's first screen is drawn: lifting it at MAX shows an empty
     // stage, which reads as a hang (a cold first launch on a slow phone can take well past MAX). Past MAX it says
     // it is still loading. A data-wait="load" card keeps MAX as its ceiling.
-    if (loaded && ready && (t >= MIN || late)) { clearInterval(poll); dismiss(); }
-    else if (late) { if (hold) card.classList.add('ogc-waiting'); else { clearInterval(poll); dismiss(); } }
+    if (clear() && (t >= MIN || late)) dismiss();
+    else if (late) { if (hold) card.classList.add('ogc-waiting'); else dismiss(); }
   }, 100);
   // leave() is kept for games written against the earlier pill; there is nothing on screen for it to remove.
   window.ongameCredit = { dismiss: dismiss, ready: function () { ready = true; }, leave: function () {} };
+  // Only now, with the clock and the API in place, does the script take over from the CSS-only exit at 6.5 s: if
+  // anything above threw (a native bridge, a browser quirk), that exit still lifts the card.
+  card.classList.add('ogc-live');
 })();
 </script>
 ${CLOSE}
@@ -99,7 +106,7 @@ function fail(msg, code = 2) {
 const args = process.argv.slice(2);
 
 /** Pieces a working block cannot lack; a build that strips any of them must not pass --check. */
-const SENTINELS = ['id="ogc-card"', 'ogc-bail', 'window.ongameCredit', 'leave: function', '</script>', '<style>'];
+const SENTINELS = ['id="ogc-card"', 'class="ogc-logo"', 'ogc-bail', 'window.ongameCredit', 'ready: function', 'leave: function', '</script>', '<style>'];
 
 if (args[0] === '--check') {
   if (args.length !== 2) fail('usage: apply.mjs --check <html>');

@@ -3,7 +3,8 @@
 ## 1.7.68 — 2026-11-12
 
 - The launch credit is now the onGame logo alone on a dark screen (`#0e121b`), with no caption and no motion: it holds for 1.2 s after the page loads, then fades. The "Built with" caption and the first-screen pill are gone, so nothing of onGame stays on the game's screens after the card.
-- `/publish` and `skills/credit/apply.mjs` turn an older v1/v2 block into the v3 card in place and keep its `--wait` choice. A `--wait ready` card stays until the game's first screen is drawn and shows LOADING past 6 s, instead of lifting onto an empty stage on a slow first launch.
+- `/publish` and `skills/credit/apply.mjs` turn an older v1/v2 block into the v3 card in place and keep its `--wait` choice. A `--wait ready` card stays until the game calls `ready()` (whether or not the page has finished loading) and shows LOADING past 6 s, instead of lifting onto an empty stage on a slow first launch.
+- If the card's script fails while setting up (a native bridge that throws), the CSS-only exit still lifts it at 6.5 s. `--check` now also fails a block that lost its logo or its `ready()` hook.
 - `--badge` and `window.ongameCredit.leave()` are still accepted so older games keep building and running; neither does anything now.
 
 ## 1.7.67 — 2026-11-12
