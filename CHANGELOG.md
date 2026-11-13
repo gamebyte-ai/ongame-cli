@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.68 — 2026-11-13
+
+- Sound effects fit the game and feel good. `/make-game` and the audio phase ask for soft, tactile, short sounds (taps, pops, slides, chimes) that name the game's material. 8-bit beeps and chiptune are used only for a retro or pixel game.
+- The polish phase follows `skills/scene-transitions/SKILL.md` for the screen-to-screen edges. Its contact sheet can tap past a start menu. Publishing uses the `publishId` from `publish_game` instead of copying upload slots.
+- New skills: `scene-transitions` (map and style every edge between big screens) and `store-prep` (get a finished game ready for the App Store and Google Play).
+- Needs ongame-cli 0.2.40 or later, which has the contact sheet's `tap`.
+
 ## 1.7.67 — 2026-11-12
 
 - The final `phase_review` of the code phase now names the source files for each engine: gamelabs, everything under `src/`; Unity, the C# scripts under `Assets/`; Godot, the `.gd` and `.cs` scripts under the folder that holds `project.godot`; native, the files the project's own build compiles. A Godot or native game no longer goes to review with an empty or partial artifact.
