@@ -194,6 +194,16 @@ change — call `mechanic_find({ need })` with the need in the game's own words.
 code with tests and licence; read `notFor` and `whenNot` before `mechanic_get({ id })`, and carry the licence note
 with any code you copy. Nothing fits → write it yourself; the tool's description says when one re-phrasing is worth it.
 
+**Wins look rich and rewards look like the game.** Celebrations, explosions, fireworks and confetti use rich,
+realistic particle effects: several layers (glow, burst, confetti, sparkle), depth, light, varied shapes and
+physical motion (gravity, drag, spin, flip, fade). Never flat primitive particles, such as one layer of same-size
+squares or dots. Draw every coin and reward in the game's own style and material, with depth and shine: a
+leaf-stamped gold coin in a forest game, a jelly drop in a paint game. Never a generic flat coin with a `$`. Use
+that same coin art everywhere it appears. Praise words (Great!, Superb!) sit tilted together with the ribbon behind
+them, as one angled banner, never flat text on a flat band. Freeze the win celebration at its peak and look at the
+frame before calling it done. When `knowledge_get` is available, `pattern:celebration-and-reward-art` has the
+layers and checks.
+
 Verify the behavior the user asked for in the relevant runtime. A preview URL, clean compile or empty console
 alone is not proof that a game works. Inspect actual rendering and interaction in a browser or the engine.
 If verification is unavailable, state what remains unverified. Do not mark a native goal complete without that
