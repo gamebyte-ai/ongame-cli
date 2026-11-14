@@ -60,9 +60,15 @@ a note/ownership file read once does not protect (a stale agent's context never 
 Bounded by design: a takeover happens at most once per stall (no retry loop); the worst case is one stopped
 zombie report. This lock guards WRITES only — reading/analysis needs no lock.
 
-## 2. Scaffold — STEP 0 (first on a NEW build; SKIPPED on a continuation)
+## 2. Scaffold — STEP 0 (first on a NEW build, or a continuation with no game code yet; SKIPPED otherwise)
 
-> **SKIP THIS ENTIRE SECTION when the plan says `entry: 'continue'`** (the mid-entry door — the user asked for a
+> **A continuation with NO game code yet DOES scaffold.** Look in `gameDir` first. When it holds no engine project
+> (no `package.json`, `src/`, `Assets/` or `project.godot`), there is nothing to overwrite. This is the first code
+> build after a `concept-to-game` review: the game has only `docs/` and the cut assets. Run this section as on a new
+> build. Copy `docs/` and `assets/` aside before `scaffold_materialize` and put back any file it changed. Then wire in the assets listed in `docs/ASSETS.md` instead of placeholder shapes, and build from
+> `docs/GAME_DESIGN.md`.
+
+> **SKIP THIS ENTIRE SECTION when the plan says `entry: 'continue'` and the game already has code** (the mid-entry door — the user asked for a
 > feature, a fix, more content on a game that already exists). `scaffold_materialize` COPIES the baseplate into
 > `gameDir` and rewrites identifiers across file contents and file names: run against a project someone has been
 > building, it overwrites their `index.html`, their config and their screen files with template versions. There is no

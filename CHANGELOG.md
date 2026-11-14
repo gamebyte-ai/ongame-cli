@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.69 — 2026-11-14
+
+- In `concept-to-game` the assets phase now cuts the concept screens into assets and wires no code. It runs before the docs and the code, so it builds its list from the concept screens, not `docs/GAME_DESIGN.md`. It records the cut assets in `docs/ASSETS.md`.
+- The first code build after the concept review is a continuation with no game code yet. The build runner and the code phase now tell the agent to scaffold the engine in that case, then wire in the cut assets. A continuation of a game that has code still never scaffolds.
+- Needs 1.7.68 (`concept-to-game`).
+
 ## 1.7.68 — 2026-11-13
 
 - `/make-game` starts a new game in the new `concept-to-game` mode unless the maker clearly asked for a prototype, a full game, a playable ad or docs only. The build researches the genre, makes concept screens, cuts them into game-ready assets and writes the docs. Then it stops for the maker's review before any code. The code work that follows is a continuation that keeps `concept-to-game`.
