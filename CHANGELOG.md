@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.70 — 2026-11-15
+
+- Game icons get the icon model. The assets phase tells the agent to set `purpose: "icon"` on a 2d-static UI or HUD icon drawn from the prompt alone. ongame then draws it with the model that scored best on icons; an icon anchored with `editOf` keeps its anchor.
+- `test/icon-purpose.test.mjs` checks that the assets skill carries the field and when to set it.
+
 ## 1.7.68 — 2026-11-13
 
 - Wins look rich and rewards look like the game. `/make-game` and the concept, assets and polish phases ask for layered, realistic celebration particles (glow, burst, confetti, sparkle, with depth, light and physical motion), never flat primitive particles. Coins and rewards are drawn in the game's own style with depth and shine, never a flat `$` coin, and the same coin art is used everywhere. Praise words sit tilted with their ribbon as one banner. The agent freezes the win celebration at its peak and looks at it before calling it done.
