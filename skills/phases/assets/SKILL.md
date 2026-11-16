@@ -251,7 +251,7 @@ return, the client writes them to disk):
    **returns `{ paths }`** (ref fetch failures land in `errors` — that file is skipped, you decide: regenerate
    or accept). Use those `paths` everywhere this skill says "path/outputPath" — they are the real on-disk locations.
 
-`spec` fields (plugin AssetSpec): `{ kind, prompt, batch?, editOf?, transparent?, maxDim?, threeDParams?, spriteParams?, description?, gameId? }`
+`spec` fields (plugin AssetSpec): `{ kind, prompt, batch?, editOf?, transparent?, purpose?, maxDim?, threeDParams?, spriteParams?, description?, gameId? }`
 (no `gameDir` — `forge_request` does not touch disk).
 
 > **`gameId` (optional) — tag this generation for later game-scoped recall.** Pass the current game's slug
@@ -299,6 +299,8 @@ return, the client writes them to disk):
   sprite/character sits on top of something else in the scene → `transparent: true`.
   If you are generating a full-screen **background/scene** → `transparent: false`/empty (it should already be filled).
   Instead of saying "white background" in the prompt, use this parameter — it gives real transparency.
+- **`purpose?`** — set `"icon"` for a UI or HUD icon (coin, heart, button glyph, reward) on `2d-static`. It changes
+  the result only on a prompt-alone icon; an icon that has an anchor keeps its `editOf`.
 - **`spriteParams?`** (sprite) — use **`mode: "clip"`** for transparent character animation.
   Pass the existing character image with a transparent background as `editOf`; otherwise `prompt`
   describes the first character's appearance.
