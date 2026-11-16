@@ -16,10 +16,10 @@ test('make-game plays a Unity game from its WebGL build', () => {
 });
 
 test('the changelog names the ongame-cli version that plays Unity WebGL builds', () => {
-  const plugin = JSON.parse(read('.claude-plugin/plugin.json'));
+  // The Unity lines shipped in 1.7.71; later versions keep their own "Needs" line.
   const log = read('CHANGELOG.md');
-  const start = log.indexOf(`## ${plugin.version} `);
-  assert.ok(start > -1, `CHANGELOG has a ${plugin.version} section`);
+  const start = log.indexOf('## 1.7.71 ');
+  assert.ok(start > -1, 'CHANGELOG has a 1.7.71 section');
   const section = log.slice(start, log.indexOf('\n## ', start + 1));
   assert.ok(section.includes('Needs ongame-cli 0.2.42 or later'));
 });

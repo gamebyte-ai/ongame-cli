@@ -151,7 +151,8 @@ hand-built path below, that is not a fault (same handling as Sub-phase 9.5).
   corner-anchor with `FullscreenLayoutComponent`. `HudLayer.Content` for the game, `HudLayer.Screen`
   for the menu, `HudLayer.Popup` for settings/game-over, `HudLayer.Overlay` for the toast.
 - **Responsive:** every view overrides `onResize(width, height, dpr)`; layouts reflow.
-  Phone/desktop test: no overflow on narrow (390px) and wide (1280px) viewports. `LabelComponent`
+  Overflow, cut-off text, text past its plate and boxes drawn over text are measured by `play_gate` (step 1e:
+  `nothing_offscreen`, `layout_fits` at 360x640 and 390x844). `LabelComponent`
   for score; when the value changes, the pop tween in Sub-phase 5 fires.
 - **Take the chrome from the library:** counters from `template:ui-currency-chip`, a tab bar from
   `template:shell-bottom-nav`, insets and DPR from `template:platform-viewport`. **Register every canvas-drawn
@@ -221,7 +222,7 @@ improvise a half-version), and continue.
 - `ButtonComponent` already manages the **idle/hover/pressed/disabled** texture states; add press/hover feel on
   top with a `playSfx('click')`, or take `template:ui-kit`'s Button, which carries it. Call `knowledge_get({ key: "pattern:polish-juice-recipes" })` for the tuned juice/motion recipes (press/hover numbers). If it returns empty, continue with your own judgment.
 - Disabled button (e.g. insufficient moves): `setEnabled(false)` → disabled texture + the press is swallowed.
-  On all interactive elements, the touch target is ≥44px on mobile (layout `width/height`).
+  A phone control under 44x44 px fails `play_gate`'s `layout_fits` (step 1e).
 
 ---
 
@@ -353,8 +354,9 @@ did not clearly improve, keep its old assets.
   1e. **Play gate — `play_gate({gameDir, buildId, desktop, phone})`** (ongame), after 1d, on the build you will
      publish. It plays the game as a desktop by keyboard and as a phone by touch, from scripts you write that reach
      the win (`pass goal`). Fix every failed check, rebuild and run it again; waive one only when it is wrong for
-     this game, with the reason. Then open both footage images and call `play_review`. Publish and `build.done` are
-     refused until it passed for this `dist/`.
+     this game, with the reason. Its `layout_fits` reads `window.__game.layout()` (the gamelabs-base template
+     publishes it for the PixiJS HUD) after every phone step. Then open both footage images and call `play_review`.
+     Publish and `build.done` are refused until it passed for this `dist/`.
   2. **Pre-publish check — fix everything it finds before step 3.** Every refusal step 3 can give is findable here.
      - **A build behind the game:** you hold this build's `buildId` from `state_init`, and step 3's `gameId` is the
        one you gave `state_init`. No `buildId` means the build was never opened: call `state_init` for this game now.
@@ -460,8 +462,8 @@ did not clearly improve, keep its old assets.
   game-over) — if a tap meant to do something leaves the screenshot effectively unchanged, treat that button as
   suspected dead before calling the build done.
   **Device-reality checks — a 390×844 desktop session is NOT a phone.** Before calling the build done, check
-  pointer type, touch-target size, safe area, canvas geometry at dpr>1, full-bleed cards, modal occlusion and
-  frozen animated subjects; where the tool cannot emulate a condition, report it **unverified**, never passed.
+  pointer type, canvas geometry at dpr>1, full-bleed cards, modal occlusion and frozen animated subjects (touch-target
+  size and the safe area are `play_gate`'s `layout_fits`); where the tool cannot emulate a condition, report it **unverified**, never passed.
   Call `knowledge_get({ key: "pattern:polish-device-reality-checks" })` for how to measure each one. If it
   returns empty, continue with your own judgment. A quiet console is
   not evidence of life. The screenshots also feed the auto-jury (a CC hook you don't

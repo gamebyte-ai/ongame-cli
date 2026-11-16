@@ -93,6 +93,8 @@ Never create an ownership record for a game you did not actually work on just to
    in your context. Call it for `code` only at the end, when code changed after the last feedback you received,
    with every source file in full, never a summary or a selection. Either verdict is advice: apply or decline the feedback by your own judgment, and never
    wait on it.
+   When the verdict is `pass`, call `brain_reinforce` once for each recalled lesson this phase applied, with the
+   ref on its `[lesson ref: …]` line. A `revise` or a `skip` reinforces nothing for that phase.
 4. Emit `trace_emit(buildId, name="phase.output")` once with the phase's headline decision, then
    `trace_emit(buildId, name="phase.<p>.done")`.
 
@@ -230,13 +232,17 @@ eye, and reach hard states by seeding the save (`pattern:temporal-capture`, `pat
 `play_gate({gameDir, buildId, desktop, phone})`. Write both play scripts yourself: the shortest
 keyboard play (desktop) and touch play (phone) from the first screen to the win or goal. The game prints `pass goal`
 there (`pattern:gamelabs-self-check`). `state: "blocked"` names the failed checks: fix the game, rebuild and call it
-again. Waive a check only when it is wrong for this game, with the reason. On `"awaiting_review"`, open both footage
+again. `layout_fits` measures the phone layout at 360x640 and 390x844 (cut-off or covered text, controls under
+44x44 px) from `window.__game.layout()`, which the gamelabs-base template publishes. Waive a check only when it is
+wrong for this game, with the reason. On `"awaiting_review"`, open both footage
 images, then call `play_review` with what you saw. `build.done` and `profile_record_build` are refused until it passed.
 A Unity game is played the same way: build it for WebGL into `{gameDir}/dist` (`-buildTarget WebGL`). It prints
 `pass boot` when its first scene is ready and `pass goal` at the win (`pattern:unity-self-check`); tap by `tapAt`.
 A game with no web build to play (Unity with no WebGL build support, a docs-only change) calls `play_gate` with
 `skip: {reason}`; tell the user it was not played. An install with no `play_gate` tool cannot play it either: say the game was not played on record.
 Give the user the check lines and any waiver with its reason.
+When `play_gate` passes, call `brain_reinforce` once for each recalled lesson you applied that no `pass` verdict
+reinforced yet. A blocked or skipped play reinforces nothing.
 
 Use the registered game/build identifiers accepted by each tool. Do not invent phase completion or mark an
 earlier phase build done. Follow the notice and capture choice established before registration; do not repeat
@@ -246,8 +252,8 @@ and `payload.output`; preserve later corrections with `name="user.feedback"`. Th
 execution but never overwrites that original source. Do not assign these events to phases that did not run.
 
 When the actual work yields a useful lesson, use `brain_capture` with the real `buildId` and appropriate `user`
-or `game` scope, respecting any objection to capture; do not invent a lesson. When a recalled lesson you applied
-held up, call `brain_reinforce` once with the ref on its `[lesson ref: …]` line, at the end of the phase that used it. When the CURRENT direct-work
+or `game` scope, respecting any objection to capture; do not invent a lesson. Reinforce a recalled lesson only after
+a passed review or play, as above. When the CURRENT direct-work
 request is complete and verified, record `trace_emit(buildId, name="build.done", payload={path: plan.path})` and
 its real `profile_record_build` entry. That is a work outcome, not a claim that the retained phase sequence ran.
 Do not manufacture approvals, phase outputs, scores or completed phase states.
