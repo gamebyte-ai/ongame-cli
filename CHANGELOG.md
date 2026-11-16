@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.72 — 2026-11-16
+
+- `/make-game` and the polish phase say the phone layout is checked by `play_gate`'s `layout_fits` at 360x640 and 390x844. It fails cut-off or covered text and phone controls under 44x44 px, read from `window.__game.layout()`. The polish phase no longer restates those rules itself.
+- A recalled lesson is reinforced with `brain_reinforce` only after its phase passes `phase_review`, or after `play_gate` passes. A `revise`, a `skip`, or a blocked or skipped play reinforces nothing. This is in `/make-game` and the code phase.
+- `test/phone-layout-play.test.mjs` checks these lines and this version line.
+- Needs ongame-cli 0.2.43 or later, the first release whose `play_gate` has `layout_fits`. On an older CLI, `play_gate` runs without the layout check.
+
 ## 1.7.71 — 2026-11-16
 
 - `/make-game` plays a Unity game from its WebGL build in `{gameDir}/dist` (`-buildTarget WebGL`). The game prints `pass boot` when its first scene is ready, and taps use `tapAt`.

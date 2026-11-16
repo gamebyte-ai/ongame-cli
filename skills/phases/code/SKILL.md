@@ -196,9 +196,10 @@ zombie report. This lock guards WRITES only — reading/analysis needs no lock.
 > (e.g. `"pattern"`, `"bug-fix"`). Pass `buildId` (capture automatically nests under the active phase span).
 > Do not fabricate lessons — write down what was genuinely learned. If the memory tools are unavailable it's a no-op (pipeline is unaffected).
 >
-> **End of phase — `brain_reinforce` (confirm):** for each recalled lesson (from `brain_recall` or `state_init`'s `lessons`)
-> that you applied in this phase AND that held up, call `brain_reinforce(id=<the ref on that lesson's `[lesson ref: …]` line>)`
-> once. Skip a lesson you did not use or that did not hold up. Fail-soft: `{ ok:false }` never blocks the build.
+> **End of phase — `brain_reinforce` (confirm):** when this phase's review returns `verdict:'pass'`, or `play_gate` passes, for each
+> recalled lesson (from `brain_recall` or `state_init`'s `lessons`) that you applied in this phase, call
+> `brain_reinforce(id=<the ref on that lesson's `[lesson ref: …]` line>)` once. A `revise` or a `skip` reinforces nothing.
+> Skip a lesson you did not use. Fail-soft: `{ ok:false }` never blocks the build.
 
 ## 4. Architecture — separation of responsibility (mandatory)
 When composing gamelabs.js Lego, do NOT MIX the layers. Every game keeps these units separate:

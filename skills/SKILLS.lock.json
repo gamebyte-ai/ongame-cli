@@ -1,5 +1,5 @@
 {
-  "pluginVersion": "1.7.71",
+  "pluginVersion": "1.7.72",
   "generatedAt": "2026-11-16",
   "skills": {
     "art-direction": {
@@ -38,9 +38,9 @@
       "lines": 158
     },
     "phases/code": {
-      "sha256": "e5d5d4739e20d88c90e33f4573a127b6a44d10900ae508b3c02ef03bfadb8069",
-      "bytes": 45608,
-      "lines": 467
+      "sha256": "a0780b26194bcad3ad8bf3e5b038cb0e53f906815ff554c62d999772b370e8ef",
+      "bytes": 45686,
+      "lines": 468
     },
     "phases/concept": {
       "sha256": "c8cd698cd0776275c775cd994ebd857cc9e2480192daf1608b920b168678b0ed",
@@ -58,9 +58,9 @@
       "lines": 100
     },
     "phases/polish": {
-      "sha256": "4c8252d565feba2b0bd08e07f669b1fa2dac185d92962a16c9ad677d201526cd",
-      "bytes": 48332,
-      "lines": 483
+      "sha256": "db5258ab9452e27bfb9484a02f0f060e48bec8f09404bde57e30fb383b37bb32",
+      "bytes": 48586,
+      "lines": 485
     },
     "phases/research": {
       "sha256": "121ee95275b701a4d80ed7535013c015780c280bd37542608a2a65d24f4bcbe5",
