@@ -1,14 +1,28 @@
 # Changelog
 
+## 1.7.71 — 2026-11-16
+
+- `/make-game` plays a Unity game from its WebGL build in `{gameDir}/dist` (`-buildTarget WebGL`). The game prints `pass boot` when its first scene is ready, and taps use `tapAt`.
+- Needs ongame-cli 0.2.42 or later, which plays Unity WebGL builds in `play_gate`.
+
 ## 1.7.70 — 2026-11-15
 
 - Game icons get the icon model. The assets phase tells the agent to set `purpose: "icon"` on a 2d-static UI or HUD icon drawn from the prompt alone. ongame then draws it with the model that scored best on icons; an icon anchored with `editOf` keeps its anchor.
 - `test/icon-purpose.test.mjs` checks that the assets skill carries the field and when to set it.
 
+## 1.7.69 — 2026-11-13
+
+- `/make-game`'s build workflow reads each builder's answer as a structured report. A phase counts as blocked only when a builder sets `ok` to false, or gives no report. The word "blocked" in a builder's text no longer marks a phase blocked. A blocked phase now names the ongame tool that failed.
+- `test/build-report.test.mjs` runs `workflows/build.js` with fake builders and checks that rule.
+
 ## 1.7.68 — 2026-11-13
 
 - Wins look rich and rewards look like the game. `/make-game` and the concept, assets and polish phases ask for layered, realistic celebration particles (glow, burst, confetti, sparkle, with depth, light and physical motion), never flat primitive particles. Coins and rewards are drawn in the game's own style with depth and shine, never a flat `$` coin, and the same coin art is used everywhere. Praise words sit tilted with their ribbon as one banner. The agent freezes the win celebration at its peak and looks at it before calling it done.
 - `test/celebration-reward-rule.test.mjs` checks that all four files carry the rule.
+- Sound effects fit the game and feel good. `/make-game` and the audio phase ask for soft, tactile, short sounds (taps, pops, slides, chimes) that name the game's material. 8-bit beeps and chiptune are used only for a retro or pixel game.
+- The polish phase follows `skills/scene-transitions/SKILL.md` for the screen-to-screen edges. Its contact sheet can tap past a start menu. Publishing uses the `publishId` from `publish_game` instead of copying upload slots.
+- New skills: `scene-transitions` (map and style every edge between big screens) and `store-prep` (get a finished game ready for the App Store and Google Play).
+- Needs ongame-cli 0.2.40 or later, which has the contact sheet's `tap`.
 
 ## 1.7.67 — 2026-11-12
 
