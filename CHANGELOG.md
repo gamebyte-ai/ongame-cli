@@ -3,6 +3,7 @@
 ## 1.7.71 — 2026-11-16
 
 - `/make-game` plays a Unity game from its WebGL build in `{gameDir}/dist` (`-buildTarget WebGL`). The game prints `pass boot` when its first scene is ready, and taps use `tapAt`.
+- `test/unity-webgl-play.test.mjs` checks the Unity play lines and this version line.
 - Needs ongame-cli 0.2.42 or later, which plays Unity WebGL builds in `play_gate`.
 
 ## 1.7.70 — 2026-11-15
