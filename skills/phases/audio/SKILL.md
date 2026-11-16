@@ -49,8 +49,11 @@ Canonical roles — skip if not in the design, add if present (this list is a ba
   `win`/`lose` stinger for the win/lose screens. (In a non-match-3 genre, `match`→
   the game's "score/reward" moment, `cascade`→corresponds to the combo; the role name is fixed, the text per genre.)
 - **Ambient/music**: a full `music` piece, **`loop: true`** (`durationSeconds` valid range 0.5–22).
-- SFX are short. Call `knowledge_get({ key: "pattern:audio-sound-design" })` for tuned durations and example
-  sound-description text per role. If it returns empty, continue with your own judgment.
+- **Every `text` fits the game and feels good.** Name the game's material and mood (glass gems clink, wooden
+  blocks knock, jelly squishes). Aim for soft, tactile, satisfying, ASMR-like sounds: pops, taps, slides, chimes.
+  No 8-bit: no square-wave beeps or chiptune, unless the game's style is retro or pixel.
+- SFX are short. Call `knowledge_get({ key: "pattern:audio-sound-design" })` for the example sound per action,
+  tuned durations and the listening check. If it returns empty, continue with your own judgment.
 
 ## 3. Generation via the `sound_request` tool
 The client has **no `FORGE_URL` and no token** — sound is generated through the **`sound_request`** tool
