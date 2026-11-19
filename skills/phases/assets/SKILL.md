@@ -331,8 +331,11 @@ return, the client writes them to disk):
   centered. Same field, same meaning on the async path — but you pass it to **`asset_job_status` when you POLL**
   (normalization happens at delivery), not at submit. Fail-soft: a model that cannot be measured confidently ships
   **untouched with a `warnings` entry** rather than being scaled by a number nobody trusts — read the warnings.
-- **`charParams?`** (3d-char, STATIC MESH ONLY) — `{ targetPolycount, pbr, poseMode, enableSafetyChecker }`.
-  Rigging/animation are NOT here — they're `forge_rig`'s params (§3.5). The rig step needs a T-pose humanoid mesh,
+- **`charParams?`** (3d-char) — `{ targetPolycount, pbr, poseMode, enableSafetyChecker, speed }`. PBR is on by default;
+  `pbr: false` turns it off. `speed: "fast"` trades colour quality and PBR for a character in about 45 s instead of
+  about 3 minutes; set it for a preview, a draft or a placeholder you will replace, never for the hero the player
+  looks at. Add `pbr: true` only if the draft must show its metal and roughness. A `targetPolycount` under 30000, `shouldTexture: false` or a `poseMode` goes to a model
+  that delivers a STATIC mesh, which then needs `forge_rig` (§3.5) to move. The rig step needs a T-pose humanoid mesh,
   and the mesh keeps the pose of its source image. Set `poseMode` only when the source cannot be put in that pose;
   call `knowledge_get({ key: "pattern:assets-generation-craft" })` for the T-pose source recipe. If it returns
   empty, continue with your own judgment.
