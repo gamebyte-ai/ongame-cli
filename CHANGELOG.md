@@ -18,6 +18,7 @@
 
 - 3D character drafts are fast. In the assets phase, `charParams.speed: "fast"` gives a rigged character in about 45 s instead of about 3 minutes, at lower colour quality and with PBR off. The agent sets it for a preview, a draft or a placeholder, never for the hero the player looks at. `pbr: true` turns PBR back on for a draft.
 - The same `charParams` entry says a 3d-char arrives rigged, and names the settings that give a static mesh instead: a `targetPolycount` under 30000, `shouldTexture: false` or a `poseMode`.
+- The `3d-char` kind entry now says the same as ongame's: a character normally arrives rigged with `idle`, `walk`, `run` and `jump`, and `forge_rig` is for an empty `measurement.animations` or for more clips. The kind stays async-only.
 - `test/char-speed-draft.test.mjs` checks these lines and this version line.
 - Works with every ongame-cli release: ongame's server reads `charParams`, not the CLI.
 
