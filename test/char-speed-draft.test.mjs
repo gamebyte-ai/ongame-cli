@@ -22,7 +22,8 @@ test('the assets skill no longer calls a 3d-char a static mesh only', () => {
 });
 
 test('the plugin version and the changelog name the release that carries it', () => {
+  // 1.7.73 is the release that brought speed; a later version bump must not move this check.
   const version = JSON.parse(read('.claude-plugin/plugin.json')).version;
-  assert.equal(version, '1.7.73');
+  assert.ok(version.localeCompare('1.7.73', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.73 or later`);
   assert.ok(read('CHANGELOG.md').includes('## 1.7.73'));
 });

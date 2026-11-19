@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.74 — 2026-11-19
+
+- The assets skill's rig step says to skip `forge_rig` when the delivered `measurement.animations` already has the clips the game needs. A 3d-char now arrives rigged with `idle`, `walk`, `run` and `jump`, so a rig job after every mesh cost a job for nothing.
+- `test/rig-skip-when-animated.test.mjs` checks this line and this version line.
+- Works with every ongame-cli release: the change is skill text only.
+
 ## 1.7.73 — 2026-11-19
 
 - 3D character drafts are fast. In the assets phase, `charParams.speed: "fast"` gives a rigged character in about 45 s instead of about 3 minutes, at lower colour quality and with PBR off. The agent sets it for a preview, a draft or a placeholder, never for the hero the player looks at. `pbr: true` turns PBR back on for a draft.
