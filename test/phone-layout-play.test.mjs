@@ -31,10 +31,10 @@ test('a recalled lesson is reinforced only after a passed review or play', () =>
 });
 
 test('the changelog names the ongame-cli version that has layout_fits', () => {
-  const plugin = JSON.parse(read('.claude-plugin/plugin.json'));
+  // 1.7.72 is the release that brought layout_fits; a later version bump must not move this check.
   const log = read('CHANGELOG.md');
-  const start = log.indexOf(`## ${plugin.version} `);
-  assert.ok(start > -1, `CHANGELOG has a ${plugin.version} section`);
+  const start = log.indexOf('## 1.7.72 ');
+  assert.ok(start > -1, 'CHANGELOG has a 1.7.72 section');
   const section = log.slice(start, log.indexOf('\n## ', start + 1));
   assert.ok(section.includes('Needs ongame-cli 0.2.43 or later'));
 });
