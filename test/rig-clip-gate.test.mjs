@@ -21,6 +21,14 @@ test('the rig step says forge_rig bakes clips and how to ask for more', () => {
   assert.ok(!skill.includes('no animation is produced'));
 });
 
+test('the rig step checks every needed clip against measurement.animations, not only the warnings', () => {
+  // An unknown library name is dropped before the rig's warning check, so an empty warnings list can hide it.
+  assert.ok(step.includes("compare the rigged poll's `measurement.animations` with every clip name the game"));
+  assert.ok(step.includes('even when `warnings` is empty'));
+  assert.ok(step.includes('Make the game code skip each name that is missing'));
+  assert.ok(!step.includes('a requested name that did not land is listed there'));
+});
+
 test('the rig step says what to do when the rig cannot add the clip', () => {
   assert.ok(step.includes('make the game code skip the missing one'));
 });

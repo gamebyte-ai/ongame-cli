@@ -370,7 +370,9 @@ the asset (a job you never poll again costs nothing, per the tool's own contract
    - **Clips:** the rigged GLB carries `idle`, `walk`, `run`, `attack`, `cast`, `hit` and `death`. Pass
      `clips: [names]` for any other clip, by its library name (`pattern:3d-animation` lists them; `jump` is
      `Jump_Start`/`Jump_Loop`/`Jump_Land`). The rig builds a new skeleton, so ask for EVERY clip the game uses, not
-     only the missing one. Read the poll's `warnings`: a requested name that did not land is listed there.
+     only the missing one. Then compare the rigged poll's `measurement.animations` with every clip name the game
+     needs, even when `warnings` is empty: a name the library does not know is dropped before the warning check.
+     Make the game code skip each name that is missing (`findByName(...) ?? null`).
      There is no `animation`/`animationActionId` param. `heightMeters` is optional metadata only.
    - **A missing clip the rig cannot add:** a non-humanoid or non-T-pose mesh fails the rig job. Keep the clips it
      has and make the game code skip the missing one (`findByName(...) ?? null`); do not resubmit the rig.

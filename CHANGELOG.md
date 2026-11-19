@@ -4,6 +4,7 @@
 
 - The assets skill's rig step says when a `forge_rig` job pays off: a character with no rig, or one missing a clip the game needs. It no longer calls `forge_rig` rig-only. The rigged GLB carries `idle`, `walk`, `run`, `attack`, `cast`, `hit` and `death`, and `clips: [names]` adds library clips.
 - The step says to ask for every clip the game uses, because the rig builds a new skeleton. When the mesh cannot be rigged, the game code skips the missing clip.
+- After the rig, the step compares `measurement.animations` with every clip the game needs, even when `warnings` is empty. A clip name the library does not know never reaches the warnings. The game code skips each missing clip.
 - `test/rig-clip-gate.test.mjs` checks these lines and this version line.
 - Works with every ongame-cli release: the change is skill text only.
 
