@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.76 — 2026-11-19
+
+- Light rays behind the end card now fade from bright at the centre to transparent at the edge. The polish phase's Sub-phase 8 gives the radial gradient code; `/make-game` points to it.
+- The play review checks the win frame: rays that keep one flat colour out to their tips are a failed check. The maker adds the gradient, rebuilds and plays again.
+- `test/end-card-rays-rule.test.mjs` checks these lines and this version line.
+- Works with every ongame-cli release: the change is skill text only.
+
 ## 1.7.75 — 2026-11-19
 
 - The assets skill's rig step says when a `forge_rig` job pays off: a character with no rig, or one missing a clip the game needs. It no longer calls `forge_rig` rig-only. The rigged GLB carries `idle`, `walk`, `run`, `attack`, `cast`, `hit` and `death`, and `clips: [names]` adds library clips.

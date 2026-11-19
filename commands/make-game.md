@@ -212,7 +212,8 @@ leaf-stamped gold coin in a forest game, a jelly drop in a paint game. Never a g
 that same coin art everywhere it appears. Praise words (Great!, Superb!) sit tilted together with the ribbon behind
 them, as one angled banner, never flat text on a flat band. Freeze the win celebration at its peak and look at the
 frame before calling it done. When `knowledge_get` is available, `pattern:celebration-and-reward-art` has the
-layers and checks.
+layers and checks. Light rays behind the end card fade from bright at the centre to transparent at the edge: fill
+them with one radial gradient centred on the rays, never one flat colour. The polish phase's Sub-phase 8 has the code.
 
 Verify the behavior the user asked for in the relevant runtime. A preview URL, clean compile or empty console
 alone is not proof that a game works. Inspect actual rendering and interaction in a browser or the engine.
@@ -235,7 +236,8 @@ there (`pattern:gamelabs-self-check`). `state: "blocked"` names the failed check
 again. `layout_fits` measures the phone layout at 360x640 and 390x844 (cut-off or covered text, controls under
 44x44 px) from `window.__game.layout()`, which the gamelabs-base template publishes. Waive a check only when it is
 wrong for this game, with the reason. On `"awaiting_review"`, open both footage
-images, then call `play_review` with what you saw. `build.done` and `profile_record_build` are refused until it passed.
+images, then call `play_review` with what you saw. Rays on the end card that keep one flat colour out to their tips
+are a failed check: give them the gradient, rebuild and play again. `build.done` and `profile_record_build` are refused until it passed.
 A Unity game is played the same way: build it for WebGL into `{gameDir}/dist` (`-buildTarget WebGL`). It prints
 `pass boot` when its first scene is ready and `pass goal` at the win (`pattern:unity-self-check`); tap by `tapAt`.
 A game with no web build to play (Unity with no WebGL build support, a docs-only change) calls `play_gate` with
