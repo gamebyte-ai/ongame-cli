@@ -215,6 +215,16 @@ improvise a half-version), and continue.
   high-score comparison (`StorageService`), confetti on open whose intensity follows win/loss.
 - **The win screen always has a full layered celebration** (Sub-phase 5), the tilted praise banner, and rewards in
   the game's own coin art. Freeze it at its peak, take a screenshot and look at it before calling it done.
+- **Light rays behind the card fade from bright at the centre to transparent at the edge.** Draw every ray in one
+  `Graphics` around (0, 0) and fill it once with a radial gradient centred there. Rotate that `Graphics`; the
+  gradient turns with it. Never fill rays with one flat colour such as `fill({ color, alpha: 0.18 })`:
+  ```ts
+  const rgba = (a: number) => `rgba(255, 243, 176, ${a})`; // the ray colour; R is the ray length
+  rays.fill(new FillGradient({ type: 'radial', textureSpace: 'global',
+    center: { x: 0, y: 0 }, innerRadius: 0, outerCenter: { x: 0, y: 0 }, outerRadius: R,
+    colorStops: [{ offset: 0, color: rgba(0.8) }, { offset: 0.3, color: rgba(0.56) },
+                 { offset: 0.6, color: rgba(0.24) }, { offset: 1, color: rgba(0) }] }));
+  ```
 - Buttons: `ButtonComponent({label:'RETRY'})` → state reset + `createScreen(GameScreen)`;
   `ButtonComponent({label:'MENU'})` → `createScreen(MainMenu)`. Panel gsap pop-in in `onOpen`.
 
@@ -356,6 +366,8 @@ did not clearly improve, keep its old assets.
      the win (`pass goal`). Fix every failed check, rebuild and run it again; waive one only when it is wrong for
      this game, with the reason. Its `layout_fits` reads `window.__game.layout()` (the gamelabs-base template
      publishes it for the PixiJS HUD) after every phone step. Then open both footage images and call `play_review`.
+     In the win frame, look at the light rays: rays that keep one flat colour out to their tips are a failed
+     check. Give them the centre-to-edge gradient (Sub-phase 8), rebuild and play again.
      Publish and `build.done` are refused until it passed for this `dist/`.
   2. **Pre-publish check — fix everything it finds before step 3.** Every refusal step 3 can give is findable here.
      - **A build behind the game:** you hold this build's `buildId` from `state_init`, and step 3's `gameId` is the
