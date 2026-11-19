@@ -358,7 +358,8 @@ the asset (a job you never poll again costs nothing, per the tool's own contract
    `completed`/`failed` response — both are terminal. Pass `gameId` at the poll TOO — the poll-time value tags
    the delivered asset for game-scoped `asset_library_list` recall (the submit-time value covers spend
    attribution; they serve different sinks) — see §3's gameId note.
-3. **Rigging (3d-char only, optional):** once the static mesh's `asset_job_status` call reports `completed`,
+3. **Rigging (3d-char only, optional):** skip it when the delivered `measurement.animations` already has the clips
+   the game needs. Otherwise, once the mesh's `asset_job_status` call reports `completed`,
    take that asset's `meta.assetId` and call `forge_rig({ modelRef: <that assetId>, gameId: <slug>, heightMeters? })`
    → another `{jobRef, status:'queued'}` — poll it the SAME way via `asset_job_status` (with `gameId` again).
    Pass `gameId` at this submit as in step 1 — rigging is the most expensive asset kind, and a rig submitted
