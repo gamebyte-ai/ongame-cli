@@ -21,6 +21,16 @@ test('the assets skill no longer calls a 3d-char a static mesh only', () => {
   assert.ok(!skill.includes('(3d-char, STATIC MESH ONLY)'));
 });
 
+test('the 3d-char kind entry says a character normally arrives rigged and stays async-only', () => {
+  const entry = skill.slice(skill.indexOf('  - **`3d-char`**'), skill.indexOf('- **`prompt`**'));
+  assert.ok(entry.includes('It normally arrives **rigged, with the clips `idle`, `walk`, `run` and `jump`**'));
+  assert.ok(entry.includes('a list there means no rig step is'));
+  assert.ok(!entry.includes('Rigging/animation are NOT part of this'));
+  assert.ok(!entry.includes('STATIC humanoid 3D character mesh'));
+  assert.ok(entry.includes('**async-only**: `forge_request`/`forge_batch` reject it with a 422'));
+  assert.ok(entry.includes('never call `forge_request` for'));
+});
+
 test('the plugin version and the changelog name the release that carries it', () => {
   // 1.7.73 is the release that brought speed; a later version bump must not move this check.
   const version = JSON.parse(read('.claude-plugin/plugin.json')).version;
