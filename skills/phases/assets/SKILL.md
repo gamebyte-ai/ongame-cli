@@ -285,8 +285,9 @@ return, the client writes them to disk):
     especially for a production build where a silent timeout is expensive; sync stays available for a quick
     prototype-mode prop where the residual risk is acceptable. Never blind-retry a sync timeout — fall back
     to a `2d-static` placeholder for that row and flag it.
-  - **`3d-char`** — a STATIC humanoid 3D character mesh. **Rigging/animation are NOT part of this
-    kind** — generate the static mesh here, then rig it as a SEPARATE step (§3.5). This kind is
+  - **`3d-char`** — a 3D character. It normally arrives **rigged, with the clips `idle`, `walk`, `run` and `jump`**
+    when its skeleton can play them. Read the delivered `measurement.animations`: a list there means no rig step is
+    needed. An empty list with a "could not rig" warning, or a need for more clips, means `forge_rig` (§3.5). This kind is
     **async-only**: `forge_request`/`forge_batch` reject it with a 422 (character generation takes far too long
     for a sync call — a silent timeout would waste real spend).
     Submit via `forge_generate_async` and poll via `asset_job_status` (§3.5); never call `forge_request` for
