@@ -358,7 +358,8 @@ the asset (a job you never poll again costs nothing, per the tool's own contract
    the delivered asset for game-scoped `asset_library_list` recall (the submit-time value covers spend
    attribution; they serve different sinks) — see §3's gameId note.
 3. **Rigging (3d-char only, optional):** skip it when the delivered `measurement.animations` already has the clips
-   the game needs. Otherwise, once the mesh's `asset_job_status` call reports `completed`,
+   the game needs. Call it in two cases only: the list is empty with a "could not rig" warning, or a clip the game
+   needs (an `attack`, for example) is missing. Once the mesh's `asset_job_status` call reports `completed`,
    take that asset's `meta.assetId` and call `forge_rig({ modelRef: <that assetId>, gameId: <slug>, heightMeters? })`
    → another `{jobRef, status:'queued'}` — poll it the SAME way via `asset_job_status` (with `gameId` again).
    Pass `gameId` at this submit as in step 1 — rigging is the most expensive asset kind, and a rig submitted
@@ -366,8 +367,13 @@ the asset (a job you never poll again costs nothing, per the tool's own contract
    - **`modelRef` takes either id, same as `editOf` (§4):** the sealed `meta.assetId` from the generating result,
      or the **stable `a_<hex>`** from `asset_library_list`/`asset_library_get`. Use the stable one to rig a model
      you generated in an EARLIER session — the sealed handle is ~24h and will be dead by then.
-   - **Rig-only** — no animation is produced; there is no `animation`/`animationActionId` param.
-     `heightMeters` is optional metadata only.
+   - **Clips:** the rigged GLB carries `idle`, `walk`, `run`, `attack`, `cast`, `hit` and `death`. Pass
+     `clips: [names]` for any other clip, by its library name (`pattern:3d-animation` lists them; `jump` is
+     `Jump_Start`/`Jump_Loop`/`Jump_Land`). The rig builds a new skeleton, so ask for EVERY clip the game uses, not
+     only the missing one. Read the poll's `warnings`: a requested name that did not land is listed there.
+     There is no `animation`/`animationActionId` param. `heightMeters` is optional metadata only.
+   - **A missing clip the rig cannot add:** a non-humanoid or non-T-pose mesh fails the rig job. Keep the clips it
+     has and make the game code skip the missing one (`findByName(...) ?? null`); do not resubmit the rig.
    - The rig pipeline assumes a **T-pose HUMANOID input** (matching `charParams.poseMode:'t-pose'` above) — a
      non-humanoid or non-T-pose mesh will make the rig job fail (check `asset_job_status`'s failure `detail`).
    - There is no `enableSafetyChecker` on `forge_rig`; the generation-time one on `charParams` above is

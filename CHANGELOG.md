@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.75 — 2026-11-19
+
+- The assets skill's rig step says when a `forge_rig` job pays off: a character with no rig, or one missing a clip the game needs. It no longer calls `forge_rig` rig-only. The rigged GLB carries `idle`, `walk`, `run`, `attack`, `cast`, `hit` and `death`, and `clips: [names]` adds library clips.
+- The step says to ask for every clip the game uses, because the rig builds a new skeleton. When the mesh cannot be rigged, the game code skips the missing clip.
+- `test/rig-clip-gate.test.mjs` checks these lines and this version line.
+- Works with every ongame-cli release: the change is skill text only.
+
 ## 1.7.74 — 2026-11-19
 
 - The assets skill's rig step says to skip `forge_rig` when the delivered `measurement.animations` already has the clips the game needs. A 3d-char now arrives rigged with `idle`, `walk`, `run` and `jump`, so a rig job after every mesh cost a job for nothing.
