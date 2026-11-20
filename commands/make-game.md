@@ -232,13 +232,20 @@ frame before calling it done. When `knowledge_get` is available, `pattern:celebr
 layers and checks. Light rays behind the end card fade from bright at the centre to transparent at the edge: fill
 them with one radial gradient centred on the rays, never one flat colour. The polish phase's Sub-phase 8 has the code.
 
+**Anything that fades is one shape with one gradient fill.** A glow, light rays, a sky, a vignette, a halo or
+ribbon shading is never a stack of rings, bands, strips or discs: each step shows as a band. Read
+`skills/gradients/SKILL.md` before drawing the first one, in a new game or a change to a finished one. It has the
+PixiJS v8 `FillGradient` code and a source check.
+
 Verify the behavior the user asked for in the relevant runtime. A preview URL, clean compile or empty console
 alone is not proof that a game works. Inspect actual rendering and interaction in a browser or the engine.
 If verification is unavailable, state what remains unverified. Do not mark a native goal complete without that
 evidence, and do not claim a phase or review happened when it did not.
 Before calling a web game done, check it as a phone. The "Built with onGame" credit is required in every game,
 not only published ones: run `node <pluginRoot>/skills/credit/apply.mjs {gameDir}` before `npm run build`, then
-`node <pluginRoot>/skills/credit/apply.mjs --check {gameDir}/dist/index.html` after it; open the built page at 360×640 and 414×896 with DPR 3, and walk
+`node <pluginRoot>/skills/credit/apply.mjs --check {gameDir}/dist/index.html` after it. Run
+`node <pluginRoot>/skills/gradients/check.mjs {gameDir}` and replace every stacked-shape fade it names with one
+gradient fill (exit 1 lists them). Open the built page at 360×640 and 414×896 with DPR 3, and walk
 `pattern:gamelabs-shell-contract` §14 — pause halts the sim, background suspends audio, back key, pixel ratio
 per canvas, safe-area fallback. Unity: the same list in `pattern:unity-shell-contract` §14.
 When the browser check is done, call `browser_close`: an open game keeps the browser rendering, and that drains the

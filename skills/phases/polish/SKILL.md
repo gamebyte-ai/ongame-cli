@@ -179,8 +179,9 @@ Call `knowledge_get({ key: "pattern:polish-juice-recipes" })` for the tuned juic
 > The effect does NOT BLOCK input — the input lock already exists in the code phase during cascade resolving.
 
 **Anything soft — a glow, light rays, a sky, ribbon shading, a sparkle halo — is ONE shape with a gradient
-fill, never a stack of flat shapes or strips** (a stack renders as visible rings). Call
-`knowledge_get({ key: 'pattern:gradients' })` before drawing the first one.
+fill, never a stack of flat shapes or strips** (a stack renders as visible rings). Read `skills/gradients/SKILL.md`
+before drawing the first one: it has the PixiJS v8 `FillGradient` code and the source check. Call
+`knowledge_get({ key: 'pattern:gradients' })` too, for more examples.
 
 **If the game has ABILITIES** (spells, skills, ultimates, dashes, projectiles with a status effect —
 action/RPG/shooter/MOBA-shaped, 2D or 3D), the juice above is not enough: an ability effect has to
@@ -367,7 +368,10 @@ did not clearly improve, keep its old assets.
      this game, with the reason. Its `layout_fits` reads `window.__game.layout()` (the gamelabs-base template
      publishes it for the PixiJS HUD) after every phone step. Then open both footage images and call `play_review`.
      In the win frame, look at the light rays: rays that keep one flat colour out to their tips are a failed
-     check. Give them the centre-to-edge gradient (Sub-phase 8), rebuild and play again.
+     check. Give them the centre-to-edge gradient (Sub-phase 8), rebuild and play again. Rays, glows or a sky that
+     show rings or bands are failed the same way. Before the play gate, run
+     `node <this skill's folder>/../../gradients/check.mjs {gameDir}`: exit 1 names each fade made of stacked shapes. Draw
+     each one as one shape with one gradient fill, rebuild and run it again.
      Publish and `build.done` are refused until it passed for this `dist/`.
   2. **Pre-publish check — fix everything it finds before step 3.** Every refusal step 3 can give is findable here.
      - **A build behind the game:** you hold this build's `buildId` from `state_init`, and step 3's `gameId` is the
