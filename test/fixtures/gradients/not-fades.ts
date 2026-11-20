@@ -47,3 +47,9 @@ export function opaqueRings(g: Graphics, palette: number[], options: Record<numb
   for (let i = 0; i < 10; i++) g.circle(0, 0, 100 - i * 5).fill({ color: palette[i], alpha: 1 }); // opaque target rings
   for (let i = 0; i < 10; i++) { if (options.hasOwnProperty(i)) g.rect(i * 20, 0, 16, 16).fill(0xffffff); }
 }
+
+export function opaqueCss(g: Graphics): void {
+  for (let i = 0; i < 10; i++) g.circle(0, 0, 100 - i * 5).fill('rgba(255, 255, 255, 1)');
+  for (let i = 0; i < 10; i++) g.circle(0, 0, 100 - i * 5).fill('#ffffffff');
+  for (let i = 0; i < 10; i++) g.circle(0, 0, 100 - i * 5).fill('rgb(255 255 255 / 1)');
+}

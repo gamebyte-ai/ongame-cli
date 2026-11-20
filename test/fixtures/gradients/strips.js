@@ -15,3 +15,7 @@ export function softEllipse(ctx, n) {
 export function cssGlow(g) {
   for (let i = 0; i < 10; i++) g.circle(0, 0, 100 - i * 5).fill('rgba(255, 255, 255, 0.05)');
 }
+
+export function fractionalStep(g) {
+  for (let i = 0; i < 1; i += 0.01) g.rect(0, i * 400, 400, 4).fill({ color: 0xffffff, alpha: i });
+}

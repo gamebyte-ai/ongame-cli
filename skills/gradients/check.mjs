@@ -175,8 +175,14 @@ function steps(kind, head) {
     const list = of[1].trim().replace(/\s+as\s+const$/, '');
     return list.startsWith('[') && close(list, 0) === list.length - 1 ? splitArgs(list.slice(1, -1)).filter((x) => x.trim()).length : Infinity;
   }
-  const m = /=\s*(-?\d+(?:\.\d+)?)\s*[,;][^;]*?(<=?)\s*(-?\d+(?:\.\d+)?)\s*;/.exec(head);
-  return m ? Math.max(0, Number(m[3]) - Number(m[1]) + (m[2] === '<=' ? 1 : 0)) : Infinity;
+  // Count only a step of one (`i++`, `i--`, `i += 1`); any other step (`i += 0.01`) makes the count unknown.
+  const parts = splitTop(head, ';');
+  if (parts.length !== 3 || !/^\s*(?:[A-Za-z_$][\w$]*\s*(?:\+\+|--|[+-]=\s*1\s*$)|(?:\+\+|--)\s*[A-Za-z_$][\w$]*)\s*$/.test(parts[2])) return Infinity;
+  const from = /=\s*(-?\d+(?:\.\d+)?)\s*$/.exec(parts[0]);
+  const to = /(<=?|>=?)\s*(-?\d+(?:\.\d+)?)\s*$/.exec(parts[1]);
+  if (!from || !to) return Infinity;
+  const span = Math.abs(Number(to[2]) - Number(from[1]));
+  return span + (to[1].length === 2 ? 1 : 0)
 }
 
 /** The root name of the object a call at `open` (its `(`) is made on: `b.bg.rect(...).fill(` -> `b`. */
@@ -274,9 +280,12 @@ const lineOf = (s, at) => s.slice(0, at).split('\n').length;
 function translucent(name, raw) {
   const style = raw.join(',');
   const alpha = /\balpha\s*:\s*([^,}]+)/.exec(style)?.[1] ?? (name === 'beginFill' ? raw[1] : undefined);
-  if (alpha !== undefined) return !/^\s*1(\.0*)?\s*$/.test(alpha);
-  return /rgba\s*\(|hsla\s*\(/i.test(style) || /#[0-9a-f]{8}\b|0x[0-9a-f]{8}\b/i.test(style)
-    || /\b(rgb|hsl)\s*\([^)]*\/[^)]*\)/i.test(style);
+  const opaque = (a) => /^\s*(1(\.0*)?|100(\.0*)?%)\s*$/.test(a);
+  if (alpha !== undefined) return !opaque(alpha);
+  const css = /\b(?:rgba|hsla)\s*\(([^)]*)\)|\b(?:rgb|hsl)\s*\([^)]*\/([^)]*)\)/i.exec(style);
+  if (css) return css[1] !== undefined ? !opaque(css[1].split(',')[3] ?? '1') : !opaque(css[2]);
+  const hex = /#[0-9a-f]{6}([0-9a-f]{2})\b|0x[0-9a-f]{6}([0-9a-f]{2})\b/i.exec(style);
+  return hex ? (hex[1] ?? hex[2]).toLowerCase() !== 'ff' : false
 }
 
 /** Findings for one source text: [{ line, fillLine, why }]. */
