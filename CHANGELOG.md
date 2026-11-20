@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.84 — 2026-11-20
+
+- `/analytics add` no longer refuses a game that keeps its own helper named `telemetry`, such as `src/utils/telemetry.ts`. A relative import counts as an import from the shim only when it lands on `src/telemetry.ts`. An alias such as `@/telemetry` still counts as the shim.
+- `test/analytics-upgrade.test.mjs` checks the helper, its re-exports, the alias and a `src/telemetry/` folder.
+- Works with every ongame-cli release: the change is one script with no dependency.
+
 ## 1.7.83 — 2026-11-20
 
 - `/make-game` starts a new game in the new `concept-to-game` mode unless the maker clearly asked for a prototype, a full game, a playable ad or docs only. The build researches the genre, makes concept screens, cuts them into game-ready assets and writes the docs. Then it stops for the maker's review before any code. The code work that follows is a continuation that keeps `concept-to-game`.
