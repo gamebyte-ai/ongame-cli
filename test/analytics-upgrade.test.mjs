@@ -195,6 +195,10 @@ test('a children\'s game loses the telemetry block, and --check fails while any 
   const c = run('--check', dir);
   assert.equal(c.status, 1);
   assert.match(c.stdout, /index\.html still holds telemetry/);
+  for (const tag of ["<script src='/x/sdk.js'></script>", '<SCRIPT type=module src=https://x.example/sdk.js?v=2></SCRIPT>']) {
+    fs.writeFileSync(path.join(dir, 'index.html'), html.replace('</head>', `${tag}</head>`));
+    assert.equal(run('--check', dir).status, 1, tag);
+  }
 });
 
 test('comments inside an import do not count as names', () => {

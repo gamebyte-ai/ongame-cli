@@ -112,7 +112,7 @@ export function importedNames(srcDir) {
 /** The block telemetry_inject writes: its marker, the config script and the sdk.js tag. */
 const TELEMETRY_BLOCK = /[ \t]*<!-- ongame-telemetry -->\s*<script>window\.__ONGAME_TELEMETRY__=[\s\S]*?<\/script>\s*<script type="module" src="[^"]*\/sdk\.js"><\/script>\n?/g;
 /** Any telemetry left in a page: a config script or an sdk.js tag. */
-export const hasTelemetry = (html) => html.includes('__ONGAME_TELEMETRY__') || /<script[^>]*\ssrc="[^"]*\/sdk\.js"/.test(html);
+export const hasTelemetry = (html) => html.includes('__ONGAME_TELEMETRY__') || /<script\b[^>]*\bsrc\s*=\s*["']?[^"'\s>]*sdk\.js(?:[?#][^"'\s>]*)?["']?/i.test(html);
 
 /** The game has its own analytics switch when its code (not the shim) calls setConsent. */
 export function hasOptOut(srcDir) {
