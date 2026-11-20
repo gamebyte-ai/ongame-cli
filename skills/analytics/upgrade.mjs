@@ -12,7 +12,8 @@
  * 2. Shim. --shim names the v2 src/telemetry.ts (from a fresh scaffold). It must export every v2 call. Every name
  *    the game imports from its telemetry module must still be exported, or nothing is written (exit 2). The old
  *    file is kept in .ongame/archive/ before it is replaced. Without --shim the game's own file must already be v2.
- * 3. Privacy page. public/privacy.html lists exactly the events in events.json (the build copies public/ to the
+ * 3. A children's game: the telemetry block in index.html is removed, so no id is ever made.
+ * 4. Privacy page. public/privacy.html lists exactly the events in events.json (the build copies public/ to the
  *    site root, so it is served at /privacy.html). A privacy.html the maker wrote, with no onGame marker, is kept.
  *
  * Exit codes: 0 done (or --check passed), 1 --check failed, 2 refused (nothing written), 3 audience unknown,
@@ -81,7 +82,7 @@ export function importedNames(srcDir) {
   const used = new Map();
   const add = (name, file) => { if (!used.has(name)) used.set(name, file); };
   for (const file of gameSources(srcDir)) {
-    const code = readFileSync(file, 'utf8');
+    const code = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"`\\])\/\/[^\n]*/g, '$1');
     for (const m of code.matchAll(new RegExp(String.raw`\b(import|export)\s+(?:type\s+)?([^;'"]*?)\s*` + TELEMETRY_FROM, 'g'))) {
       let clause = m[2].trim();
       const braces = clause.match(/\{([^}]*)\}/);
@@ -107,6 +108,11 @@ export function importedNames(srcDir) {
   }
   return used;
 }
+
+/** The block telemetry_inject writes: its marker, the config script and the sdk.js tag. */
+const TELEMETRY_BLOCK = /[ \t]*<!-- ongame-telemetry -->\s*<script>window\.__ONGAME_TELEMETRY__=[\s\S]*?<\/script>\s*<script type="module" src="[^"]*\/sdk\.js"><\/script>\n?/g;
+/** Any telemetry left in a page: a config script or an sdk.js tag. */
+export const hasTelemetry = (html) => html.includes('__ONGAME_TELEMETRY__') || /<script[^>]*\ssrc="[^"]*\/sdk\.js"/.test(html);
 
 /** The game has its own analytics switch when its code (not the shim) calls setConsent. */
 export function hasOptOut(srcDir) {
@@ -205,6 +211,8 @@ export function run(argv, log = console.log) {
     if (settings) {
       const page = existsSync(privacyPath) ? readFileSync(privacyPath, 'utf8') : '';
       const own = page && !page.includes(PRIVACY_MARKER);
+      const html = existsSync(join(gameDir, 'index.html')) ? readFileSync(join(gameDir, 'index.html'), 'utf8') : '';
+      if (settings.audience === 'children' && hasTelemetry(html)) problems.push('index.html still holds telemetry, but the game is for children');
       if (!own && page !== renderPrivacy(gameTitle(gameDir, settings.title), settings.audience, hasOptOut(join(gameDir, 'src')))) problems.push('public/privacy.html is missing or out of date');
     }
     for (const p of problems) log(`check: ${p}`);
@@ -252,6 +260,16 @@ export function run(argv, log = console.log) {
     writeFileSync(shimPath, nextShim);
   }
 
+  // A children's game sends nothing: take out the block telemetry_inject wrote. --check fails on anything else left.
+  let telemetryRemoved = false;
+  const indexPath = join(gameDir, 'index.html');
+  if (audience === 'children' && existsSync(indexPath)) {
+    const html = readFileSync(indexPath, 'utf8');
+    const stripped = html.replace(TELEMETRY_BLOCK, '');
+    if (stripped !== html) { writeFileSync(indexPath, stripped); telemetryRemoved = true; }
+    if (hasTelemetry(stripped)) log('note: index.html still holds a telemetry script this tool did not write; remove every script that sets __ONGAME_TELEMETRY__ and the sdk.js tag.');
+  }
+
   let privacyState;
   const existing = existsSync(privacyPath) ? readFileSync(privacyPath, 'utf8') : null;
   if (existing !== null && !existing.includes(PRIVACY_MARKER)) {
@@ -261,7 +279,7 @@ export function run(argv, log = console.log) {
     privacyState = writeIfChanged(privacyPath, renderPrivacy(title, audience, hasOptOut(join(gameDir, 'src')))) ? (existing === null ? 'added' : 'updated') : 'unchanged';
   }
 
-  const changed = settingsChanged || nextShim !== null || privacyState === 'added' || privacyState === 'updated';
+  const changed = settingsChanged || telemetryRemoved || nextShim !== null || privacyState === 'added' || privacyState === 'updated';
   log(JSON.stringify({ audience, consentDefault: settings.consentDefault, shim: shimState, privacy: privacyState, changed }));
   return notV2 ? 4 : 0;
 }

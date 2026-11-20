@@ -43,7 +43,9 @@ currency and tutorial steps. The published page's `sdk.js` does the sending; the
 - Exit 0 (and exit 4): the last line is JSON, `{audience, consentDefault, shim, privacy, changed}`. `changed: false` means the
   game already had all of it.
 
-`--check <gameDir>` exits 0 only when the audience is recorded, the shim is v2 and `public/privacy.html` is current.
+`--check <gameDir>` exits 0 only when the audience is recorded, the shim is v2, `public/privacy.html` is current, and a
+children's game has no telemetry left in `index.html`. For a children's game the script removes the block
+`telemetry_inject` wrote; it names any other telemetry script for you to remove.
 
 ## Audience and consent
 

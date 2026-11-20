@@ -181,6 +181,27 @@ test('the page promises an opt-out only when the game calls setConsent', () => {
   assert.equal(run('--check', dir).status, 0);
 });
 
+test('a children\'s game loses the telemetry block, and --check fails while any tag is left', () => {
+  const dir = game({ shim: SHIM_V2 });
+  const block = '<!-- ongame-telemetry -->\n<script>window.__ONGAME_TELEMETRY__={"gameId":"g"};</script>\n<script type="module" src="https://x.example/sdk.js"></script>\n';
+  fs.writeFileSync(path.join(dir, 'index.html'), `<!DOCTYPE html><html><head><title>T</title>\n${block}</head><body></body></html>\n`);
+  const r = run(dir, '--audience', 'children');
+  assert.equal(r.status, 0, r.stdout);
+  const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
+  assert.ok(!html.includes('__ONGAME_TELEMETRY__') && !html.includes('sdk.js'));
+  assert.equal(run('--check', dir).status, 0);
+  assert.equal(summary(run(dir)).changed, false);
+  fs.writeFileSync(path.join(dir, 'index.html'), html.replace('</head>', '<script src="/old/sdk.js"></script></head>'));
+  const c = run('--check', dir);
+  assert.equal(c.status, 1);
+  assert.match(c.stdout, /index\.html still holds telemetry/);
+});
+
+test('comments inside an import do not count as names', () => {
+  const dir = game({ main: "import { /* level events */ trackLevelStart } from './telemetry';\n// import { trackLevelQuit } from './telemetry';\ntrackLevelStart(1);\n" });
+  assert.equal(run(dir, '--shim', v2File(), '--audience', 'general').status, 0);
+});
+
 test('a privacy page the maker wrote is kept', () => {
   const dir = game({ shim: SHIM_V2 });
   fs.mkdirSync(path.join(dir, 'public'));
