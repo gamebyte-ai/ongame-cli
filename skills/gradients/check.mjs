@@ -514,8 +514,9 @@ function rebound(text) {
 const UPDATE = String.raw`(?:(?:\*\*|<<|>>>?|&&|\|\||\?\?|[-+*/%&|^])=|\+\+|--)`;
 /**
  * Calls and writes in `text` after which a context's `fillStyle` and `globalAlpha` are not known: `restore()`,
- * `reset()`, any write to `ctx.canvas.width` or `.height` (a resize resets every style), and an update of a style
- * (`ctx.globalAlpha *= 2`). Each as { on, at }, `on` being the context's path as `target()` gives it.
+ * `reset()`, any write to `ctx.canvas.width` or `.height` (a resize resets every style), an update of a style
+ * (`ctx.globalAlpha *= 2`), and any write through brackets on a path or its canvas (`ctx['globalAlpha'] = 1`,
+ * `ctx.canvas['width'] = 400`). Each as { on, at }, `on` being the context's path as `target()` gives it.
  */
 function styleVoids(text) {
   const out = [];
