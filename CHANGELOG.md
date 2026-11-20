@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.88 — 2026-11-20
+
+- `/make-game` says how to write the play script for a game played by dragging a finger, such as connect letters, draw a line or pull a slingshot: it uses a `drag` step through hit-area ids. The `drag` step needs the CLI release after `cli-v0.2.49`; that release is being prepared.
+- `test/play-gate-text.test.mjs` checks the line and this version.
+
 ## 1.7.87 — 2026-11-20
 
 - `/make-game` now tells the agent what to do with a teardown's `mechanics.json`. It copies the sheet into the game, starts the tuning from its numbers and writes `mechanics.bind.json`. `play_gate` then reports each bound number as `match`, `drift` or `unread`. It never blocks. The CLI release `cli-v0.2.49` has this `play_gate` result.

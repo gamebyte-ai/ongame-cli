@@ -31,3 +31,15 @@ test('polish step 1e runs the play gate after the contact sheet and before the p
   assert.ok(sheet > -1 && sheet < gate && gate < pre);
   assert.ok(text.slice(gate, pre).includes('`play_review`'));
 });
+
+// ongame PR 1215 taught play_gate a `drag` step; the shipped command must tell the agent when to write one.
+test('make-game says a drag game plays through a drag step', () => {
+  const text = read('commands/make-game.md');
+  const i = text.indexOf('**A game is done only after it was played on record.**');
+  const block = text.slice(i, text.indexOf('`layout_fits`', i));
+  assert.ok(block.includes('A game played by dragging a\nfinger (connect letters, draw a line, pull a slingshot) uses a `drag` step through hit-area ids.'));
+  const version = JSON.parse(read('.claude-plugin/plugin.json')).version;
+  assert.ok(version.localeCompare('1.7.88', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.88 or later`);
+  assert.equal(JSON.parse(read('skills/SKILLS.lock.json')).pluginVersion, version);
+  assert.ok(read('CHANGELOG.md').includes('## 1.7.88 '));
+});
