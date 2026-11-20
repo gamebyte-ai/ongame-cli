@@ -429,10 +429,11 @@ function colourArgs(f) {
   return args.map((a) => {
     const t = a.trim();
     if (!t.startsWith('{') || close(t, 0) !== t.length - 1) return a;
-    return splitArgs(t.slice(1, -1)).filter((e) => {
+    // The braces stay, so reads() still sees `alpha: 1` as a key and not as a local named `alpha`.
+    return `{${splitArgs(t.slice(1, -1)).filter((e) => {
       const key = /^\s*([A-Za-z_$][\w$]*)\s*(?::(?!:)|$)/.exec(e);
       return !key || COLOUR_KEYS.has(key[1]);
-    }).join(',');
+    }).join(',')}}`;
   });
 }
 

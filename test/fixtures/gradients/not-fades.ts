@@ -135,3 +135,14 @@ export function canvasTaperedStrokeBesideAnotherCanvas(ctx: CanvasRenderingConte
     other.fillRect(0, 0, 10, 10);
   }
 }
+
+export function outlineBesideLocalNamedAlpha(g: Graphics): void {
+  for (let i = 0; i < 20; i++) {                               // `alpha` and `color` are style keys here, not the local
+    const alpha = i;
+    g.circle(0, 0, 10 + i).stroke({ alpha: 1, color: 0xffffff, width: 2 });
+  }
+  for (let i = 0; i < 20; i++) {
+    const color = i;
+    g.circle(0, 0, 10 + i).stroke({ width: 2, color: 0xffffff, alpha: 1 });
+  }
+}
