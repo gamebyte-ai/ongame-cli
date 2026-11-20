@@ -1,5 +1,6 @@
 // Loops that step a fill but are not fades: gradient-check must pass all of them.
 import { Graphics } from 'pixi.js';
+import * as PIXI from 'pixi.js';
 
 type Puff = { x: number; y: number; r: number; born: number };
 
@@ -72,4 +73,23 @@ export function sparksAndOutlines(g: Graphics, sparks: { x: number; y: number; r
     g.circle(p.x, p.y, p.r).fill({ color: 0xffffff, alpha: 0.5 });
     g.circle(0, 0, 100 - i).stroke({ width: 1, color: 0xffffff });
   }
+}
+
+export function paintDabs(g: Graphics, n: number, colors: (i: number) => number, cx: (i: number) => number): void {
+  for (let i = 0; i < n; i++) g.circle(cx(i), 0, 20).fill({ color: colors(i) }); // a colour per tile, like palette[i]
+}
+
+export function freshDabs(layer: { addChild(d: unknown): void }, n: number, colorOf: (i: number) => number): void {
+  for (let i = 0; i < n; i++) {                                // a new Graphics each pass
+    const d = new PIXI.Graphics().circle(0, 0, 20 + i).fill({ color: colorOf(n - i), alpha: 0.5 });
+    layer.addChild(d);
+  }
+}
+
+export function pageDots(g: Graphics, pages: number, cur: number): void {
+  for (let i = 0; i < pages; i++) g.circle(i * 24, 0, 6).fill(i === cur ? 0xffffff : 0x667788);
+}
+
+export function segmentedBar(g: Graphics, filled: number): void {
+  for (let i = 0; i < 10; i++) g.rect(i * 22, 0, 20, 12).fill(i < filled ? 0x6fd36f : 0x2a2a2a);
 }

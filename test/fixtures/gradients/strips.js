@@ -36,3 +36,7 @@ export function whileDiscs(g) {
 export function oneDeclaration(g, positions) {
   for (let i = 0; i < 20; i++) { const t = i / 20, x = positions[i]; g.rect(0, i * 10, 100, 10).fill({ color: 0xffffff, alpha: t }); void x; }
 }
+
+export function rampCall(g, a, b, n, lerpColor) {
+  for (let i = 0; i < n; i++) g.rect(0, i * 8, 300, 8).fill({ color: lerpColor(a, b, i / n) });
+}

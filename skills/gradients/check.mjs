@@ -11,8 +11,8 @@
  *   - the fill changes with the loop (an alpha or colour computed from the loop counter); for a stroke, only when the
  *     shapes are concentric (rings of one centre), or
  *   - the shape's size changes with the loop, its position does not, and the fill is translucent (stacked discs).
- * Not reported: a colour looked up from a list (`palette[i]`) or mixed with per-item data (a particle's age, a
- * random number, `%`), a tapered stroke along a path, a loop of fewer than 6 passes with literal bounds (a
+ * Not reported: a colour looked up per item (`palette[i]`, `colorOf(i)`, `i === cur ? on : off`) or mixed with
+ * per-item data (a particle's age, a random number, `%`), a tapered stroke along a path, a loop of fewer than 6 passes with literal bounds (a
  * glow layer under a line), rects 1 px wide or tall (a texture painted pixel by pixel), shapes drawn on a new
  * object each pass (one Graphics per particle or per button), and
  * stacked outlines (strokes of growing size are line art).
@@ -199,7 +199,10 @@ function steps(kind, head) {
   return span + (to[1].length === 2 ? 1 : 0)
 }
 
-/** The root name of the object a call at `open` (its `(`) is made on: `b.bg.rect(...).fill(` -> `b`. */
+/**
+ * The root name of the object a call at `open` (its `(`) is made on: `b.bg.rect(...).fill(` -> `b`. A chain that
+ * starts with `new` (`new PIXI.Graphics().circle(...)`) gives `new`: a new object, which no variable can be named.
+ */
 function receiver(s, open) {
   let k = open - 1;
   const ident = () => { const e = k + 1; while (k >= 0 && /[\w$]/.test(s[k])) k--; return s.slice(k + 1, e); };
@@ -209,7 +212,7 @@ function receiver(s, open) {
   for (;;) {
     ws();
     if (s[k] === '?' && s[k + 1] === '.') k--;
-    if (s[k] !== '.') return root;
+    if (s[k] !== '.') return /(?:^|[^\w$.])new$/.test(s.slice(Math.max(0, k - 3), k + 1)) ? 'new' : root; // `new X().circle(`: a new object
     k--; ws();
     while (s[k] === ')' || s[k] === ']') { // a call or lookup in the chain: step over it
       const o = s[k] === ')' ? '(' : '[', c = s[k];
@@ -298,9 +301,19 @@ function impure(expr, dep) {
   for (const m of expr.matchAll(/([A-Za-z_$][\w$]*)\s*\??\.\s*[A-Za-z_$]/g)) {
     if (dep.has(m[1]) && !/\.\s*$/.test(expr.slice(0, m.index))) return true;
   }
+  // A call that takes the bare counter (`colors(i)`, `colorOf(i)`) looks a value up per item, like `palette[i]`.
+  // `lerpColor(a, b, i / n)` takes a ramp, not the bare counter, and `Math.sin(i)` is arithmetic.
+  for (const c of calls(expr, () => true)) {
+    if (/\bMath\s*\.\s*$/.test(expr.slice(0, c.at).trimEnd().slice(0, -c.name.length))) continue;
+    if (c.args.some((a) => dep.has(a.trim()))) return true;
+  }
+  // A ternary on the loop (`i === cur ? a : b`, `i < filled ? a : b`) picks one of two values per item: page dots,
+  // a segmented bar. The condition is the text before the `?`, after an object key (`color:`) if there is one.
   for (const part of splitArgs(expr.replace(/^\s*\{|\}\s*$/g, ''))) {
-    const q = part.indexOf('?');
-    if (q > 0 && part[q + 1] !== '.' && part[q + 1] !== '?' && depends(part.slice(part.indexOf(':') + 1 || 0, q), dep)) return true;
+    const q = /\?(?![.?])/.exec(part.replace(/\?\?/g, '  '))?.index ?? -1;
+    if (q <= 0) continue;
+    const key = /^\s*[A-Za-z_$][\w$]*\s*:(?!:)/.exec(part);
+    if (depends(part.slice(key ? key[0].length : 0, q), dep)) return true;
   }
   return false;
 }
@@ -336,7 +349,7 @@ export function scan(src) {
     // aliases one object (`const g = this.glow`) is still the same target.
     const own = new Set(declarations(loop.body)
       .filter(([, v]) => /^\s*new\b|\)\s*$/.test(v) || depends(v, dep)).map(([n]) => n));
-    const same = (c) => { const r = receiver(loop.body, c.at); return !(dep.has(r) || own.has(r)); };
+    const same = (c) => { const r = receiver(loop.body, c.at); return !(r === 'new' || dep.has(r) || own.has(r)); };
     const raw = src.slice(loop.bodyAt, loop.bodyAt + loop.body.length);
     // A rect 1 px wide or tall paints a texture pixel by pixel: no band can show.
     const pixel = (c) => /rect$/i.test(c.name) && [2, 3].some((k) => /^\s*1\s*$/.test(c.args[k] ?? ''));
@@ -398,13 +411,15 @@ function main(argv) {
     console.error('usage: node check.mjs <gameDir | file>...');
     return 2;
   }
-  let total = 0, scanned = 0;
+  let total = 0, scanned = 0, hit = 0;
   for (const p of paths) {
     if (!existsSync(p)) { console.error(`gradient-check: ${p} does not exist`); return 2; }
     const root = statSync(p).isDirectory() ? (existsSync(join(p, 'src')) ? join(p, 'src') : p) : p;
     for (const f of files(root)) {
       scanned++;
-      for (const x of scan(readFileSync(f, 'utf8'))) {
+      const xs = scan(readFileSync(f, 'utf8'));
+      if (xs.length) hit++;
+      for (const x of xs) {
         total++;
         const name = relative(process.cwd(), f) || f;
         console.log(`${name}:${x.line}: a fade made of stacked shapes - ${x.why} (fill at line ${x.fillLine}). Draw one shape with one gradient fill instead.`);
@@ -416,7 +431,7 @@ function main(argv) {
     return 2;
   }
   if (total) {
-    console.log(`gradient-check: ${total} stacked-shape fade${total === 1 ? '' : 's'} in ${scanned} file${scanned === 1 ? '' : 's'}. See skills/gradients/SKILL.md.`);
+    console.log(`gradient-check: ${total} stacked-shape fade${total === 1 ? '' : 's'} in ${hit} file${hit === 1 ? '' : 's'} (${scanned} checked). See skills/gradients/SKILL.md.`);
     return 1;
   }
   console.log(`gradient-check: ok, no stacked-shape fade in ${scanned} file${scanned === 1 ? '' : 's'}.`);
