@@ -175,6 +175,18 @@ loading screen — consult `skills/mascot-video/SKILL.md` before the first `kind
 the prompt, sending takes one at a time, what to do when a video call times out (the clip is often delivered and billed
 later), and the check and packing tools.
 
+## Choose the game's strategy from what made its genre succeed
+
+Every new game, and every change to a game's mechanics, levels, difficulty, retention, money, live ops or
+launch ads, follows `skills/strategy/SKILL.md` first. It is on by default, not a phase or an approval gate.
+List `skills/strategy/genres/` and `skills/strategy/studios/`, read every file whose `match` fits the game or a
+reference it names, and always read `skills/strategy/principles.md`. Decide each lesson for this game (apply,
+adapt or not used, with where or why) and write the table to `docs/STRATEGY.md` before `docs/GAME_DESIGN.md`.
+The user's request wins over any lesson. Carry `docs/STRATEGY.md` into later work and re-runs. Where those
+files are not on disk, apply the same five lessons: a purchase needs a loss to restore (a fail state); new
+mechanics on a schedule carry retention; no interstitials and no feature clutter in the first levels; reveal
+big boards in parts; copy a proven core and win on the curve, economy and ads.
+
 ## Design the game's rules before its content
 
 Every new game, and every change to a game's rules, levels, layout or economy, follows
