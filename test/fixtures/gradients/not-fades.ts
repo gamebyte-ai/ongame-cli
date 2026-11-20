@@ -259,3 +259,16 @@ export function preLoopStyleOnAContextRenamedInTheLoop(ctx: CanvasRenderingConte
   ctx.globalAlpha = 0.1;
   for (let i = 0; i < 20; i++) { ctx = other; ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4); } // another context each pass
 }
+
+export function preLoopStyleInAnotherSwitchCase(ctx: CanvasRenderingContext2D, mode: number): void {
+  switch (mode) {
+    case 0: ctx.globalAlpha = 0.1; break;                       // not on the way to case 1's loop
+    case 1: for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+  }
+}
+
+export function preLoopStyleOnAContextRenamedOnACondition(ctx: CanvasRenderingContext2D, other: CanvasRenderingContext2D, dim: boolean): void {
+  ctx.globalAlpha = 0.1;
+  if (dim) ctx = other;                                         // may be another context
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}

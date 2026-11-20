@@ -447,6 +447,7 @@ function preLoopStyles(s, src, at) {
   const text = keep.join(''); // the loop's own blocks, earlier blocks blanked
   const sure = (i) => {
     if (dropped.some(([o, e]) => i > o && i < e)) return false;
+    if (/(?:^|[^\w$.])(?:case\b[^:;]*|default\s*):/.test(text.slice(i, at))) return false; // another switch case
     const head = text.slice(Math.max(k, text.lastIndexOf(';', i), text.lastIndexOf('{', i), text.lastIndexOf('}', i)) + 1, i);
     // A condition or a callback; `) x` also catches a head cut at a `for (;;)` header's own `;`.
     return !/^\s*(?:(?:if|else|for|while|do)\b|\))|\)\s*[\w$]|&&|\|\||\?(?!\.)|=>/.test(head);
@@ -478,7 +479,7 @@ function preLoopStyles(s, src, at) {
 
 /** Names and paths given a new value in `text` (`const ctx = other`, `this.ctx = other`), as { on, at }. */
 function rebound(text) {
-  return [...text.matchAll(/(?:\b(?:const|let|var)\s+|(?:^|[;{}(,]|\n)\s*)([A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*)\s*=(?![=>])/g)]
+  return [...text.matchAll(/(?:\b(?:const|let|var|else)\s+|(?:^|[;{}(),:]|\n)\s*)([A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*)\s*=(?![=>])/g)]
     .map((m) => ({ on: m[1].replace(/\s+/g, ''), at: m.index }));
 }
 
