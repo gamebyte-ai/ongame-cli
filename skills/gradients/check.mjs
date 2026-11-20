@@ -7,7 +7,7 @@
  *
  *   node check.mjs <gameDir | file>...     # exit 0 = none found, 1 = found (each printed as file:line), 2 = bad input
  *
- * A loop is reported when it draws a shape and fills it, and either
+ * A loop is reported when it draws a shape and fills that same object, and either
  *   - the fill changes with the loop (an alpha or colour computed from the loop counter); for a stroke, only when the
  *     shapes are concentric (rings of one centre), or
  *   - the shape's size changes with the loop, its position does not, and the fill is translucent (stacked discs).
@@ -227,7 +227,7 @@ function receiver(s, open) {
   const ident = () => { const e = k + 1; while (k >= 0 && /[\w$]/.test(s[k])) k--; return s.slice(k + 1, e); };
   const ws = () => { while (k >= 0 && /\s/.test(s[k])) k--; };
   let root = '', prev = '';
-  ident(); // the method name
+  ws(); ident(); // the method name (`stroke (` has a space before its bracket)
   for (;;) {
     ws();
     if (s[k] === '?' && s[k + 1] === '.') k--;
@@ -256,7 +256,7 @@ function target(s, open) {
   const ident = () => { const e = k + 1; while (k >= 0 && /[\w$]/.test(s[k])) k--; return s.slice(k + 1, e); };
   const ws = () => { while (k >= 0 && /\s/.test(s[k])) k--; };
   const path = []; // innermost first: [{ name, called }]
-  ident(); // the method name
+  ws(); ident(); // the method name (`stroke (` has a space before its bracket)
   for (;;) {
     ws();
     if (s[k] === '?' && s[k + 1] === '.') k--;
@@ -403,7 +403,7 @@ function translucent(name, raw) {
 
 /**
  * True when fill `f` is see-through. A Canvas `ctx.fill()` carries no style: it paints with the `fillStyle` and
- * `globalAlpha` set last before it in the loop. A Canvas style set (`ctx.fillStyle = ...`, `ctx.globalAlpha = ...`)
+ * `globalAlpha` set last on the same target before it in the loop (`fills` holds only that target's fills). A Canvas style set (`ctx.fillStyle = ...`, `ctx.globalAlpha = ...`)
  * is judged the same way, together with the other one, at `at` (the shape it paints, when that comes later):
  * `globalAlpha = 1` after a see-through `fillStyle` still paints see-through. A bare Pixi `fill()` is assumed to use
  * the last `setFillStyle` the same way (a guess, not checked against PixiJS).
@@ -573,13 +573,27 @@ export function scan(src) {
     for (const f of fills) {
       const style = f.args.join(',');
       if (/\bnew\s+FillGradient\b/.test(style)) continue;
-      const colour = colourArgs(f).join(','); // a ramp is in colour or alpha only: a growing line width is line art
+      const before = loop.body.slice(0, f.at);
+      const defs = declarations(before);
+      const args = f.args.map((a) => {
+        const name = a.trim();
+        if (!/^[A-Za-z_$][\w$]*$/.test(name)) return a;
+        const escaped = name.replace(/\$/g, '\\$');
+        // Resolve only a declaration with no intervening uses: a write or helper could change the style.
+        if ([...before.matchAll(new RegExp(`(?:^|[^\\w$])${escaped}(?![\\w$])`, 'g'))].length !== 1) return a;
+        const matches = defs.filter(([n]) => n === name);
+        const value = matches.length === 1 ? matches[0][1].trim() : '';
+        return value.startsWith('{') && close(value, 0) === value.length - 1 ? value : a;
+      });
+      const colour = colourArgs({ ...f, args }).join(','); // a ramp is in colour or alpha only: a growing line width is line art
       const read = reads(withoutLookups(colour));
       if (![...read].some((x) => ramp.has(x))) continue;
       if (impure(colour, dep) || [...read].some((x) => dep.has(x) && !ramp.has(x))) continue; // mixed with per-item data
       // A stroke is a ring fade only when it strokes rings on its own object; rings on another object beside a
-      // tapered line along a path do not make that line a fade.
-      if (!FILL_ONLY.has(f.name) && !concentric.some((sh) => target(loop.body, sh.at) === target(loop.body, f.at))) continue;
+      // tapered line along a path do not make that line a fade. A fill ramps a fade only when a shape in the loop
+      // is drawn on its own object; rings on another object beside fading text do not make that text a fade.
+      const on = (sh) => target(loop.body, sh.at) === target(loop.body, f.at);
+      if (!(FILL_ONLY.has(f.name) ? shapes : concentric).some(on)) continue;
       why = 'its fill changes with each pass of the loop'; at = f.at; break;
     }
     const shapeTarget = (c) => target(loop.body, c.at); // the whole path (`a.two`), before `target` is shadowed below
@@ -590,11 +604,11 @@ export function scan(src) {
     if (!why) {
       // Each concentric shape is judged by the fill that follows it, before the next shape: its own fill. Only shapes
       // and fills on the shape's own object count: `a.fillStyle` does not paint what `b.fillRect` draws.
-      const target = (c) => receiver(loop.body, c.at);
+      const object = (c) => target(loop.body, c.at);
       for (const sh of concentric) {
-        const on = target(sh);
-        const sorted = shapes.filter((x) => target(x) === on).sort((a, b) => a.at - b.at);
-        const mine = fills.filter((f) => target(f) === on);
+        const on = object(sh);
+        const sorted = shapes.filter((x) => object(x) === on).sort((a, b) => a.at - b.at);
+        const mine = fills.filter((f) => object(f) === on);
         const next = sorted.find((x) => x.at > sh.at)?.at ?? Infinity;
         const prev = [...sorted].reverse().find((x) => x.at < sh.at)?.at ?? -1;
         // Pixi v8 fills after the shape; v7's beginFill (and Canvas' fillStyle) is set before it.

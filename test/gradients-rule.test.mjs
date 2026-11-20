@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { scan } from '../skills/gradients/check.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const read = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), 'utf8');
@@ -29,10 +30,10 @@ test('the same rays drawn with one FillGradient pass the check', () => {
   assert.match(out, /ok, no stacked-shape fade in 1 file/);
 });
 
-test('strip skies, ring vignettes, stacked ellipses, Canvas glows, a two-line ramp, Canvas globalAlpha glows and rings and Canvas styles set before the loop fail the check', () => {
+test('strip skies, ring vignettes, stacked ellipses, Canvas glows, a two-line ramp, Canvas globalAlpha glows and rings and Canvas styles set before the loop fail the check, also with a space before the bracket', () => {
   const { code, out } = check(fixture('strips.js'));
   assert.equal(code, 1, out);
-  for (const line of [4, 8, 12, 16, 20, 24, 28, 33, 37, 41, 45, 49, 57, 61, 65, 70, 76]) assert.match(out, new RegExp(`strips\\.js:${line}: `));
+  for (const line of [4, 8, 12, 16, 20, 24, 28, 33, 37, 41, 45, 49, 57, 61, 65, 69, 73, 78, 84]) assert.match(out, new RegExp(`strips\\.js:${line}: `));
 });
 
 test('particles, palette tiles, paint dabs, page dots, bars, per-object loops, line layers, outlines, tapered Canvas strokes and waived loops pass', () => {
@@ -40,10 +41,40 @@ test('particles, palette tiles, paint dabs, page dots, bars, per-object loops, l
   assert.equal(code, 0, out);
 });
 
+test('local style objects keep colour and alpha ramps, and v7 scalar arguments keep their meaning', () => {
+  for (const style of ['{ color: 0xffffff, alpha: i / 20, width: 1 }', '{ color: i / 20 * 0xffffff, width: 1 }']) {
+    assert.equal(scan(`for (let i = 0; i < 20; i++) {
+      const style = ${style};
+      g.circle(0, 0, 100 - i * 4).stroke(style);
+    }`).length, 1, style);
+  }
+  assert.equal(scan(`for (let i = 0; i < 20; i++) {
+    const width = i + 1, color = 0xffffff, alpha = 1;
+    g.lineStyle(width, color, alpha).drawCircle(0, 0, 100 - i * 4);
+  }`).length, 0);
+  assert.equal(scan(`for (let i = 0; i < 20; i++) {
+    const width = 1, color = 0xffffff, alpha = i / 20;
+    g.lineStyle(width, color, alpha).drawCircle(0, 0, 100 - i * 4);
+  }`).length, 1);
+});
+
+test('a style changed after its declaration still reports a fade', () => {
+  for (const change of [
+    'style.alpha = i / 20', 'style["alpha"] = i / 20',
+    'style = { color: 0xffffff, alpha: i / 20 }', 'Object.assign(style, { alpha: i / 20 })',
+  ]) {
+    assert.equal(scan(`for (let i = 0; i < 20; i++) {
+      let style = { color: 0xffffff, width: i + 1 };
+      ${change};
+      g.circle(0, 0, 100 - i * 4).stroke(style);
+    }`).length, 1, change);
+  }
+});
+
 test('a folder is scanned recursively and nothing to check is an error, not a pass', () => {
   const all = check('test/fixtures/gradients');
   assert.equal(all.code, 1, all.out);
-  assert.match(all.out, /19 stacked-shape fades in 2 files \(4 checked\)/);
+  assert.match(all.out, /21 stacked-shape fades in 2 files \(4 checked\)/);
   const none = check('commands');
   assert.equal(none.code, 2, none.out);
   assert.match(none.out, /nothing was checked/);
@@ -72,6 +103,32 @@ test('make-game and the polish review point to the skill and run the check', () 
 
 test('the plugin version and the changelog name the release that carries it', () => {
   const version = JSON.parse(read('.claude-plugin/plugin.json')).version;
-  assert.ok(version.localeCompare('1.7.79', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.79 or later`);
-  assert.ok(read('CHANGELOG.md').includes('## 1.7.79'));
+  assert.ok(version.localeCompare('1.7.80', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.80 or later`);
+  assert.ok(read('CHANGELOG.md').includes('## 1.7.80'));
+});
+
+test('bare fills read colour and alpha only from their own target', () => {
+  for (const property of ['fillStyle', 'globalAlpha']) {
+    const opaque = property === 'fillStyle' ? "'#ffffff'" : '1';
+    const translucent = property === 'fillStyle' ? "'rgba(255,255,255,0.05)'" : '0.05';
+    const source = (target) => `for (let i = 0; i < 20; i++) {
+      layer.discs.${property} = ${opaque};
+      layer.discs.arc(0, 0, 10 + i * 4, 0, Math.PI * 2);
+      ${target}.${property} = ${translucent};
+      layer.discs.fill();
+    }`;
+    assert.equal(scan(source('layer.discs')).length, 1, `same-target ${property} control`);
+    assert.deepEqual(scan(source('layer.labels')), [], `other-target ${property}`);
+  }
+});
+
+test('another target cannot interrupt a translucent shape and its fill', () => {
+  const source = `for (let i = 0; i < 20; i++) {
+    g.circle(0, 0, 10 + i * 4);
+    other.rect(i * 20, 0, 10, 10).fill(0xffffff);
+    g.fill({ color: 0xffffff, alpha: 0.05 });
+  }`;
+  const findings = scan(source);
+  assert.equal(findings.length, 1);
+  assert.match(findings[0].why, /stacks translucent shapes/);
 });

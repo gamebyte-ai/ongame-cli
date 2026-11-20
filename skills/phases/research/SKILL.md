@@ -14,8 +14,7 @@ description: Market/genre analysis — find an out-of-the-box, potentially trend
 > in the room. Report the gap up to the orchestrator so the final summary names it. See the refusal rule in
 > `/make-game` for the full reasoning.
 
-2. Analyze the concept's genre/mechanic: similar popular games, tired patterns, **differentiation angle**. (v1: web search optional; if unavailable, use reasoning.)
-3. Output: `docs/RESEARCH.md` — 1 page: genre, competitor patterns, recommended out-of-the-box angle, risks.
+2–3. **Research the genre:** follow `skills/game-concept/SKILL.md`, "Research the genre". It writes `docs/RESEARCH.md`.
 4. **`trace_emit({buildId, name: "phase.output", payload: {...}})`** (ongame) — BEFORE `state_advance`. ONE high-signal emit capturing the phase's headline decision (context→artifact→why; core maps `phase.output`→a `generation` nested under the phase span for prompt-level replay; no-op if `buildId` is absent). Fill it tailored to research:
    - `input`: the CONTEXT this phase consumed — the concept/genre + user intent (concept-only/prototype/production), and any market/trend signal used (web-search findings if available, else the reasoning basis). If you called `brain_recall`/`knowledge_get`, name the signal(s)/key(s) returned.
    - `output`: the ARTIFACT produced — `docs/RESEARCH.md` + the key values: genre, the tired patterns identified, the recommended out-of-the-box angle, top risks.

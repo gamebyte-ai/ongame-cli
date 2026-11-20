@@ -3,7 +3,7 @@
  * Puts the onGame analytics shim v2 into a web game and writes its privacy page. Safe to run again: a second run
  * with the same inputs changes no file.
  *
- *   node upgrade.mjs <gameDir> [--shim <v2 telemetry.ts>] [--audience general|children] [--title <game title>]
+ *   node upgrade.mjs <gameDir> [--shim <v2 telemetry.ts>] [--audience general|children] [--title <game title>] [--opt-out yes|no]
  *   node upgrade.mjs --check <gameDir>      # exit 0 when the shim is v2 and the privacy page is current
  *
  * What it does, in order:
@@ -15,6 +15,8 @@
  * 3. A children's game: the telemetry block in index.html is removed, so no id is ever made.
  * 4. Privacy page. public/privacy.html lists exactly the events in events.json (the build copies public/ to the
  *    site root, so it is served at /privacy.html). A privacy.html the maker wrote, with no onGame marker, is kept.
+ *    The page promises an analytics switch only when the maker said the player has one (--opt-out yes, kept in
+ *    .ongame/analytics.json). A setConsent call alone is no switch: a game may call setConsent(true) at start.
  *
  * Exit codes: 0 done (or --check passed), 1 --check failed, 2 refused (nothing written), 3 audience unknown,
  * 4 the shim is not v2 (the audience and privacy page are still saved; the shim is left as it was),
@@ -72,8 +74,35 @@ function sourceFiles(dir, out = []) {
   return out;
 }
 
-// Any specifier whose last part is `telemetry`: relative paths and aliases such as '@/telemetry' alike.
-const TELEMETRY_FROM = String.raw`from\s*['"](?:[^'"\n]*/)?telemetry(?:\.[jt]s)?['"]`;
+// Any specifier whose last part is `telemetry`, captured: relative paths and aliases such as '@/telemetry' alike.
+// pointsAtShim then drops a relative one that lands on the game's own helper.
+const TELEMETRY_SPEC = String.raw`['"]((?:[^'"\n]*/)?telemetry(?:\.[jt]s)?)['"]`;
+const TELEMETRY_FROM = String.raw`from\s*` + TELEMETRY_SPEC;
+
+// Where a relative import may land, in the order a bundler tries them.
+const RESOLVE_EXT = ['', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.mts', '/index.ts', '/index.tsx', '/index.js', '/index.mjs'];
+
+/**
+ * The import names the shim, src/telemetry.ts. An alias or bare specifier ('@/telemetry') counts. A relative one counts
+ * unless it lands on another file that exists, such as src/utils/telemetry.ts: that is the game's own helper.
+ * A relative one that reaches the shim's path before any other file counts even when src/telemetry.ts does not exist
+ * yet. A relative one that lands on nothing counts too, so a broken import is refused rather than waved through.
+ */
+export function pointsAtShim(spec, file, srcDir) {
+  if (!/^\.\.?\//.test(spec)) return true;
+  const shim = resolve(srcDir, 'telemetry.ts');
+  const base = resolve(dirname(file), spec);
+  // TypeScript ESM writes '../telemetry.js' for telemetry.ts, so try the path without its .js too.
+  for (const b of new Set([base, base.replace(/\.m?js$/, '')])) {
+    for (const ext of RESOLVE_EXT) {
+      const p = b + ext;
+      // The shim's own path counts before it exists: the upgrade may add src/telemetry.ts, and then it wins.
+      if (p === shim) return true;
+      if (existsSync(p) && statSync(p).isFile()) return false;
+    }
+  }
+  return true;
+}
 
 const withoutComments = (code) => code.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"`\\])\/\/[^\n]*/g, '$1');
 
@@ -81,8 +110,10 @@ const withoutComments = (code) => code.replace(/\/\*[\s\S]*?\*\//g, ' ').replace
 // earlier declaration in a module without semicolons.
 const CLAUSE = String.raw`(?:(?!\b(?:import|export)\b)[^;'"=()])*?`;
 
+// Every source file but the shim itself. A helper elsewhere named telemetry is the game's own code and is checked.
 function gameSources(srcDir) {
-  return sourceFiles(srcDir).filter((f) => basename(f).replace(/\.\w+$/, '') !== 'telemetry');
+  const shim = join(srcDir, 'telemetry.ts');
+  return sourceFiles(srcDir).filter((f) => f !== shim);
 }
 
 /**
@@ -95,8 +126,11 @@ export function importedNames(srcDir) {
   for (const file of gameSources(srcDir)) {
     const code = withoutComments(readFileSync(file, 'utf8'));
     // import('./telemetry') and require('./telemetry') hide which names they use: refuse rather than guess.
-    if (new RegExp(String.raw`\b(?:import|require)\s*\(\s*['"](?:[^'"\n]*/)?telemetry(?:\.[jt]s)?['"]`).test(code)) add('(a dynamic import or require)', file);
+    for (const d of code.matchAll(new RegExp(String.raw`\b(?:import|require)\s*\(\s*` + TELEMETRY_SPEC, 'g'))) {
+      if (pointsAtShim(d[1], file, srcDir)) add('(a dynamic import or require)', file);
+    }
     for (const m of code.matchAll(new RegExp(String.raw`\b(import|export)\s+(?:type\s+)?(${CLAUSE})\s*` + TELEMETRY_FROM, 'g'))) {
+      if (!pointsAtShim(m[3], file, srcDir)) continue;
       let clause = m[2].trim();
       const braces = clause.match(/\{([^}]*)\}/);
       if (braces) {
@@ -131,8 +165,11 @@ const TELEMETRY_BLOCK = /[ \t]*<!-- ongame-telemetry -->\s*<script>window\.__ONG
 export const hasTelemetry = (html) => html.includes('__ONGAME_TELEMETRY__') || html.includes('<!-- ongame-telemetry -->') ||
   /<script\b[^>]*\bsrc\s*=\s*["']?[^"'\s>]*(?:ongame|telemetry)[^"'\s>]*sdk\.js(?:[?#][^"'\s>]*)?["']?/i.test(html);
 
-/** The game has its own analytics switch when its code (not the shim) calls the shim's setConsent, under any name. */
-export function hasOptOut(srcDir) {
+/**
+ * The game's code (not the shim) calls the shim's setConsent, under any name. This is no proof of a switch the player
+ * can use (a game may call setConsent(true) at start), so it only prompts the --opt-out question.
+ */
+export function callsSetConsent(srcDir) {
   return gameSources(srcDir).some((f) => {
     const code = withoutComments(readFileSync(f, 'utf8'));
     const callers = [];
@@ -206,15 +243,16 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--check') opts.check = true;
-    else if (a === '--shim' || a === '--audience' || a === '--title') {
+    else if (a === '--shim' || a === '--audience' || a === '--title' || a === '--opt-out') {
       const v = argv[++i];
       if (v === undefined) throw new Error(`${a} needs a value`);
-      opts[a.slice(2)] = v;
+      opts[a === '--opt-out' ? 'optOut' : a.slice(2)] = v;
     } else rest.push(a);
   }
-  if (rest.length !== 1) throw new Error('usage: upgrade.mjs [--check] <gameDir> [--shim <file>] [--audience general|children] [--title <t>]');
+  if (rest.length !== 1) throw new Error('usage: upgrade.mjs [--check] <gameDir> [--shim <file>] [--audience general|children] [--title <t>] [--opt-out yes|no]');
   opts.gameDir = rest[0];
   if (opts.audience && !(opts.audience in CONSENT_DEFAULT)) throw new Error('--audience must be general or children');
+  if (opts.optOut !== undefined && opts.optOut !== 'yes' && opts.optOut !== 'no') throw new Error('--opt-out must be yes or no');
   return opts;
 }
 
@@ -243,7 +281,7 @@ export function run(argv, log = console.log) {
       const own = page && !page.includes(PRIVACY_MARKER);
       const html = existsSync(join(gameDir, 'index.html')) ? readFileSync(join(gameDir, 'index.html'), 'utf8') : '';
       if (settings.audience === 'children' && hasTelemetry(html)) problems.push('index.html still holds telemetry, but the game is for children');
-      if (!own && page !== renderPrivacy(gameTitle(gameDir, settings.title), settings.audience, hasOptOut(join(gameDir, 'src')))) problems.push('public/privacy.html is missing or out of date');
+      if (!own && page !== renderPrivacy(gameTitle(gameDir, settings.title), settings.audience, settings.optOut === true)) problems.push('public/privacy.html is missing or out of date');
     }
     for (const p of problems) log(`check: ${p}`);
     log(problems.length ? 'check: FAIL' : 'check: ok');
@@ -281,7 +319,13 @@ export function run(argv, log = console.log) {
 
   // Everything checked: write.
   const title = gameTitle(gameDir, opts.title ?? settings?.title);
-  const nextSettings = { audience, consentDefault: CONSENT_DEFAULT[audience], ...(opts.title ? { title: opts.title } : settings?.title ? { title: settings.title } : {}) };
+  // The player's analytics switch: only the maker's answer counts. It is kept like the title, once given.
+  const optOut = opts.optOut !== undefined ? opts.optOut === 'yes' : settings?.optOut;
+  const nextSettings = {
+    audience, consentDefault: CONSENT_DEFAULT[audience],
+    ...(opts.title ? { title: opts.title } : settings?.title ? { title: settings.title } : {}),
+    ...(typeof optOut === 'boolean' ? { optOut } : {}),
+  };
   const settingsChanged = writeIfChanged(settingsPath, JSON.stringify(nextSettings, null, 2) + '\n');
   settings = nextSettings;
 
@@ -307,7 +351,10 @@ export function run(argv, log = console.log) {
     privacyState = 'kept-own';
     log('note: public/privacy.html was written by hand and is kept. Check that it lists every event the analytics SDK sends (see the analytics skill).');
   } else {
-    privacyState = writeIfChanged(privacyPath, renderPrivacy(title, audience, hasOptOut(join(gameDir, 'src')))) ? (existing === null ? 'added' : 'updated') : 'unchanged';
+    privacyState = writeIfChanged(privacyPath, renderPrivacy(title, audience, settings.optOut === true)) ? (existing === null ? 'added' : 'updated') : 'unchanged';
+    if (audience === 'general' && settings.optOut === undefined && callsSetConsent(join(gameDir, 'src'))) {
+      log("note: the game calls setConsent, but the privacy page promises no analytics switch yet. If the game's settings let the player turn analytics off, run again with --opt-out yes; if not, with --opt-out no.");
+    }
   }
 
   const changed = settingsChanged || telemetryRemoved || nextShim !== null || privacyState === 'added' || privacyState === 'updated';

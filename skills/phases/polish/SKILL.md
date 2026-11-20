@@ -146,18 +146,7 @@ hand-built path below, that is not a fault (same handling as Sub-phase 9.5).
   (color/texture) between two presets.
 
 ## Sub-phase 4 — HUD/UI element layout + responsive
-- Put HUD elements into **layout components**, do not give x/y by hand:
-  `HorizontalLayoutComponent` (top bar: score on the left, moves/timer on the right),
-  corner-anchor with `FullscreenLayoutComponent`. `HudLayer.Content` for the game, `HudLayer.Screen`
-  for the menu, `HudLayer.Popup` for settings/game-over, `HudLayer.Overlay` for the toast.
-- **Responsive:** every view overrides `onResize(width, height, dpr)`; layouts reflow.
-  Overflow, cut-off text, text past its plate and boxes drawn over text are measured by `play_gate` (step 1e:
-  `nothing_offscreen`, `layout_fits` at 360x640 and 390x844). `LabelComponent`
-  for score; when the value changes, the pop tween in Sub-phase 5 fires.
-- **Take the chrome from the library:** counters from `template:ui-currency-chip`, a tab bar from
-  `template:shell-bottom-nav`, insets and DPR from `template:platform-viewport`. **Register every canvas-drawn
-  control through `template:platform-ui-registry`** — without it the gate's touch-target check reports
-  **unmeasured**. Call `knowledge_get({ key: "pattern:shell-contract" })` for the one-writer counter rule. If it returns empty, continue with your own judgment.
+- Follow `skills/phone-layout/SKILL.md`, "HUD layout": layout components, reflow on resize, chrome from the library.
 
 ## Sub-phase 5 — JUICE (explosion on match, score pop, screenshake, glow, cascade multiplier)
 > Read `knowledge_get({ key: 'pattern:game-feel' })` first: it decides which moments need a response and names the
@@ -488,11 +477,7 @@ did not clearly improve, keep its old assets.
   **Dead-interaction check:** polish is exactly where buttons get wired (Play, Settings toggle, Retry/Menu on
   game-over) — if a tap meant to do something leaves the screenshot effectively unchanged, treat that button as
   suspected dead before calling the build done.
-  **Device-reality checks — a 390×844 desktop session is NOT a phone.** Before calling the build done, check
-  pointer type, canvas geometry at dpr>1, full-bleed cards, modal occlusion and frozen animated subjects (touch-target
-  size and the safe area are `play_gate`'s `layout_fits`); where the tool cannot emulate a condition, report it **unverified**, never passed.
-  Call `knowledge_get({ key: "pattern:polish-device-reality-checks" })` for how to measure each one. If it
-  returns empty, continue with your own judgment. A quiet console is
+  **Device-reality checks:** run the ones in `skills/phone-layout/SKILL.md`, "Device-reality checks". A quiet console is
   not evidence of life. The screenshots also feed the auto-jury (a CC hook you don't
   control) — without them the review is text-only and blind to the actual look. **If the browser tool is unavailable
   OR unusable (Chromium missing, the call errors —

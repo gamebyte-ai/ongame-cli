@@ -17,21 +17,13 @@ description: Game concept — vision, core loop, target audience + visual placeh
 2. Read RESEARCH.md and shape the concept: a specific twist that breaks the "yet another `<genre>`" comparison, and
    the specific recurring moment that is the reward. Call `knowledge_get({ key: "pattern:concept-shaping" })` for the
    originality and fun-promise bar. If it returns empty, continue with your own judgment.
-   - **PRIORITY RULE — the user's explicit request OUTRANKS research's angle.** Research's "out-of-the-box angle"
-     is a SUGGESTION; the user's stated concept/materials are the BRIEF. When the user asked for something specific
-     (e.g. "rebuild this game 1:1", a named mechanic set, shared materials), the concept's identity/name/hook must
-     serve THAT — a research-suggested secondary system may only be woven in as flavor, never promoted into the core
-     identity over the user's ask. The originality bar above applies WITHIN the user's brief, not against it: for a
-     faithful-remake brief, "original" means execution quality, not swapping the core. **Non-goals discipline:** never
-     scope out something the user explicitly asked for. A non-goals list may only contain exclusions the user stated
-     or approved (via the gate / an AskUserQuestion); if you believe a requested mechanic should be cut, ASK — do not
-     silently non-goal it. ("Do not scope out what the user did not scope out.")
+   - **The user's request outranks research's angle:** `skills/game-concept/SKILL.md`, "Shape the concept".
    - **Intent-fit + ask-discipline.** The concept must serve the USER's actual intent (the build mode + what they
      shared). When a concept choice materially changes the outcome and intent is unclear, **ASK** — focused and
      decision-shaped: at most 1–2 `AskUserQuestion`s, each with 2–3 lettered options (A keep / B sharpen-this-way /
      C sharpen-that-way), one at a time, using "like Y in game X?" references (visual if it helps). **Bias toward
      silence:** catastrophic → ask; directional → one option set; taste → proceed. Don't over-ask (it kills activation).
-   - Capture: the core gameplay loop, target audience, the specific fun-moment, and a 1-sentence hook.
+   - Capture what `skills/game-concept/SKILL.md`, "Shape the concept", lists.
 3. **Visual SET — in-game truth, ONE visual language.** A single artistic "key art" is the WRONG output (it
    shows nothing of the actual game). Produce a small SET that shows the actual game:
    - **(a) a main-menu mock** (logo, PLAY button — how the menu will really look), and
@@ -68,10 +60,7 @@ description: Game concept — vision, core loop, target audience + visual placeh
    remake of the shared game → derive visuals that MATCH the reference ("recreate this exact scene and style"); if
    they want their own game inspired by it → ADAPT ("in the style of the reference, but <our game's own identity>").
    Asset generation gated/unavailable → gray-box placeholder (flag it; never present gray-box as done).
-3b. **LOCK THE LOOK before any asset wave — write `docs/ART_DIRECTION.md`.** Palette, atmosphere numbers
-   (fog colour / start / end, ambient, exposure), silhouette rules, material language, and what the game must NOT
-   look like. Call `knowledge_get({ key: "pattern:art-direction-contract" })` for how to measure those numbers from a
-   reference and what to check first when fidelity is questioned. If it returns empty, continue with your own judgment.
+3b. **LOCK THE LOOK before any asset wave:** follow `skills/game-concept/SKILL.md`, "Lock the look".
 
 4. Output: `docs/CONCEPT.md`.
 5. **Observability — headline decision** (one emit, before `state_advance`): `trace_emit(buildId, name="phase.output", payload={ input:<context consumed: the `brain_recall` retention signal(s), any `knowledge_get` key(s), and the RESEARCH.md findings + user intent this phase used>, output:<artifact produced: `docs/CONCEPT.md` written + the key concept values — core loop, hook, target audience, key-art path>, metadata:{ decision:<the concept direction chosen — core loop / fantasy / hook>, why:<the rationale, explicitly citing what drove it: the `brain_recall` retention signal (e.g. "cascade match-3 retains D1=0.6"), the relevant knowledge, and the user's stated intent> } })` — becomes a `generation` observation nested under the phase span (context→artifact→why; no-op if buildId is absent).

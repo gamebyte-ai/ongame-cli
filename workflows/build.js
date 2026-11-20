@@ -88,12 +88,18 @@ const phaseContext = (phaseKey) =>
   // A phase agent that does not know it is working on an EXISTING game behaves like it is starting one: the code
   // phase scaffolds the baseplate over the user's project, other phases author from scratch what is already
   // there. The plan carries the fact; it has to reach the agent that acts on it.
+  // One continuation has no code to protect: the first code build after a concept-to-game review. That game has
+  // docs and assets only, so the agent must still bootstrap the engine. The runner cannot see gameDir; the agent
+  // reads it and decides.
   (plan.entry === 'continue'
     ? `THIS IS A CONTINUATION of a game that ALREADY EXISTS in gameDir (intent: ${plan.intent ?? 'unspecified'}` +
       `${plan.continues ? `, continuing build ${plan.continues}` : ''}). Do NOT scaffold, do NOT recreate what is ` +
       `there, do NOT overwrite the user's files with template versions — READ the existing project first and ` +
       `work WITH its structure and conventions. Change the smallest surface that satisfies the intent; anything ` +
-      `you did not need to touch, leave exactly as it is. `
+      `you did not need to touch, leave exactly as it is. ` +
+      `ONE EXCEPTION: if gameDir has no game code yet (no engine project: no package.json, src/, Assets/ or ` +
+      `project.godot), as after a concept-to-game review that made only docs and assets, the code phase DOES ` +
+      `scaffold the engine first, then builds on the existing docs and assets without overwriting them. `
     : '') +
   `buildId: ${buildId ?? '(orchestrator did not pass it — state ops will be flat)'}. ` +
   `gameDir: ${gameDir ?? '(orchestrator did not pass it — local file/preview tools need it)'}. ` +

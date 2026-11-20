@@ -65,6 +65,14 @@ export function canvasAlphaRings(ctx) {
   for (let i = 0; i < 20; i++) { ctx.globalAlpha = i / 20; ctx.beginPath(); ctx.arc(0, 0, 10 + i * 4, 0, Math.PI * 2); ctx.stroke(); }
 }
 
+export function spacedStroke(g) {
+  for (let i = 0; i < 20; i++) g.circle(0, 0, 10 + i * 4).stroke ({ color: 0xffffff, width: 2, alpha: i / 20 });
+}
+
+export function spacedFillRect(ctx) {
+  for (let i = 0; i < 20; i++) { ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.fillRect (0, 0, 100 - i * 4, 100 - i * 4); }
+}
+
 export function preLoopGlow(ctx) {
   ctx.fillStyle = 'rgba(255,255,255,0.05)';
   for (let i = 0; i < 20; i++) { ctx.beginPath(); ctx.arc(0, 0, 100 - i * 4, 0, Math.PI * 2); ctx.fill(); }

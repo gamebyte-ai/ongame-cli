@@ -103,7 +103,10 @@ PERSONA, from what the user actually shared. This is an **agentic** step — YOU
 options (NO keyword-if). The mode is carried in the build plan (server-persisted; downstream phases + the jury
 calibrate to it). This skill is the runtime recipe.
 
-## The four output MODES (judge which one)
+## The five output MODES (judge which one)
+- **concept-to-game** — the default for a NEW game with no clear signal for another mode: research the genre, make
+  concept screens, cut them into game-ready assets, write the docs, then stop for the maker's review before any code
+  (`/make-game`, "A new game starts with a concept review").
 - **concept-only** — docs only, no build (lightest).
 - **prototype** — validate a mechanic FAST; graybox playable, loop-correctness first (AIStudio territory).
 - **production** — a full, polished, soft-launchable game (graybox-first → dress → juice → levels → polish).
@@ -142,6 +145,7 @@ calibrate to it). This skill is the runtime recipe.
      **prototype**.
    - They want a **full, polished game** to ship/iterate (a clone "like X", a detailed GDD) → **production**.
    - Just a sketch / "explore the idea" → **concept-only**.
+   - A NEW game with no clear signal for any of these → **concept-to-game**. A continuation keeps its game's mode.
    - Weigh the concept + `priorGames` + `returning`. YOU infer — there is no label in the code.
 3. **JUDGE the PERSONA:** studio vs indie from the prompt's sophistication + history (a polished GDD + technical
    language → studio; a one-line "make X like Y" with no game-dev vocabulary → indie). Unsure → `unknown`.
@@ -182,7 +186,7 @@ calibrate to it). This skill is the runtime recipe.
    `"genre: puzzle; mechanic: swap-match; materials: gameplay video + hero sprite"`). Empty string if nothing extra.
 7. **Generate BuildPlan:** `intake_build_plan(concept, path=<mode>, persona=<studio|indie|unknown>, engine,
    deliveryTarget, entry, intent?, continues?, phases?, decidedBy, userKnown, notes)`.
-   - `path` = the MODE judged in step 2 (concept-only / prototype / production / playable-ad).
+   - `path` = the MODE judged in step 2 (concept-to-game / concept-only / prototype / production / playable-ad).
    - `persona` = step 3.
    - `entry` = step 1b (`new` | `continue`). On `continue`, `intent` is **REQUIRED** — the tool rejects a
      continuation without one, because an unlabelled continuation cannot be routed, judged or learned from. Send
