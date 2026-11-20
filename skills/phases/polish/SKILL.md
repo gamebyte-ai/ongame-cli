@@ -295,20 +295,29 @@ did not clearly improve, keep its old assets.
 - Provision shipped-game **player telemetry** so the deployed game feeds retention measurement ("which games retain") in **two steps**:
   1. `telemetry_provision({gameId: <game slug>, gameTitle: <visible game title>})` → returns `{ingestKey, endpoint, sdkUrl, snippet}`. This mints
      a per-game **public ingest key** (gate, via your OAuth identity — a tenant mints only its own) and builds the
-     `ongame-telemetry` SDK snippet (NO disk write — it returns the snippet). The SDK auto-emits exactly two
-     events — `session_start` and `session_end` — with an anonymous install id (D1/D7 retention); no PII.
-  1b. **CHECK the level funnel is actually wired — do not assume it is.** The SDK auto-emits exactly two events,
-     which answer *"did anyone come back"* and nothing else; which level players stop at comes from
+     `ongame-telemetry` SDK snippet (NO disk write — it returns the snippet). By itself the SDK sends
+     sessions, active time, taps on labelled objects and attempts left open, keyed by a random install id
+     (pseudonymous, not anonymous); no PII.
+  1b. **CHECK the level funnel is actually wired — do not assume it is.** The SDK's own events answer
+     *"did anyone come back"* and *"what did they tap"*, nothing more; which level players stop at comes from
      `level_start` / `level_complete`, and those exist only if the game's own code sends them. That is the code
      phase's job (`src/telemetry.ts` → `trackLevelStart` / `trackLevelComplete`), so here you VERIFY rather than
      author — a game can provision, inject, build and publish perfectly with zero instrumentation, and every
      signal in this phase still reads green. Measured consequence: months of shipped games reporting healthy
      sessions and retention beside a completely empty funnel.
-     `Bash`: `grep -rl "trackLevelStart\|level_start" {gameDir}/src` → if the game HAS levels and this finds
-     nothing, add the two calls at the level transitions now (same rules as the code phase: numeric level, and
-     `level_complete` on a genuine WIN only — counting a fail or quit as a completion hides the difficulty spike
+     `Bash`: `grep -rl "levelStart\|trackLevelStart\|level_start" {gameDir}/src` → if the game HAS levels and this finds
+     nothing, add the calls at the level transitions now (same rules as the code phase: numeric level, and
+     `'complete'` on a genuine WIN only — counting a fail or quit as a completion hides the difficulty spike
      the funnel exists to find). If the game genuinely has no levels — an endless runner, a single-board toy —
      that is not a gap: say so plainly rather than inventing a level number.
+  1c. **CHECK screens and taps the same way.** `grep -rn "screen(" {gameDir}/src` finds nothing → add `screen('<id>')`
+     where each screen is shown. Every interactive Pixi object (`eventMode` `'static'` or `'dynamic'`) needs a
+     `label`; give each unlabelled one a short, stable name. Rules: `skills/analytics/SKILL.md`.
+  1d. **Shim v2, audience and privacy page.** `Bash`: `node <pluginRoot>/skills/analytics/upgrade.mjs {gameDir}`.
+     Exit 3 → ask the maker once whether the game is aimed at children (the question and options are in
+     `skills/analytics/SKILL.md`), then run again with `--audience`. Exit 4 → the game has shim v1: run `/analytics add`
+     steps 1-2. Exit 0 with `"audience":"children"` → skip step 2 below; remove any `__ONGAME_TELEMETRY__` config and
+     telemetry `sdk.js` tag instead, so the game makes no id.
   2. `telemetry_inject(gameDir, indexFile, snippet)` → writes the returned `snippet` into the SOURCE
      `index.html` on disk. `injected: false` with a `reason` → the page still holds an older telemetry config, maybe
      another maker's key. Fix or delete the script the `note` names, then call `telemetry_inject` again. If it still

@@ -232,6 +232,15 @@ frame before calling it done. When `knowledge_get` is available, `pattern:celebr
 layers and checks. Light rays behind the end card fade from bright at the centre to transparent at the edge: fill
 them with one radial gradient centred on the rays, never one flat colour. The polish phase's Sub-phase 8 has the code.
 
+**Every web game reports how it is played.** Write the analytics calls from `src/telemetry.ts` (shim v2) while
+you write the code they belong to: `screen('<id>')` where each screen is shown, `const a = levelStart(n)` when a
+level begins play and `levelEnd(a, 'complete' | 'fail' | 'quit')` when it ends, `economy(...)` when currency
+changes, and a short, stable `label` on every interactive Pixi object, whose taps the SDK then reports itself.
+Settings gets an **Analytics** on/off switch calling `setConsent(on)`. The calls and rules: `skills/analytics/SKILL.md`.
+Before calling a web game done, run `node <pluginRoot>/skills/analytics/upgrade.mjs {gameDir}`. Exit 3 → ask the
+maker once whether the game is aimed at children, as that skill says, and run it again with `--audience`. Then
+`node <pluginRoot>/skills/analytics/upgrade.mjs --check {gameDir}` must exit 0. Older games: `/analytics add`.
+
 Verify the behavior the user asked for in the relevant runtime. A preview URL, clean compile or empty console
 alone is not proof that a game works. Inspect actual rendering and interaction in a browser or the engine.
 If verification is unavailable, state what remains unverified. Do not mark a native goal complete without that
