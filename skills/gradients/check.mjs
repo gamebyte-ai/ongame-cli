@@ -479,8 +479,13 @@ function preLoopStyles(s, src, at) {
 
 /** Names and paths given a new value in `text` (`const ctx = other`, `this.ctx = other`), as { on, at }. */
 function rebound(text) {
-  return [...text.matchAll(/(?:\b(?:const|let|var|else)\s+|(?:^|[;{}(),:]|\n)\s*)([A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*)\s*=(?![=>])/g)]
+  const out = [...text.matchAll(/(?:\belse\s+|(?:^|[;{}(),:]|\n)\s*)([A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*)\s*=(?![=>])/g)]
     .map((m) => ({ on: m[1].replace(/\s+/g, ''), at: m.index }));
+  // A declaration binds every name before its `=`, typed (`const ctx: T = x`) or destructured (`const { ctx } = x`).
+  for (const m of text.matchAll(/\b(?:const|let|var)\s+([^=;]*)/g)) {
+    for (const name of m[1].match(/[A-Za-z_$][\w$]*/g) ?? []) out.push({ on: name, at: m.index });
+  }
+  return out;
 }
 
 const UPDATE = String.raw`(?:(?:\*\*|<<|>>>?|&&|\|\||\?\?|[-+*/%&|^])=|\+\+|--)`;

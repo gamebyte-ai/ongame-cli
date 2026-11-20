@@ -272,3 +272,9 @@ export function preLoopStyleOnAContextRenamedOnACondition(ctx: CanvasRenderingCo
   if (dim) ctx = other;                                         // may be another context
   for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
 }
+
+export function preLoopStyleOnATypedOrDestructuredRename(ctx: CanvasRenderingContext2D, other: CanvasRenderingContext2D, o: { ctx: CanvasRenderingContext2D }): void {
+  ctx.globalAlpha = 0.1;
+  { const ctx: CanvasRenderingContext2D = other; for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4); }
+  { const { ctx } = o; for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4); }
+}
