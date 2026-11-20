@@ -5,13 +5,17 @@
 - `skills/gradients/check.mjs` now finds two fades it missed. A Canvas glow that sets a see-through `fillStyle` and then calls a bare `ctx.fill()` on growing arcs is reported. A fade whose alpha is declared over two lines (`const t =` then `i / 20;`) is reported too.
 - `test/fixtures/gradients/strips.js` holds both as reported cases.
 - Works with every ongame-cli release: the change is one script with no dependency.
-
-## 1.7.79 — 2026-11-20
-
 - Anything in a game that fades (a glow, light rays, a sky, a vignette, shading) is drawn as one shape with one gradient fill. The rule now has its own skill, `gradients`, which loads whenever a game draws one, in a new game or a change to a finished one. It gives the PixiJS v8 `FillGradient` code.
 - `skills/gradients/check.mjs` finds fades faked with stacked rings, bands, strips or discs in a game's source and prints each as file:line. `/make-game` and the polish review run it before a game is called done. A colour picked per item (`palette[i]`, `colorOf(i)`, page dots, a segmented bar) and a new shape per pass are not fades and are not reported.
 - `test/gradients-rule.test.mjs` checks it: stacked-ring rays fail, the same rays with one `FillGradient` pass.
 - Works with every ongame-cli release: the change is skill text and one script with no dependency.
+
+## 1.7.79 — 2026-11-20
+
+- The audio phase adds a `music` row only when the game's design has a music slot, such as background music or an ambient track. A game without one gets no music.
+- The music row calls `sound_request({ text, music: true, durationSeconds?, gameId? })`: one background track per game, 3–60 s. `text` names the mood, instruments and tempo.
+- `test/music-row-rule.test.mjs` checks these lines and this version line.
+- Needs ongame core with `music: true` on `sound_request`. Production core has it since 2026-11-20.
 
 ## 1.7.78 — 2026-11-20
 
