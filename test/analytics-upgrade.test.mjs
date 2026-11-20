@@ -202,13 +202,17 @@ test('a children\'s game loses the telemetry block, and --check fails while any 
   assert.ok(!html.includes('__ONGAME_TELEMETRY__') && !html.includes('sdk.js'));
   assert.equal(run('--check', dir).status, 0);
   assert.equal(summary(run(dir)).changed, false);
-  fs.writeFileSync(path.join(dir, 'index.html'), html.replace('</head>', '<script src="/old/sdk.js"></script></head>'));
+  fs.writeFileSync(path.join(dir, 'index.html'), html.replace('</head>', '<script src="https://old.example/telemetry/sdk.js"></script></head>'));
   // A tag the script did not write: exit 5 on a run (v1 or v2 shim alike), and --check fails.
   assert.equal(run(dir).status, 5);
   const c = run('--check', dir);
   assert.equal(c.status, 1);
   assert.match(c.stdout, /index\.html still holds telemetry/);
-  for (const tag of ["<script src='/x/sdk.js'></script>", '<SCRIPT type=module src=https://x.example/sdk.js?v=2></SCRIPT>']) {
+  // Another vendor's sdk.js is not onGame telemetry: it stays and does not block the game.
+  fs.writeFileSync(path.join(dir, 'index.html'), html.replace('</head>', '<script src="https://ads.example/sdk.js"></script></head>'));
+  assert.equal(run(dir).status, 0);
+  assert.equal(run('--check', dir).status, 0);
+  for (const tag of ["<script src='https://ongame-telemetry-x.example/sdk.js'></script>", '<SCRIPT type=module src=https://telemetry.example/sdk.js?v=2></SCRIPT>']) {
     fs.writeFileSync(path.join(dir, 'index.html'), html.replace('</head>', `${tag}</head>`));
     assert.equal(run('--check', dir).status, 1, tag);
   }
