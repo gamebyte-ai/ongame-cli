@@ -194,7 +194,10 @@ function styleSets(body, rawBody) {
     const on = target(body, m.index + m[0].indexOf(m[1]) + m[1].length); // the context it is set on
     const name = m[1] === 'strokeStyle' ? 'stroke' : m[1] === 'globalAlpha' ? paintedBy(m.index, on) : 'fill';
     const value = m[1] === 'globalAlpha' ? `{ alpha: ${m[2]} }` : m[2];
-    const raw = m[1] === 'globalAlpha' ? `{ alpha: ${rawBody.slice(from, from + m[2].length)} }` : rawBody.slice(from, from + m[2].length);
+    // The source text of the value, without a comment after it (`= 1 // opaque`) or inside it. A block comment the
+    // line cuts off (`/* goes on` to the next line) is dropped to the end of the line.
+    const text = rawBody.slice(from, from + m[2].length).replace(/\/\*[\s\S]*?(?:\*\/|$)|\/\/.*$/g, '').trim();
+    const raw = m[1] === 'globalAlpha' ? `{ alpha: ${text} }` : text;
     out.push({ name, prop: m[1], args: [value], raw: [raw], at: m.index + 1 + m[1].length + (m[0].indexOf(m[1]) - 1) });
   }
   return out;
@@ -553,10 +556,11 @@ function colourArgs(f) {
   return args.map((a) => {
     const t = a.trim();
     if (!t.startsWith('{') || close(t, 0) !== t.length - 1) return a;
-    return splitArgs(t.slice(1, -1)).filter((e) => {
+    // The braces stay, so reads() still sees `alpha: 1` as a key and not as a local named `alpha`.
+    return `{${splitArgs(t.slice(1, -1)).filter((e) => {
       const key = /^\s*([A-Za-z_$][\w$]*)\s*(?::(?!:)|$)/.exec(e);
       return !key || COLOUR_KEYS.has(key[1]);
-    }).join(',');
+    }).join(',')}}`;
   });
 }
 
@@ -593,21 +597,33 @@ export function scan(src) {
       return size.some((k) => sh.args[k] !== undefined && depends(sh.args[k], ramp) && !impure(sh.args[k], dep))
         && !sh.args.some((a, k) => !size.includes(k) && depends(a, dep));
     });
+    // A fill given a local style object (`const style = { alpha: 0.05 }; g.fill(style)`) is judged by that object,
+    // in its blanked (`args`) and source (`raw`) text. Only a declaration with no use between it and the fill
+    // counts: a write or a helper could change the style.
+    const resolved = (f) => {
+      const before = loop.body.slice(0, f.at);
+      const defs = declarations(before);
+      const args = [...f.args], raw = [...f.raw];
+      f.args.forEach((a, k) => {
+        const name = a.trim();
+        if (!/^[A-Za-z_$][\w$]*$/.test(name)) return;
+        const escaped = name.replace(/\$/g, '\\$');
+        const uses = [...before.matchAll(new RegExp(`(?:^|[^\\w$])${escaped}(?![\\w$])`, 'g'))];
+        if (uses.length !== 1) return;
+        const matches = defs.filter(([n]) => n === name);
+        const value = matches.length === 1 ? matches[0][1].trim() : '';
+        if (!value.startsWith('{') || close(value, 0) !== value.length - 1) return;
+        const from = before.indexOf(value, uses[0].index); // blank() keeps offsets, so the source has it here too
+        if (from < 0) return;
+        args[k] = value;
+        raw[k] = src.slice(loop.bodyAt + from, loop.bodyAt + from + value.length);
+      });
+      return { ...f, args, raw };
+    };
     for (const f of fills) {
       const style = f.args.join(',');
       if (/\bnew\s+FillGradient\b/.test(style)) continue;
-      const before = loop.body.slice(0, f.at);
-      const defs = declarations(before);
-      const args = f.args.map((a) => {
-        const name = a.trim();
-        if (!/^[A-Za-z_$][\w$]*$/.test(name)) return a;
-        const escaped = name.replace(/\$/g, '\\$');
-        // Resolve only a declaration with no intervening uses: a write or helper could change the style.
-        if ([...before.matchAll(new RegExp(`(?:^|[^\\w$])${escaped}(?![\\w$])`, 'g'))].length !== 1) return a;
-        const matches = defs.filter(([n]) => n === name);
-        const value = matches.length === 1 ? matches[0][1].trim() : '';
-        return value.startsWith('{') && close(value, 0) === value.length - 1 ? value : a;
-      });
+      const { args } = resolved(f);
       const colour = colourArgs({ ...f, args }).join(','); // a ramp is in colour or alpha only: a growing line width is line art
       const read = reads(withoutLookups(colour));
       if (![...read].some((x) => ramp.has(x))) continue;
@@ -638,7 +654,7 @@ export function scan(src) {
         const own = mine.filter((f) => f.at > sh.at && f.at < next).sort((a, b) => a.at - b.at)[0]
           ?? mine.filter((f) => f.at < sh.at && f.at > prev && f.name !== 'stroke').sort((a, b) => b.at - a.at)[0];
         // A Canvas fillRect with no style of its own in the loop paints with the one set before the loop.
-        const paint = own ?? (sh.name === 'fillRect' ? { name: 'fill', args: [], raw: [], at: sh.at } : undefined);
+        const paint = own ? resolved(own) : (sh.name === 'fillRect' ? { name: 'fill', args: [], raw: [], at: sh.at } : undefined);
         if (paint && FILL_ONLY.has(paint.name) && seeThrough(paint, mine, sh.at, unknownHere(shapeTarget(sh)) ? [] : pre.filter((x) => x.on === shapeTarget(sh) || (x.binding && shapeTarget(sh).startsWith(`${x.on}.`))))) {
           why = 'it stacks translucent shapes of growing size on one centre'; at = sh.at; break;
         }

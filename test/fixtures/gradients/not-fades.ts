@@ -128,6 +128,10 @@ export function twoCanvases(a: CanvasRenderingContext2D, b: CanvasRenderingConte
   for (let i = 0; i < 20; i++) { a.fillStyle = 'rgba(255,255,255,0.05)'; b.fillRect(0, 0, 100 - i * 4, 100 - i * 4); }
 }
 
+export function twoCanvasesOnOneOwner(canvases: { a: CanvasRenderingContext2D; b: CanvasRenderingContext2D }): void {
+  for (let i = 0; i < 20; i++) { canvases.a.fillStyle = 'rgba(0,0,0,0.05)'; canvases.b.fillRect(0, 0, 100 - i * 4, 100 - i * 4); }
+}
+
 export function canvasTaperedStroke(ctx: CanvasRenderingContext2D): void {
   for (let i = 0; i < 20; i++) {                               // globalAlpha here is the stroke's: a tapered line, line art
     ctx.globalAlpha = i / 20;
@@ -320,4 +324,23 @@ export function preLoopStylesOnTwoContextsInOneStatement(ctx: CanvasRenderingCon
   if (dim)
     ctx.fillStyle = 'rgba(0,0,0,0.1)'                           // on a condition, without a semicolon before it
   for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
+
+export function outlineBesideLocalNamedAlpha(g: Graphics): void {
+  for (let i = 0; i < 20; i++) {                               // `alpha` and `color` are style keys here, not the local
+    const alpha = i;
+    g.circle(0, 0, 10 + i).stroke({ alpha: 1, color: 0xffffff, width: 2 });
+  }
+  for (let i = 0; i < 20; i++) {
+    const color = i;
+    g.circle(0, 0, 10 + i).stroke({ width: 2, color: 0xffffff, alpha: 1 });
+  }
+}
+
+export function opaqueRectsWithCommentedAlpha(ctx: CanvasRenderingContext2D): void {
+  for (let i = 0; i < 20; i++) {
+    ctx.globalAlpha = 1 // opaque
+    ctx.fillStyle = '#ffffff' /* solid */;
+    ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+  }
 }
