@@ -193,6 +193,45 @@ test('a game that only calls setConsent(true) at start gets no opt-out promise, 
   assert.equal(run('--check', dir).status, 0);
 });
 
+test('an import from a game helper named telemetry is not an import from the shim', () => {
+  const dir = game({ main: "import { quit } from '../utils/telemetry';\nimport { trackLevelStart } from '../telemetry';\nquit(); trackLevelStart(1);\n" });
+  fs.mkdirSync(path.join(dir, 'src', 'utils'));
+  fs.writeFileSync(path.join(dir, 'src', 'utils', 'telemetry.ts'), 'export function quit(): void {}\n');
+  const r = run(dir, '--shim', v2File(), '--audience', 'general');
+  assert.equal(r.status, 0, r.stdout);
+  assert.equal(summary(r).shim, 'upgraded');
+  // quit still comes from the helper, which the upgrade leaves as it was.
+  assert.equal(fs.readFileSync(path.join(dir, 'src/utils/telemetry.ts'), 'utf8'), 'export function quit(): void {}\n');
+  assert.match(fs.readFileSync(path.join(dir, 'src/views/Main.ts'), 'utf8'), /import \{ quit \} from '\.\.\/utils\/telemetry'/);
+  // The same name taken from the shim itself is still refused.
+  const shimQuit = game({ main: "import { quit } from '../telemetry';\nquit();\n" });
+  const refused = run(shimQuit, '--shim', v2File(), '--audience', 'general');
+  assert.equal(refused.status, 2);
+  assert.match(refused.stdout, /src\/views\/Main\.ts imports quit, which the v2 shim does not export/);
+  // So is an alias such as '@/telemetry', and a namespace or dynamic import of the helper is no refusal either.
+  assert.equal(run(game({ main: "import { quit } from '@/telemetry';\n" }), '--shim', v2File(), '--audience', 'general').status, 2);
+  const dir2 = game({ main: "import * as U from '../utils/telemetry';\nconst { quit } = U; quit();\nexport const l = () => import('../utils/telemetry.js');\n" });
+  fs.mkdirSync(path.join(dir2, 'src', 'utils'));
+  fs.writeFileSync(path.join(dir2, 'src', 'utils', 'telemetry.ts'), 'export function quit(): void {}\n');
+  const r2 = run(dir2, '--shim', v2File(), '--audience', 'general');
+  assert.equal(r2.status, 0, r2.stdout);
+  // A helper that passes on a shim name v2 lacks is still refused: the helper itself is scanned.
+  const dir3 = game({ main: "import { quit } from '../utils/telemetry';\nquit();\n" });
+  fs.mkdirSync(path.join(dir3, 'src', 'utils'));
+  fs.writeFileSync(path.join(dir3, 'src', 'utils', 'telemetry.ts'), "export { quit } from '../telemetry';\n");
+  const r3 = run(dir3, '--shim', v2File(), '--audience', 'general');
+  assert.equal(r3.status, 2, r3.stdout);
+  assert.match(r3.stdout, /src\/utils\/telemetry\.ts imports quit, which the v2 shim does not export/);
+  // A game with no src/telemetry.ts yet but a src/telemetry/ folder: the shim the upgrade adds takes over '../telemetry'.
+  const dir4 = game({ main: "import { quit } from '../telemetry';\nquit();\n" });
+  fs.rmSync(path.join(dir4, 'src', 'telemetry.ts'));
+  fs.mkdirSync(path.join(dir4, 'src', 'telemetry'));
+  fs.writeFileSync(path.join(dir4, 'src', 'telemetry', 'index.ts'), 'export function quit(): void {}\n');
+  const r4 = run(dir4, '--shim', v2File(), '--audience', 'general');
+  assert.equal(r4.status, 2, r4.stdout);
+  assert.match(r4.stdout, /src\/views\/Main\.ts imports quit/);
+});
+
 test('the page promises an opt-out only when the maker says the player has a switch', () => {
   const dir = game({ shim: SHIM_V2 });
   run(dir, '--audience', 'general');

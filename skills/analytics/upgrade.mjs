@@ -74,8 +74,35 @@ function sourceFiles(dir, out = []) {
   return out;
 }
 
-// Any specifier whose last part is `telemetry`: relative paths and aliases such as '@/telemetry' alike.
-const TELEMETRY_FROM = String.raw`from\s*['"](?:[^'"\n]*/)?telemetry(?:\.[jt]s)?['"]`;
+// Any specifier whose last part is `telemetry`, captured: relative paths and aliases such as '@/telemetry' alike.
+// pointsAtShim then drops a relative one that lands on the game's own helper.
+const TELEMETRY_SPEC = String.raw`['"]((?:[^'"\n]*/)?telemetry(?:\.[jt]s)?)['"]`;
+const TELEMETRY_FROM = String.raw`from\s*` + TELEMETRY_SPEC;
+
+// Where a relative import may land, in the order a bundler tries them.
+const RESOLVE_EXT = ['', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.mts', '/index.ts', '/index.tsx', '/index.js', '/index.mjs'];
+
+/**
+ * The import names the shim, src/telemetry.ts. An alias or bare specifier ('@/telemetry') counts. A relative one counts
+ * unless it lands on another file that exists, such as src/utils/telemetry.ts: that is the game's own helper.
+ * A relative one that reaches the shim's path before any other file counts even when src/telemetry.ts does not exist
+ * yet. A relative one that lands on nothing counts too, so a broken import is refused rather than waved through.
+ */
+export function pointsAtShim(spec, file, srcDir) {
+  if (!/^\.\.?\//.test(spec)) return true;
+  const shim = resolve(srcDir, 'telemetry.ts');
+  const base = resolve(dirname(file), spec);
+  // TypeScript ESM writes '../telemetry.js' for telemetry.ts, so try the path without its .js too.
+  for (const b of new Set([base, base.replace(/\.m?js$/, '')])) {
+    for (const ext of RESOLVE_EXT) {
+      const p = b + ext;
+      // The shim's own path counts before it exists: the upgrade may add src/telemetry.ts, and then it wins.
+      if (p === shim) return true;
+      if (existsSync(p) && statSync(p).isFile()) return false;
+    }
+  }
+  return true;
+}
 
 const withoutComments = (code) => code.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"`\\])\/\/[^\n]*/g, '$1');
 
@@ -99,8 +126,11 @@ export function importedNames(srcDir) {
   for (const file of gameSources(srcDir)) {
     const code = withoutComments(readFileSync(file, 'utf8'));
     // import('./telemetry') and require('./telemetry') hide which names they use: refuse rather than guess.
-    if (new RegExp(String.raw`\b(?:import|require)\s*\(\s*['"](?:[^'"\n]*/)?telemetry(?:\.[jt]s)?['"]`).test(code)) add('(a dynamic import or require)', file);
+    for (const d of code.matchAll(new RegExp(String.raw`\b(?:import|require)\s*\(\s*` + TELEMETRY_SPEC, 'g'))) {
+      if (pointsAtShim(d[1], file, srcDir)) add('(a dynamic import or require)', file);
+    }
     for (const m of code.matchAll(new RegExp(String.raw`\b(import|export)\s+(?:type\s+)?(${CLAUSE})\s*` + TELEMETRY_FROM, 'g'))) {
+      if (!pointsAtShim(m[3], file, srcDir)) continue;
       let clause = m[2].trim();
       const braces = clause.match(/\{([^}]*)\}/);
       if (braces) {
