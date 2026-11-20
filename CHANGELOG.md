@@ -1,11 +1,18 @@
 # Changelog
 
-## 1.7.77 — 2026-11-20
+## 1.7.79 — 2026-11-20
 
 - Anything in a game that fades (a glow, light rays, a sky, a vignette, shading) is drawn as one shape with one gradient fill. The rule now has its own skill, `gradients`, which loads whenever a game draws one, in a new game or a change to a finished one. It gives the PixiJS v8 `FillGradient` code.
-- `skills/gradients/check.mjs` finds fades faked with stacked rings, bands, strips or discs in a game's source and prints each as file:line. `/make-game` and the polish review run it before a game is called done.
+- `skills/gradients/check.mjs` finds fades faked with stacked rings, bands, strips or discs in a game's source and prints each as file:line. `/make-game` and the polish review run it before a game is called done. A colour picked per item (`palette[i]`, `colorOf(i)`, page dots, a segmented bar) and a new shape per pass are not fades and are not reported.
 - `test/gradients-rule.test.mjs` checks it: stacked-ring rays fail, the same rays with one `FillGradient` pass.
 - Works with every ongame-cli release: the change is skill text and one script with no dependency.
+
+## 1.7.78 — 2026-11-20
+
+- `/make-game` applies six game-design rules by default, to every new game and every change to a game's rules, levels, layout or economy: a capacity for every container, when a piece waits or is blocked, caps on what is in play, an odds model before the levels, phone sizes and readability, and a rival study of looks, sizes and economy that changes the game.
+- The new `skills/game-design/SKILL.md` gives each rule's steps and defaults. The answers go to `docs/GAME_DESIGN.md` before the first level or game-rule code.
+- `test/game-design-rules.test.mjs` checks these lines and this version line.
+- Works with every ongame-cli release: the change is skill text only.
 
 ## 1.7.76 — 2026-11-19
 

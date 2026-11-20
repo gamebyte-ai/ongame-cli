@@ -72,6 +72,6 @@ test('make-game and the polish review point to the skill and run the check', () 
 
 test('the plugin version and the changelog name the release that carries it', () => {
   const version = JSON.parse(read('.claude-plugin/plugin.json')).version;
-  assert.ok(version.localeCompare('1.7.77', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.77 or later`);
-  assert.ok(read('CHANGELOG.md').includes('## 1.7.77'));
+  assert.ok(version.localeCompare('1.7.79', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.79 or later`);
+  assert.ok(read('CHANGELOG.md').includes('## 1.7.79'));
 });

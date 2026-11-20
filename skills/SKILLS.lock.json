@@ -1,5 +1,5 @@
 {
-  "pluginVersion": "1.7.77",
+  "pluginVersion": "1.7.79",
   "generatedAt": "2026-11-20",
   "skills": {
     "art-direction": {
@@ -11,6 +11,11 @@
       "sha256": "63f52d794fb0b851b94c8509dcbe0b88aa168b0cc9b48f9004ebeb6bd9fa4274",
       "bytes": 2840,
       "lines": 38
+    },
+    "game-design": {
+      "sha256": "93045e7728be657b860115bb38753cd70913cc5ee2e43a43c0562a56222c4b74",
+      "bytes": 5028,
+      "lines": 88
     },
     "gradients": {
       "sha256": "7f435eeed457d5bbdcf2619c1a8d6df2338064896e2a57b734476d62c4396b21",
