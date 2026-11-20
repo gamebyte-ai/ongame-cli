@@ -115,3 +115,10 @@ export function ringsBesideFadingLineOnOneOwner(layer: { rings: Graphics; path: 
     layer.path.moveTo(i * 20, 0).lineTo(i * 20, 50).stroke({ color: 0xffffff, alpha: i / 20 });
   }
 }
+
+export function canvasTaperedStroke(ctx: CanvasRenderingContext2D): void {
+  for (let i = 0; i < 20; i++) {                               // globalAlpha here is the stroke's: a tapered line, line art
+    ctx.globalAlpha = i / 20;
+    ctx.beginPath(); ctx.moveTo(i * 20, 0); ctx.lineTo(i * 20 + 20, 0); ctx.stroke();
+  }
+}
