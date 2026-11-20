@@ -160,6 +160,8 @@ test('default imports and re-exports count as names the game needs', () => {
   assert.match(r4.stdout, /imports T \(used other than as T\.name\)/);
   const dir6 = game({ main: "import * as T from './telemetry';\nT\n  .trackLevelQuit(1);\n" });
   assert.match(run(dir6, '--shim', v2File(), '--audience', 'general').stdout, /imports trackLevelQuit/);
+  const dir7 = game({ main: "import { trackLevelQuit } from '@/telemetry';\n" });
+  assert.equal(run(dir7, '--shim', v2File(), '--audience', 'general').status, 2);
   const dir5 = game({ main: "export * from './telemetry';\n" });
   assert.equal(run(dir5, '--shim', v2File(), '--audience', 'general').status, 2);
   const dir3 = game({ main: "export { trackLevelQuit } from './telemetry';\n" });

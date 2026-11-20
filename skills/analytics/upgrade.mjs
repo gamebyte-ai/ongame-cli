@@ -66,7 +66,8 @@ function sourceFiles(dir, out = []) {
   return out;
 }
 
-const TELEMETRY_FROM = String.raw`from\s*['"](?:\.{1,2}/)+(?:[\w.-]+/)*telemetry(?:\.[jt]s)?['"]`;
+// Any specifier whose last part is `telemetry`: relative paths and aliases such as '@/telemetry' alike.
+const TELEMETRY_FROM = String.raw`from\s*['"](?:[^'"\n]*/)?telemetry(?:\.[jt]s)?['"]`;
 
 function gameSources(srcDir) {
   return sourceFiles(srcDir).filter((f) => basename(f).replace(/\.\w+$/, '') !== 'telemetry');
