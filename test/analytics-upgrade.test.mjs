@@ -297,7 +297,8 @@ test('make-game, /analytics, /publish and the code and polish phases use it', ()
   assert.ok(cmd.includes('upgrade.mjs {gameDir} --shim <temp>/src/telemetry.ts'));
   assert.ok(cmd.includes('telemetry_inject'));
   assert.ok(read('commands/publish.md').includes('node <pluginRoot>/skills/analytics/upgrade.mjs {gameDir}'));
-  const code = read('skills/phases/code/SKILL.md');
+  // The code phase's state-machine rules live in skills/game-code/SKILL.md, which the phase points to.
+  const code = read('skills/phases/code/SKILL.md') + read('skills/game-code/SKILL.md');
   assert.ok(code.includes('const attempt = levelStart(n)'));
   assert.ok(code.includes("screen('<id>')"));
   assert.ok(code.includes('**An older scaffold has shim v1:**'));

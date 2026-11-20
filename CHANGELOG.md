@@ -20,6 +20,12 @@
 - `test/analytics-upgrade.test.mjs` checks both cases and this version line.
 - `skills/gradients/check.mjs` reads a call's object correctly when its name has a space before the bracket (`.stroke (`, `ctx.fillRect (`). Before, such a call matched no object, and a real fade was missed.
 - `test/fixtures/gradients/strips.js` holds both spaced cases as reported fades.
+- `/make-game` now reaches the game-making rules that lived only inside phase skills it does not open. They moved,
+  word for word, into five skills Claude Code loads by their description, and `commands/make-game.md` points to each:
+  `game-concept`, `game-code`, `difficulty-curve`, `asset-anchor` and `phone-layout`. The phase skills point to the
+  same files, so a phase run reads the same text.
+- `test/phase-rules-reachable.test.mjs` lists those 19 rules and checks that each is in a skill with a description
+  that `/make-game` names.
 - Works with every ongame-cli release: the change is skill text only.
 - Works with every ongame-cli release: the change is one script with no dependency.
 

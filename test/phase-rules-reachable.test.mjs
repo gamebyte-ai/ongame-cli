@@ -27,7 +27,7 @@ const RULES = [
   ['D1 / D7 / D30 profile', 'levels', 'Pick the profile by the retention horizon the game is built for: `d1` for a short/casual game or a prototype'],
   ['curve check', 'levels', 'the first level is easy+rewarding (`difficulty < 0.2`, `params.reward > 0`); there is at least one `isRelief: true` level.'],
   ['label every number', 'docs', 'Each number in GAME_DESIGN.md is marked measured, set by the user, or a starting guess with the range to tune within.'],
-  ['track level start, complete and fail', 'code', 'genuine WIN only, plus `trackLevelFail(n)` on a loss.'],
+  ['track level start, complete and fail', 'code', "on a genuine WIN only, `levelEnd(attempt, 'fail', {...})` on a loss"],
   ['research phase', 'research', 'Output: `docs/RESEARCH.md` — 1 page: genre, competitor patterns, recommended out-of-the-box angle, risks.'],
   ["the user's request outranks research", 'concept', "**PRIORITY RULE — the user's explicit request OUTRANKS research's angle.**"],
   ["the genre's knowledge", 'code', '**Genre miss (e.g. design is "snake" but `genre:snake` is not in the list):** do NOT CALL a nonexistent genre key.'],
