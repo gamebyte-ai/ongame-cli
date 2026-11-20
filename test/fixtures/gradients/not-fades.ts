@@ -336,3 +336,20 @@ export function preLoopStylesOnTwoContextsInOneStatement(ctx: CanvasRenderingCon
     ctx.fillStyle = 'rgba(0,0,0,0.1)'                           // on a condition, without a semicolon before it
   for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
 }
+
+export function preLoopStyleResetByABracketResize(ctx: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 0.1; ctx.canvas['width'] = 400;             // a resize written with brackets resets alpha too
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
+
+export function preLoopStyleSetWithBrackets(ctx: CanvasRenderingContext2D, key: 'globalAlpha'): void {
+  ctx.globalAlpha = 0.1; ctx['globalAlpha'] = 1;                // the bracket set wins: opaque
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+  ctx.fillStyle = 'rgba(0,0,0,0.1)'; ctx[key] = 1; ++ctx.canvas['height'];
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
+
+export function preLoopStyleBracketResizedInTheLoop(ctx: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 0.1;
+  for (let i = 0; i < 20; i++) { ctx['canvas']['width'] = 400; ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4); } // each resize resets alpha
+}
