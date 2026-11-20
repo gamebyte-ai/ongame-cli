@@ -2,6 +2,11 @@
   "pluginVersion": "1.7.83",
   "generatedAt": "2026-11-20",
   "skills": {
+    "analytics": {
+      "sha256": "ba12d6939afcf49470860846d4e90cf4cb027a0c0337b388bbf4d2d1fe8d1764",
+      "bytes": 4037,
+      "lines": 66
+    },
     "art-direction": {
       "sha256": "4fb82004119bfc33672560fdea3da9ad11d71d2eb9a535574f0a8ac522beb1c0",
       "bytes": 1666,
@@ -48,9 +53,9 @@
       "lines": 161
     },
     "phases/code": {
-      "sha256": "a0780b26194bcad3ad8bf3e5b038cb0e53f906815ff554c62d999772b370e8ef",
-      "bytes": 45686,
-      "lines": 468
+      "sha256": "6ab81b59e7daf47d6b1baee4ae32967dbc6f02230a299344b49c1c8c6512b0d2",
+      "bytes": 46684,
+      "lines": 477
     },
     "phases/concept": {
       "sha256": "c8cd698cd0776275c775cd994ebd857cc9e2480192daf1608b920b168678b0ed",
@@ -68,9 +73,9 @@
       "lines": 100
     },
     "phases/polish": {
-      "sha256": "bc18b528399e62a326304adaa1e522cec24e9e612aca748ea58efb90eb58ea20",
-      "bytes": 49980,
-      "lines": 501
+      "sha256": "977becc80bf25bd3057315c49eacb546713009b63a76fe5af634905087e34655",
+      "bytes": 51163,
+      "lines": 512
     },
     "phases/research": {
       "sha256": "121ee95275b701a4d80ed7535013c015780c280bd37542608a2a65d24f4bcbe5",

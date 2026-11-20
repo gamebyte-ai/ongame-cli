@@ -228,14 +228,23 @@ Rule: state does not leak into the View, render does not leak into the Board. If
 - `transition` is idempotent + listened to from a single point (`onChange`). Side effects on transition (startGame /
   showGameOver) live in the listener.
 - **Gameover → restart wait period:** so an accidental tap does not start a new game (timing: `pattern:game-loop`).
-- **If the game has levels, mark the two moments WHILE you write them** — `trackLevelStart(n)` where the level
-  actually begins for the player (after any intro/countdown, not at load) and `trackLevelComplete(n, {...})` on a
-  genuine WIN only, plus `trackLevelFail(n)` on a loss. They come from `src/telemetry.ts` in the scaffold, they are no-ops until the finished game is
+- **If the game has levels, mark each attempt WHILE you write it** — `const attempt = levelStart(n)` where the level
+  actually begins for the player (after any intro/countdown, not at load), then `levelEnd(attempt, 'complete', {...})`
+  on a genuine WIN only, `levelEnd(attempt, 'fail', {...})` on a loss, and `levelEnd(attempt, 'quit')` when the player
+  leaves the level for the menu. They come from `src/telemetry.ts` (shim v2) in the scaffold, they are no-ops until the finished game is
   deployed, and they cannot throw into gameplay. `n` must be a NUMBER — a named level passes its index and carries
-  the name in the extras, because a non-numeric level is dropped downstream with nothing reported. Counting a fail
+  the name in `level_id`, because a non-numeric level is dropped downstream with nothing reported. Counting a fail
   or a quit as a completion is worse than not measuring: the funnel is starts-vs-completes, so it would hide the
-  exact difficulty spike it exists to find. Two lines, written next to the transitions they belong to — retrofitted
+  exact difficulty spike it exists to find. Write them next to the transitions they belong to — retrofitted
   later they are a separate pass over code that already works, and that pass is the one that does not happen.
+- **Screens and taps, in the same pass** — call `screen('<id>')` where each screen is shown (`'menu'`, `'level'`,
+  `'shop'`, `'settings'`, `'gameover'`). Give every interactive Pixi object a short, stable `label`
+  (`'play'`, `'shop_buy_coins'`, `'tile'`): the SDK reports its taps by that label, with no `tap()` call. Call `tap(id)`
+  only for a DOM button, a key or a swipe. Currency changes call `economy('earn' | 'spend', currency, amount, source)`;
+  tutorial steps call `tutorial(stepId, done)`. Settings gets an **Analytics** on/off switch calling `setConsent(on)`.
+  Never pass typed text, a name or a position as meta. The full list: `skills/analytics/SKILL.md`.
+  **An older scaffold has shim v1:** `src/telemetry.ts` exports no `levelStart`. Then use `trackLevelStart(n)`,
+  `trackLevelComplete(n)` and `trackLevelFail(n)`, still add the labels, and skip the other v2 calls.
 
 - **Check the existing helpers before adding imports.** These instructions can arrive before a CLI update or apply to an older game.
   Never import a helper that its `src/ads.ts` or `src/purchases.ts` does not export. If `watchRewardedReady` is absent

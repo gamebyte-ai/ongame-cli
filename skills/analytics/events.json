@@ -1,0 +1,32 @@
+{
+  "schema": 2,
+  "note": "Every event a game with the onGame analytics SDK can send. privacy.html and store-labels.md list exactly these. Edit this file, then the two texts follow.",
+  "events": [
+    { "t": "session_start", "keys": ["entry"], "what": "a play session started, and whether it is the first one" },
+    { "t": "session_end", "keys": ["durationMs", "activeMs"], "what": "a play session ended, and how long it lasted" },
+    { "t": "engagement", "keys": ["activeMs", "screen"], "what": "active play time, every 30 seconds while the game is visible" },
+    { "t": "screen_view", "keys": ["screen", "prev", "prevMs"], "what": "which game screen opened, and the time spent on the previous one" },
+    { "t": "ui_tap", "keys": ["control", "screen", "level", "attempt"], "what": "which button or game object was tapped, by its name (never the tap position)" },
+    { "t": "level_start", "keys": ["level", "level_id", "attempt", "attempt_no", "difficulty"], "what": "a level attempt started" },
+    { "t": "level_complete", "keys": ["level", "level_id", "attempt", "attempt_no", "activeMs", "score", "stars", "moves", "taps"], "what": "a level was won, with its score" },
+    { "t": "level_fail", "keys": ["level", "level_id", "attempt", "attempt_no", "activeMs", "reason", "progress", "taps"], "what": "a level was lost, and how far the player got" },
+    { "t": "level_quit", "keys": ["level", "level_id", "attempt", "attempt_no", "activeMs", "progress", "taps"], "what": "the player left a level before it ended" },
+    { "t": "level_abandoned", "keys": ["level", "level_id", "attempt", "attempt_no", "activeMs", "taps"], "what": "a level was still open when the session ended" },
+    { "t": "economy", "keys": ["kind", "currency", "amount", "source", "balance", "level", "attempt"], "what": "in-game currency earned or spent, and where" },
+    { "t": "tutorial_step", "keys": ["step", "done"], "what": "a tutorial step was shown or finished" },
+    { "t": "ad_break", "keys": ["format", "placement", "status", "level", "attempt"], "what": "an ad was offered, shown or skipped" },
+    { "t": "purchase", "keys": ["item", "status", "amount", "currency", "level", "attempt"], "what": "an in-game purchase was started, finished or cancelled" },
+    { "t": "feedback", "keys": ["kind", "value", "level"], "what": "a rating or yes/no answer the player gave in the game" },
+    { "t": "consent", "keys": ["analytics"], "what": "the player turned analytics on or off" },
+    { "t": "design:<name>", "keys": [], "what": "a game-specific event: at most 8 numbers, yes/no values or short codes" }
+  ],
+  "never": [
+    "pointer or touch positions",
+    "typed text",
+    "screen captures",
+    "web addresses",
+    "advertising ids",
+    "device fingerprints",
+    "email or any account data"
+  ]
+}
