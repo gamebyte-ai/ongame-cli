@@ -11,6 +11,8 @@
 - `skills/gradients/check.mjs` no longer reports rings whose line width grows while their colour stays the same. That is line art, not a fade. The check now looks only at a fill's colour and alpha for a fade; `width` and other style keys are ignored, and so is the width in a v7 `lineStyle(width, color, alpha)`.
 - `test/fixtures/gradients/not-fades.ts` holds both ring cases as passing ones.
 - Works with every ongame-cli release: the change is one script with no dependency.
+- `skills/gradients/check.mjs` no longer reports a line whose alpha changes just because rings are drawn beside it on another object. A stroke now counts as a ring fade only when it strokes growing rings on its own object. Two Graphics kept on one owner (`layer.rings`, `layer.path`) count as two objects.
+- `test/fixtures/gradients/not-fades.ts` holds both cases as passing ones.
 
 ## 1.7.81 — 2026-11-20
 
