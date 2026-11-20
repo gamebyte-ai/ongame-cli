@@ -303,7 +303,7 @@ Verify the behavior the user asked for in the relevant runtime. A preview URL, c
 alone is not proof that a game works. Inspect actual rendering and interaction in a browser or the engine.
 If verification is unavailable, state what remains unverified. Do not mark a native goal complete without that
 evidence, and do not claim a phase or review happened when it did not.
-Before calling a web game done, check it as a phone. The "Built with onGame" credit is required in every game,
+Before calling a web game done, check it as a phone. The onGame launch card (the `credit` skill) is required in every game,
 not only published ones: run `node <pluginRoot>/skills/credit/apply.mjs {gameDir}` before `npm run build`, then
 `node <pluginRoot>/skills/credit/apply.mjs --check {gameDir}/dist/index.html` after it. Run
 `node <pluginRoot>/skills/gradients/check.mjs {gameDir}` and replace every stacked-shape fade it names with one
