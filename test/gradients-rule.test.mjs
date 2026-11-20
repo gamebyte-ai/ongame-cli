@@ -8,8 +8,6 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { scan } from '../skills/gradients/check.mjs';
 
-import { scan } from '../skills/gradients/check.mjs';
-
 const root = fileURLToPath(new URL('..', import.meta.url));
 const read = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), 'utf8');
 const check = (...paths) => {
