@@ -2,8 +2,8 @@
 
 ## 1.7.83 — 2026-11-20
 
-- `skills/gradients/check.mjs` no longer reports a Canvas line drawn in a loop with a changing `ctx.globalAlpha` and only `ctx.stroke()`. A tapered stroke along a path is line art. `globalAlpha` now counts as the fill or the stroke that the next paint call makes, so a stroke-only loop is a fade only when it strokes growing rings.
-- `test/fixtures/gradients/not-fades.ts` holds the tapered stroke as a passing case. `test/fixtures/gradients/strips.js` holds a `globalAlpha` glow on growing filled arcs and `globalAlpha` rings as reported cases.
+- `skills/gradients/check.mjs` no longer reports a Canvas line drawn in a loop with a changing `ctx.globalAlpha` and only `ctx.stroke()`. A tapered stroke along a path is line art. `globalAlpha` now counts as the fill or the stroke that the next paint call makes, so a stroke-only loop is a fade only when it strokes growing rings. Only paint calls on the same context count: a fill on another canvas beside the line does not make it a fill.
+- `test/fixtures/gradients/not-fades.ts` holds the tapered stroke, alone and beside a fill on another context, as passing cases. `test/fixtures/gradients/strips.js` holds a `globalAlpha` glow on growing filled arcs and `globalAlpha` rings as reported cases.
 - Works with every ongame-cli release: the change is one script with no dependency.
 
 ## 1.7.82 — 2026-11-20

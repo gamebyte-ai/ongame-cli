@@ -122,3 +122,11 @@ export function canvasTaperedStroke(ctx: CanvasRenderingContext2D): void {
     ctx.beginPath(); ctx.moveTo(i * 20, 0); ctx.lineTo(i * 20 + 20, 0); ctx.stroke();
   }
 }
+
+export function canvasTaperedStrokeBesideAnotherCanvas(ctx: CanvasRenderingContext2D, other: CanvasRenderingContext2D): void {
+  for (let i = 0; i < 20; i++) {                               // the fill is on another context: ctx's alpha is still a stroke's
+    ctx.globalAlpha = i / 20;
+    ctx.beginPath(); ctx.moveTo(i * 20, 0); ctx.lineTo(i * 20 + 20, 0); ctx.stroke();
+    other.fillRect(0, 0, 10, 10);
+  }
+}

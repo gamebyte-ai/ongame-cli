@@ -170,24 +170,29 @@ function calls(body, names, rawBody = body) {
 
 /**
  * Canvas 2D style assignments (`ctx.fillStyle = ...`, `ctx.globalAlpha = ...`) as fill entries, like calls().
- * `globalAlpha` applies to every paint call up to the next `globalAlpha` set (wrapping round the loop body, since it
- * paints on the next pass too). It counts as a fill when one of those calls is a `fill`/`fillRect`/`fillText`, and as
- * a stroke when they are all `stroke`/`strokeRect`/`strokeText`. With no paint call in the body it counts as a fill.
+ * `globalAlpha` applies to every paint call on its own context up to that context's next `globalAlpha` set (wrapping
+ * round the loop body, since it paints on the next pass too). It counts as a fill when one of those calls is a
+ * `fill`/`fillRect`/`fillText`, and as a stroke when they are all `stroke`/`strokeRect`/`strokeText`. With no such
+ * call in the body it counts as a fill. Paint calls on another context (`other.fillRect`) do not count.
  */
 function styleSets(body, rawBody) {
   const out = [];
-  const paints = [...body.matchAll(/\.\s*(fill|stroke)(?:Rect|Text)?\s*\(/g)].map((p) => ({ at: p.index, kind: p[1] }));
-  const alphas = [...body.matchAll(/\.\s*globalAlpha\s*=(?!=)/g)].map((a) => a.index);
-  const paintedBy = (at) => {
-    const next = alphas.find((a) => a > at);
-    const first = alphas[0] ?? at;
+  const paints = [...body.matchAll(/\.\s*(fill|stroke)(?:Rect|Text)?\s*\(/g)]
+    .map((p) => ({ at: p.index, kind: p[1], on: target(body, p.index + p[0].length - 1) }));
+  const alphas = [...body.matchAll(/\.\s*(globalAlpha)\s*=(?!=)/g)]
+    .map((a) => ({ at: a.index, on: target(body, a.index + a[0].indexOf(a[1]) + a[1].length) }));
+  const paintedBy = (at, on) => {
+    const sets = alphas.filter((a) => a.on === on).map((a) => a.at);
+    const next = sets.find((a) => a > at);
+    const first = sets[0] ?? at;
     // Up to the next set; with none after it, to the end of the body and on from its start up to the first set.
-    const mine = paints.filter((p) => (next !== undefined ? p.at > at && p.at < next : p.at > at || p.at < first));
+    const mine = paints.filter((p) => p.on === on && (next !== undefined ? p.at > at && p.at < next : p.at > at || p.at < first));
     return !mine.length || mine.some((p) => p.kind === 'fill') ? 'fill' : 'stroke';
   };
   for (const m of body.matchAll(/\.\s*(fillStyle|globalAlpha|strokeStyle)\s*=(?!=)\s*([^;\n]*)/g)) {
     const from = m.index + m[0].length - m[2].length;
-    const name = m[1] === 'strokeStyle' ? 'stroke' : m[1] === 'globalAlpha' ? paintedBy(m.index) : 'fill';
+    const on = target(body, m.index + m[0].indexOf(m[1]) + m[1].length); // the context it is set on
+    const name = m[1] === 'strokeStyle' ? 'stroke' : m[1] === 'globalAlpha' ? paintedBy(m.index, on) : 'fill';
     const value = m[1] === 'globalAlpha' ? `{ alpha: ${m[2]} }` : m[2];
     const raw = m[1] === 'globalAlpha' ? `{ alpha: ${rawBody.slice(from, from + m[2].length)} }` : rawBody.slice(from, from + m[2].length);
     out.push({ name, prop: m[1], args: [value], raw: [raw], at: m.index + 1 + m[1].length + (m[0].indexOf(m[1]) - 1) });
