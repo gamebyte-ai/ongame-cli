@@ -7,7 +7,7 @@
  *
  *   node check.mjs <gameDir | file>...     # exit 0 = none found, 1 = found (each printed as file:line), 2 = bad input
  *
- * A loop is reported when it draws a shape and fills it, and either
+ * A loop is reported when it draws a shape and fills that same object, and either
  *   - the fill changes with the loop (an alpha or colour computed from the loop counter); for a stroke, only when the
  *     shapes are concentric (rings of one centre), or
  *   - the shape's size changes with the loop, its position does not, and the fill is translucent (stacked discs).
@@ -227,6 +227,43 @@ function receiver(s, open) {
   }
 }
 
+/**
+ * The object a drawing call at `open` (its `(`) draws on, as its whole property path: `layer.rings.circle(` ->
+ * `layer.rings`, `g.circle(...).stroke(` -> `g`. Two Graphics kept on one owner (`layer.rings`, `layer.path`) are
+ * two objects, which `receiver()` (the root name only) cannot tell apart. A chain that starts with `new` gives `new`.
+ */
+function target(s, open) {
+  let k = open - 1;
+  const ident = () => { const e = k + 1; while (k >= 0 && /[\w$]/.test(s[k])) k--; return s.slice(k + 1, e); };
+  const ws = () => { while (k >= 0 && /\s/.test(s[k])) k--; };
+  const path = []; // innermost first: [{ name, called }]
+  ident(); // the method name
+  for (;;) {
+    ws();
+    if (s[k] === '?' && s[k + 1] === '.') k--;
+    if (s[k] !== '.') {
+      if (/(?:^|[^\w$.])new$/.test(s.slice(Math.max(0, k - 3), k + 1))) return 'new';
+      break;
+    }
+    k--; ws();
+    let called = false;
+    while (s[k] === ')' || s[k] === ']') { // a call or lookup in the chain: step over it
+      if (s[k] === ')') called = true;
+      const o = s[k] === ')' ? '(' : '[', c = s[k];
+      let d = 0;
+      for (; k >= 0; k--) { if (s[k] === c) d++; else if (s[k] === o && --d === 0) break; }
+      k--; ws();
+    }
+    const name = ident();
+    if (!name) break;
+    path.push({ name, called });
+  }
+  // From the root, the names up to the first call: `g.circle(...)` in `g.circle(...).stroke(` is a drawing call on g.
+  const out = [];
+  for (const seg of path.reverse()) { out.push(seg.name); if (seg.called) { if (out.length > 1) out.pop(); break; } }
+  return out.join('.');
+}
+
 /** The loops in blanked source: { at, vars, body, bodyAt, steps }. */
 function loops(s) {
   const out = [];
@@ -360,6 +397,24 @@ function seeThrough(f, fills) {
   return [style, alpha].some((x) => x && translucent(x.name, x.raw));
 }
 
+// Style keys that set what a fill or stroke looks like in colour; `width`, `alignment`, `cap` and the rest do not.
+const COLOUR_KEYS = new Set(['color', 'alpha', 'fill', 'fillStyle', 'strokeStyle']);
+/**
+ * The parts of a fill call's arguments that set colour or alpha: a bare colour argument, and in a style object only
+ * its colour keys (spreads are kept, since they may carry one). v7 `lineStyle(width, color, alpha)` drops its width.
+ */
+function colourArgs(f) {
+  const args = f.name === 'lineStyle' && !/^\s*\{/.test(f.args[0] ?? '') ? f.args.slice(1) : f.args;
+  return args.map((a) => {
+    const t = a.trim();
+    if (!t.startsWith('{') || close(t, 0) !== t.length - 1) return a;
+    return splitArgs(t.slice(1, -1)).filter((e) => {
+      const key = /^\s*([A-Za-z_$][\w$]*)\s*(?::(?!:)|$)/.exec(e);
+      return !key || COLOUR_KEYS.has(key[1]);
+    }).join(',');
+  });
+}
+
 /** Findings for one source text: [{ line, fillLine, why }]. */
 export function scan(src) {
   const s = blank(src);
@@ -395,10 +450,15 @@ export function scan(src) {
     for (const f of fills) {
       const style = f.args.join(',');
       if (/\bnew\s+FillGradient\b/.test(style)) continue;
-      const read = reads(withoutLookups(style));
+      const colour = colourArgs(f).join(','); // a ramp is in colour or alpha only: a growing line width is line art
+      const read = reads(withoutLookups(colour));
       if (![...read].some((x) => ramp.has(x))) continue;
-      if (impure(style, dep) || [...read].some((x) => dep.has(x) && !ramp.has(x))) continue; // mixed with per-item data
-      if (!FILL_ONLY.has(f.name) && !concentric.length) continue; // a tapered stroke along a path: line art
+      if (impure(colour, dep) || [...read].some((x) => dep.has(x) && !ramp.has(x))) continue; // mixed with per-item data
+      // A stroke is a ring fade only when it strokes rings on its own object; rings on another object beside a
+      // tapered line along a path do not make that line a fade. A fill ramps a fade only when a shape in the loop
+      // is drawn on its own object; rings on another object beside fading text do not make that text a fade.
+      const on = (sh) => target(loop.body, sh.at) === target(loop.body, f.at);
+      if (!(FILL_ONLY.has(f.name) ? shapes : concentric).some(on)) continue;
       why = 'its fill changes with each pass of the loop'; at = f.at; break;
     }
     if (!why) {
