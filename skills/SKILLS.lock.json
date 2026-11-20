@@ -1,5 +1,5 @@
 {
-  "pluginVersion": "1.7.78",
+  "pluginVersion": "1.7.79",
   "generatedAt": "2026-11-20",
   "skills": {
     "art-direction": {
@@ -38,9 +38,9 @@
       "lines": 568
     },
     "phases/audio": {
-      "sha256": "77b3452f65fbcde5c5962a59ff8b532c65e739cb4a8ae1e8599c9e6942f6778e",
-      "bytes": 12301,
-      "lines": 158
+      "sha256": "0c755f167eaf739408db13947668b4e66c28bea4f3b7f56ed0e1a1e6d9233e20",
+      "bytes": 12624,
+      "lines": 161
     },
     "phases/code": {
       "sha256": "a0780b26194bcad3ad8bf3e5b038cb0e53f906815ff554c62d999772b370e8ef",
