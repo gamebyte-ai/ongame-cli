@@ -403,7 +403,7 @@ function translucent(name, raw) {
 
 /**
  * True when fill `f` is see-through. A Canvas `ctx.fill()` carries no style: it paints with the `fillStyle` and
- * `globalAlpha` set last before it in the loop. A Canvas style set (`ctx.fillStyle = ...`, `ctx.globalAlpha = ...`)
+ * `globalAlpha` set last on the same target before it in the loop (`fills` holds only that target's fills). A Canvas style set (`ctx.fillStyle = ...`, `ctx.globalAlpha = ...`)
  * is judged the same way, together with the other one, at `at` (the shape it paints, when that comes later):
  * `globalAlpha = 1` after a see-through `fillStyle` still paints see-through. A bare Pixi `fill()` is assumed to use
  * the last `setFillStyle` the same way (a guess, not checked against PixiJS).
@@ -485,11 +485,11 @@ export function scan(src) {
     if (!why) {
       // Each concentric shape is judged by the fill that follows it, before the next shape: its own fill. Only shapes
       // and fills on the shape's own object count: `a.fillStyle` does not paint what `b.fillRect` draws.
-      const target = (c) => receiver(loop.body, c.at);
+      const object = (c) => target(loop.body, c.at);
       for (const sh of concentric) {
-        const on = target(sh);
-        const sorted = shapes.filter((x) => target(x) === on).sort((a, b) => a.at - b.at);
-        const mine = fills.filter((f) => target(f) === on);
+        const on = object(sh);
+        const sorted = shapes.filter((x) => object(x) === on).sort((a, b) => a.at - b.at);
+        const mine = fills.filter((f) => object(f) === on);
         const next = sorted.find((x) => x.at > sh.at)?.at ?? Infinity;
         const prev = [...sorted].reverse().find((x) => x.at < sh.at)?.at ?? -1;
         // Pixi v8 fills after the shape; v7's beginFill (and Canvas' fillStyle) is set before it.

@@ -143,3 +143,24 @@ export function ringsBesideFadingLabels(rings: Graphics, ctx: CanvasRenderingCon
     ctx.fillText('label', i * 20, 0);
   }
 }
+
+export function ringsBesideTranslucentLabels(rings: Graphics, ctx: CanvasRenderingContext2D): void {
+  for (let i = 0; i < 20; i++) {
+    rings.circle(0, 0, 10 + i * 4);
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    ctx.fillText('label', i * 20, 0);
+    rings.stroke({ color: 0xffffff, width: 1 });
+  }
+}
+
+export function opaqueDiscsBesideTranslucentLabels(layer: { discs: CanvasRenderingContext2D; labels: CanvasRenderingContext2D }): void {
+  for (let i = 0; i < 20; i++) {
+    layer.discs.fillStyle = '#ffffff';
+    layer.discs.globalAlpha = 1;
+    layer.discs.arc(0, 0, 10 + i * 4, 0, Math.PI * 2);
+    layer.labels.fillStyle = 'rgba(255,255,255,0.05)';
+    layer.labels.globalAlpha = 0.1;
+    layer.labels.fillText('label', i * 20, 0);
+    layer.discs.fill();
+  }
+}

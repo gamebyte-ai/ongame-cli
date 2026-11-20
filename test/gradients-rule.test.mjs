@@ -7,6 +7,8 @@ import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
+import { scan } from '../skills/gradients/check.mjs';
+
 const root = fileURLToPath(new URL('..', import.meta.url));
 const read = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), 'utf8');
 const check = (...paths) => {
@@ -74,4 +76,30 @@ test('the plugin version and the changelog name the release that carries it', ()
   const version = JSON.parse(read('.claude-plugin/plugin.json')).version;
   assert.ok(version.localeCompare('1.7.79', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.79 or later`);
   assert.ok(read('CHANGELOG.md').includes('## 1.7.79'));
+});
+
+test('bare fills read colour and alpha only from their own target', () => {
+  for (const property of ['fillStyle', 'globalAlpha']) {
+    const opaque = property === 'fillStyle' ? "'#ffffff'" : '1';
+    const translucent = property === 'fillStyle' ? "'rgba(255,255,255,0.05)'" : '0.05';
+    const source = (target) => `for (let i = 0; i < 20; i++) {
+      layer.discs.${property} = ${opaque};
+      layer.discs.arc(0, 0, 10 + i * 4, 0, Math.PI * 2);
+      ${target}.${property} = ${translucent};
+      layer.discs.fill();
+    }`;
+    assert.equal(scan(source('layer.discs')).length, 1, `same-target ${property} control`);
+    assert.deepEqual(scan(source('layer.labels')), [], `other-target ${property}`);
+  }
+});
+
+test('another target cannot interrupt a translucent shape and its fill', () => {
+  const source = `for (let i = 0; i < 20; i++) {
+    g.circle(0, 0, 10 + i * 4);
+    other.rect(i * 20, 0, 10, 10).fill(0xffffff);
+    g.fill({ color: 0xffffff, alpha: 0.05 });
+  }`;
+  const findings = scan(source);
+  assert.equal(findings.length, 1);
+  assert.match(findings[0].why, /stacks translucent shapes/);
 });
