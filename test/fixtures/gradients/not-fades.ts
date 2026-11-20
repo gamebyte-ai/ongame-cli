@@ -128,6 +128,10 @@ export function twoCanvases(a: CanvasRenderingContext2D, b: CanvasRenderingConte
   for (let i = 0; i < 20; i++) { a.fillStyle = 'rgba(255,255,255,0.05)'; b.fillRect(0, 0, 100 - i * 4, 100 - i * 4); }
 }
 
+export function twoCanvasesOnOneOwner(canvases: { a: CanvasRenderingContext2D; b: CanvasRenderingContext2D }): void {
+  for (let i = 0; i < 20; i++) { canvases.a.fillStyle = 'rgba(0,0,0,0.05)'; canvases.b.fillRect(0, 0, 100 - i * 4, 100 - i * 4); }
+}
+
 export function canvasTaperedStroke(ctx: CanvasRenderingContext2D): void {
   for (let i = 0; i < 20; i++) {                               // globalAlpha here is the stroke's: a tapered line, line art
     ctx.globalAlpha = i / 20;
