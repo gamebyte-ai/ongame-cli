@@ -384,13 +384,13 @@ function translucent(name, raw) {
 
 /**
  * True when fill `f` is see-through. A Canvas `ctx.fill()` carries no style: it paints with the `fillStyle` and
- * `globalAlpha` set last before it in the loop. A bare Pixi `fill()` is assumed to use the last `setFillStyle` the
+ * `globalAlpha` set last on the same target before it in the loop. A bare Pixi `fill()` is assumed to use the last `setFillStyle` the
  * same way (a guess, not checked against PixiJS).
  */
-function seeThrough(f, fills) {
+function seeThrough(f, fills, body) {
   const bare = f.name === 'fill' && !f.prop && f.raw.every((a) => /^\s*(?:(['"])(?:nonzero|evenodd)\1)?\s*$/.test(a));
   if (!bare) return translucent(f.name, f.raw);
-  const before = fills.filter((x) => x.at < f.at).sort((a, b) => b.at - a.at);
+  const before = fills.filter((x) => x.at < f.at && target(body, x.at) === target(body, f.at)).sort((a, b) => b.at - a.at);
   const last = (pick) => before.find(pick);
   const style = last((x) => x.prop === 'fillStyle' || x.name === 'setFillStyle');
   const alpha = last((x) => x.prop === 'globalAlpha');
@@ -462,15 +462,18 @@ export function scan(src) {
       why = 'its fill changes with each pass of the loop'; at = f.at; break;
     }
     if (!why) {
-      // Each concentric shape is judged by the fill that follows it, before the next shape: its own fill.
+      // Each concentric shape is judged by its own target's fills and neighboring shapes.
       const sorted = [...shapes].sort((a, b) => a.at - b.at);
       for (const sh of concentric) {
-        const next = sorted.find((x) => x.at > sh.at)?.at ?? Infinity;
-        const prev = [...sorted].reverse().find((x) => x.at < sh.at)?.at ?? -1;
+        const on = (x) => target(loop.body, x.at) === target(loop.body, sh.at);
+        const siblings = sorted.filter(on);
+        const paints = fills.filter(on);
+        const next = siblings.find((x) => x.at > sh.at)?.at ?? Infinity;
+        const prev = [...siblings].reverse().find((x) => x.at < sh.at)?.at ?? -1;
         // Pixi v8 fills after the shape; v7's beginFill (and Canvas' fillStyle) is set before it.
-        const own = fills.filter((f) => f.at > sh.at && f.at < next).sort((a, b) => a.at - b.at)[0]
-          ?? fills.filter((f) => f.at < sh.at && f.at > prev && f.name !== 'stroke').sort((a, b) => b.at - a.at)[0];
-        if (own && FILL_ONLY.has(own.name) && seeThrough(own, fills)) {
+        const own = paints.filter((f) => f.at > sh.at && f.at < next).sort((a, b) => a.at - b.at)[0]
+          ?? paints.filter((f) => f.at < sh.at && f.at > prev && f.name !== 'stroke').sort((a, b) => b.at - a.at)[0];
+        if (own && FILL_ONLY.has(own.name) && seeThrough(own, fills, loop.body)) {
           why = 'it stacks translucent shapes of growing size on one centre'; at = sh.at; break;
         }
       }
