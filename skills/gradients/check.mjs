@@ -472,10 +472,14 @@ function preLoopStyles(s, src, at) {
   for (const v of styleVoids(region)) if (v.at > k) unknown(v.on, v.at);
   // A name declared or assigned again (`const ctx = other`, `this.ctx = other`) may be another context: every path
   // that starts with it loses its styles.
-  for (const m of region.matchAll(/(?:\b(?:const|let|var)\s+|(?:^|[;{}(,]|\n)\s*)([A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*)\s*=(?![=>])/g)) {
-    if (m.index > k) unknown(m[1].replace(/\s+/g, ''), m.index, true);
-  }
+  for (const b of rebound(region)) if (b.at > k) unknown(b.on, b.at, true);
   return out.sort((x, y) => x.at - y.at);
+}
+
+/** Names and paths given a new value in `text` (`const ctx = other`, `this.ctx = other`), as { on, at }. */
+function rebound(text) {
+  return [...text.matchAll(/(?:\b(?:const|let|var)\s+|(?:^|[;{}(,]|\n)\s*)([A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*)\s*=(?![=>])/g)]
+    .map((m) => ({ on: m[1].replace(/\s+/g, ''), at: m.index }));
 }
 
 const UPDATE = String.raw`(?:(?:\*\*|<<|>>>?|&&|\|\||\?\?|[-+*/%&|^])=|\+\+|--)`;
@@ -574,7 +578,9 @@ export function scan(src) {
     }
     const shapeTarget = (c) => target(loop.body, c.at); // the whole path (`a.two`), before `target` is shadowed below
     // A restore(), a reset(), a canvas resize or a style update in the loop may undo a style set before it.
-    const undone = new Set(styleVoids(loop.body).map((v) => v.on));
+    // So does a new value of the context's name or of an owner on its path (`ctx = other`).
+    const undone = new Set(styleVoids(loop.body).map((v) => v.on)), renamed = rebound(loop.body).map((b) => b.on);
+    const unknownHere = (on) => undone.has(on) || renamed.some((n) => on === n || on.startsWith(`${n}.`));
     if (!why) {
       // Each concentric shape is judged by the fill that follows it, before the next shape: its own fill. Only shapes
       // and fills on the shape's own object count: `a.fillStyle` does not paint what `b.fillRect` draws.
@@ -590,7 +596,7 @@ export function scan(src) {
           ?? mine.filter((f) => f.at < sh.at && f.at > prev && f.name !== 'stroke').sort((a, b) => b.at - a.at)[0];
         // A Canvas fillRect with no style of its own in the loop paints with the one set before the loop.
         const paint = own ?? (sh.name === 'fillRect' ? { name: 'fill', args: [], raw: [], at: sh.at } : undefined);
-        if (paint && FILL_ONLY.has(paint.name) && seeThrough(paint, mine, sh.at, undone.has(shapeTarget(sh)) ? [] : pre.filter((x) => x.on === shapeTarget(sh) || (x.binding && shapeTarget(sh).startsWith(`${x.on}.`))))) {
+        if (paint && FILL_ONLY.has(paint.name) && seeThrough(paint, mine, sh.at, unknownHere(shapeTarget(sh)) ? [] : pre.filter((x) => x.on === shapeTarget(sh) || (x.binding && shapeTarget(sh).startsWith(`${x.on}.`))))) {
           why = 'it stacks translucent shapes of growing size on one centre'; at = sh.at; break;
         }
       }

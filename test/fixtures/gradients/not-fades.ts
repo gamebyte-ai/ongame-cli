@@ -254,3 +254,8 @@ export function preLoopStyleOnARenamedContext(ctx: CanvasRenderingContext2D, oth
     for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
   }
 }
+
+export function preLoopStyleOnAContextRenamedInTheLoop(ctx: CanvasRenderingContext2D, other: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 0.1;
+  for (let i = 0; i < 20; i++) { ctx = other; ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4); } // another context each pass
+}
