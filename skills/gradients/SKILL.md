@@ -9,7 +9,7 @@ however many steps there are. This holds for a new game and for a change to a fi
 
 ## PixiJS v8: `FillGradient`
 
-`FillGradient` is part of `pixi.js` v8 (`import { FillGradient } from 'pixi.js'`). Build the shape first, then fill
+`FillGradient` is part of `pixi.js` v8 (`import { FillGradient } from 'pixi.js'`; measured on 8.22.0). Build the shape first, then fill
 it once.
 
 **Radial** (glow, halo, light rays, vignette). Use `textureSpace: 'global'` so the numbers are pixels in the
@@ -47,12 +47,11 @@ bg.rect(0, 0, width, height).fill(sky);
 - **Make each gradient once and reuse it.** A `FillGradient` owns a texture. Never create one per frame; call
   `destroy()` when its screen goes away. A fade that animates changes the `Graphics`' `alpha`, `scale` or
   `rotation`, not the gradient.
-- **Fade to the same colour at alpha 0** (`rgba(r, g, b, 0)`), not to transparent black, or the edge turns grey.
-- **Very tight stops** (a thin bright rim) may need `textureSize: 512`; the default is enough for soft fades.
+- **Very tight stops** (a thin bright rim) may need a larger `textureSize` than the default 256.
 - **Canvas 2D** (a texture painted once): `createRadialGradient` / `createLinearGradient` with `addColorStop`, then
   one `fillRect` or `arc`. The same rule holds: one fill, no stacked shapes.
 - **Three.js**: a gradient texture or a shader on one mesh, never stacked translucent planes.
-- An older Pixi (v7 and below) has no `FillGradient`. Paint the gradient once on a canvas and use it as a texture.
+- If the game's `pixi.js` exports no `FillGradient`, paint the gradient once on a canvas and use it as a texture.
 
 ## Check the source
 
