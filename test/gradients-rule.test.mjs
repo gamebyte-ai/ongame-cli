@@ -29,10 +29,10 @@ test('the same rays drawn with one FillGradient pass the check', () => {
   assert.match(out, /ok, no stacked-shape fade in 1 file/);
 });
 
-test('strip skies, ring vignettes, stacked ellipses, Canvas glows, a two-line ramp and Canvas globalAlpha glows and rings fail the check', () => {
+test('strip skies, ring vignettes, stacked ellipses, Canvas glows, a two-line ramp and Canvas globalAlpha glows and rings fail the check, also with a space before the bracket', () => {
   const { code, out } = check(fixture('strips.js'));
   assert.equal(code, 1, out);
-  for (const line of [4, 8, 12, 16, 20, 24, 28, 33, 37, 41, 45, 49, 57, 61, 65]) assert.match(out, new RegExp(`strips\\.js:${line}: `));
+  for (const line of [4, 8, 12, 16, 20, 24, 28, 33, 37, 41, 45, 49, 57, 61, 65, 69, 73]) assert.match(out, new RegExp(`strips\\.js:${line}: `));
 });
 
 test('particles, palette tiles, paint dabs, page dots, bars, per-object loops, line layers, outlines, tapered Canvas strokes and waived loops pass', () => {
@@ -43,7 +43,7 @@ test('particles, palette tiles, paint dabs, page dots, bars, per-object loops, l
 test('a folder is scanned recursively and nothing to check is an error, not a pass', () => {
   const all = check('test/fixtures/gradients');
   assert.equal(all.code, 1, all.out);
-  assert.match(all.out, /17 stacked-shape fades in 2 files \(4 checked\)/);
+  assert.match(all.out, /19 stacked-shape fades in 2 files \(4 checked\)/);
   const none = check('commands');
   assert.equal(none.code, 2, none.out);
   assert.match(none.out, /nothing was checked/);

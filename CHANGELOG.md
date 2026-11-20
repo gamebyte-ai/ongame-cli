@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.83 — 2026-11-20
+
+- `skills/gradients/check.mjs` reads a call's object correctly when its name has a space before the bracket (`.stroke (`, `ctx.fillRect (`). Before, such a call matched no object, and a real fade was missed.
+- `test/fixtures/gradients/strips.js` holds both spaced cases as reported fades.
+- Works with every ongame-cli release: the change is one script with no dependency.
+
 ## 1.7.82 — 2026-11-20
 
 - `/make-game` reads a strategy layer before designing a game: lessons on what made successful games work, by genre and by studio. Each lesson is applied, adapted or marked not used, and the decisions go to `docs/STRATEGY.md` before `docs/GAME_DESIGN.md`.

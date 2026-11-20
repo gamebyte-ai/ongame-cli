@@ -227,7 +227,7 @@ function receiver(s, open) {
   const ident = () => { const e = k + 1; while (k >= 0 && /[\w$]/.test(s[k])) k--; return s.slice(k + 1, e); };
   const ws = () => { while (k >= 0 && /\s/.test(s[k])) k--; };
   let root = '', prev = '';
-  ident(); // the method name
+  ws(); ident(); // the method name (`stroke (` has a space before its bracket)
   for (;;) {
     ws();
     if (s[k] === '?' && s[k + 1] === '.') k--;
@@ -256,7 +256,7 @@ function target(s, open) {
   const ident = () => { const e = k + 1; while (k >= 0 && /[\w$]/.test(s[k])) k--; return s.slice(k + 1, e); };
   const ws = () => { while (k >= 0 && /\s/.test(s[k])) k--; };
   const path = []; // innermost first: [{ name, called }]
-  ident(); // the method name
+  ws(); ident(); // the method name (`stroke (` has a space before its bracket)
   for (;;) {
     ws();
     if (s[k] === '?' && s[k + 1] === '.') k--;
