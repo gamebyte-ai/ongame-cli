@@ -60,7 +60,7 @@ description: Game concept — vision, core loop, target audience + visual placeh
    remake of the shared game → derive visuals that MATCH the reference ("recreate this exact scene and style"); if
    they want their own game inspired by it → ADAPT ("in the style of the reference, but <our game's own identity>").
    Asset generation gated/unavailable → gray-box placeholder (flag it; never present gray-box as done).
-3b. **LOCK THE LOOK before any asset wave:** follow `skills/game-concept/SKILL.md`, "Lock the look".
+3b. **LOCK THE LOOK before any asset wave — write `docs/ART_DIRECTION.md`:** follow `skills/game-concept/SKILL.md`, "Lock the look".
 
 4. Output: `docs/CONCEPT.md`.
 5. **Observability — headline decision** (one emit, before `state_advance`): `trace_emit(buildId, name="phase.output", payload={ input:<context consumed: the `brain_recall` retention signal(s), any `knowledge_get` key(s), and the RESEARCH.md findings + user intent this phase used>, output:<artifact produced: `docs/CONCEPT.md` written + the key concept values — core loop, hook, target audience, key-art path>, metadata:{ decision:<the concept direction chosen — core loop / fantasy / hook>, why:<the rationale, explicitly citing what drove it: the `brain_recall` retention signal (e.g. "cascade match-3 retains D1=0.6"), the relevant knowledge, and the user's stated intent> } })` — becomes a `generation` observation nested under the phase span (context→artifact→why; no-op if buildId is absent).
