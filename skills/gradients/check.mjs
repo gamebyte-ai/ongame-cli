@@ -428,7 +428,8 @@ function seeThrough(f, fills, at = f.at, pre = []) {
  * order, with the object they are set on (`on`, its whole path as `target()` gives it). An entry is `sure` only when
  * it always runs and stays: a plain statement in the blocks that hold the loop. A set in an earlier block (an `if`, a
  * callback, a bare `{}`), behind an unbraced `if`/`else`/`&&`/`?`, or in an arrow's expression body is not sure, and
- * a `restore()` or `reset()` on the object adds an unsure entry for both styles. seeThrough() judges by the last entry, so any
+ * a `restore()` or `reset()` on the object, a resize of its canvas or a comma-joined set adds an unsure entry for
+ * both styles. seeThrough() judges by the last entry, so any
  * doubt after a sure set means no judgement.
  */
 function preLoopStyles(s, src, at) {
@@ -452,20 +453,25 @@ function preLoopStyles(s, src, at) {
   };
   const region = s.slice(0, at);
   const out = [];
+  const unknown = (on, i) => { for (const prop of ['fillStyle', 'globalAlpha']) out.push({ name: 'fill', prop, on, at: i, sure: false, args: [], raw: [] }); };
   for (const m of region.matchAll(/\.\s*(fillStyle|globalAlpha)\s*=(?!=)\s*([^;\n]*)/g)) {
     if (m.index <= k) continue;
     const end = m.index + m[0].indexOf(m[1]) + m[1].length;
     const from = m.index + m[0].length - m[2].length;
     const raw = src.slice(from, from + m[2].length);
     const entry = { name: 'fill', prop: m[1], on: target(region, end), at: m.index, sure: sure(m.index) };
+    // `a = x, b = y` in one statement: this regex reads it as one value, so neither style is known after it.
+    if (splitArgs(m[2]).length > 1) { unknown(entry.on, m.index); continue; }
     out.push(m[1] === 'globalAlpha'
       ? { ...entry, args: [`{ alpha: ${m[2]} }`], raw: [`{ alpha: ${raw} }`] }
       : { ...entry, args: [m[2]], raw: [raw] });
   }
   for (const m of region.matchAll(/\.\s*(?:restore|reset)\s*\(/g)) {
-    if (m.index <= k) continue;
-    const on = target(region, m.index + m[0].length - 1);
-    for (const prop of ['fillStyle', 'globalAlpha']) out.push({ name: 'fill', prop, on, at: m.index, sure: false, args: [], raw: [] });
+    if (m.index > k) unknown(target(region, m.index + m[0].length - 1), m.index);
+  }
+  // Setting `ctx.canvas.width` or `.height` resets every style of ctx.
+  for (const m of region.matchAll(/\.\s*canvas\s*\.\s*(?:width|height)\s*=(?!=)/g)) {
+    if (m.index > k) unknown(target(region, m.index + m[0].indexOf('canvas') + 'canvas'.length), m.index);
   }
   return out.sort((x, y) => x.at - y.at);
 }

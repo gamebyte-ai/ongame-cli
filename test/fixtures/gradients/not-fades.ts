@@ -201,3 +201,13 @@ export function preLoopStyleRestoredInTheLoop(ctx: CanvasRenderingContext2D): vo
   ctx.save(); ctx.fillStyle = 'rgba(0,0,0,0.1)';
   for (let i = 0; i < 20; i++) { ctx.restore(); ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4); } // restore() undoes it
 }
+
+export function preLoopStyleResetByAResize(ctx: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 0.1; ctx.canvas.width = 400;                // a resize puts alpha 1 back
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
+
+export function preLoopStylesJoinedByAComma(ctx: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 0.1, ctx.globalAlpha = 1;                   // the second set wins
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
