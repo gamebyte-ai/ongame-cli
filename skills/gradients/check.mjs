@@ -469,21 +469,33 @@ export function scan(src) {
       return size.some((k) => sh.args[k] !== undefined && depends(sh.args[k], ramp) && !impure(sh.args[k], dep))
         && !sh.args.some((a, k) => !size.includes(k) && depends(a, dep));
     });
+    // A fill given a local style object (`const style = { alpha: 0.05 }; g.fill(style)`) is judged by that object,
+    // in its blanked (`args`) and source (`raw`) text. Only a declaration with no use between it and the fill
+    // counts: a write or a helper could change the style.
+    const resolved = (f) => {
+      const before = loop.body.slice(0, f.at);
+      const defs = declarations(before);
+      const args = [...f.args], raw = [...f.raw];
+      f.args.forEach((a, k) => {
+        const name = a.trim();
+        if (!/^[A-Za-z_$][\w$]*$/.test(name)) return;
+        const escaped = name.replace(/\$/g, '\\$');
+        const uses = [...before.matchAll(new RegExp(`(?:^|[^\\w$])${escaped}(?![\\w$])`, 'g'))];
+        if (uses.length !== 1) return;
+        const matches = defs.filter(([n]) => n === name);
+        const value = matches.length === 1 ? matches[0][1].trim() : '';
+        if (!value.startsWith('{') || close(value, 0) !== value.length - 1) return;
+        const from = before.indexOf(value, uses[0].index); // blank() keeps offsets, so the source has it here too
+        if (from < 0) return;
+        args[k] = value;
+        raw[k] = src.slice(loop.bodyAt + from, loop.bodyAt + from + value.length);
+      });
+      return { ...f, args, raw };
+    };
     for (const f of fills) {
       const style = f.args.join(',');
       if (/\bnew\s+FillGradient\b/.test(style)) continue;
-      const before = loop.body.slice(0, f.at);
-      const defs = declarations(before);
-      const args = f.args.map((a) => {
-        const name = a.trim();
-        if (!/^[A-Za-z_$][\w$]*$/.test(name)) return a;
-        const escaped = name.replace(/\$/g, '\\$');
-        // Resolve only a declaration with no intervening uses: a write or helper could change the style.
-        if ([...before.matchAll(new RegExp(`(?:^|[^\\w$])${escaped}(?![\\w$])`, 'g'))].length !== 1) return a;
-        const matches = defs.filter(([n]) => n === name);
-        const value = matches.length === 1 ? matches[0][1].trim() : '';
-        return value.startsWith('{') && close(value, 0) === value.length - 1 ? value : a;
-      });
+      const { args } = resolved(f);
       const colour = colourArgs({ ...f, args }).join(','); // a ramp is in colour or alpha only: a growing line width is line art
       const read = reads(withoutLookups(colour));
       if (![...read].some((x) => ramp.has(x))) continue;
@@ -508,7 +520,7 @@ export function scan(src) {
         // Pixi v8 fills after the shape; v7's beginFill (and Canvas' fillStyle) is set before it.
         const own = mine.filter((f) => f.at > sh.at && f.at < next).sort((a, b) => a.at - b.at)[0]
           ?? mine.filter((f) => f.at < sh.at && f.at > prev && f.name !== 'stroke').sort((a, b) => b.at - a.at)[0];
-        if (own && FILL_ONLY.has(own.name) && seeThrough(own, mine, sh.at)) {
+        if (own && FILL_ONLY.has(own.name) && seeThrough(resolved(own), mine, sh.at)) {
           why = 'it stacks translucent shapes of growing size on one centre'; at = sh.at; break;
         }
       }
