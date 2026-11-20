@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.81 — 2026-11-20
+
+- `genres/arrow-escape.md` now carries what our teardown of the Maze Out Android build shows, next to the podcast's lessons. Lessons 1, 2, 6, 7, 8 and 10 gain observed numbers: 5 lives at 30 minutes each, the obstacle levels, the hard-level beat and the timer.
+- Six new lessons, `arrow-escape/18` to `arrow-escape/23`: grow the board as the clock shrinks, boosters per fail state, rising continue prices, quick-clear combos, what plays after the last level, and a daily level with its own rules.
+- `test/strategy-layer.test.mjs` checks the corrected lives line, the new lessons and this version line.
+- Works with every ongame-cli release: the change is skill text only.
+
 ## 1.7.80 — 2026-11-20
 
 - `/make-game` reads a strategy layer before designing a game: lessons on what made successful games work, by genre and by studio. Each lesson is applied, adapted or marked not used, and the decisions go to `docs/STRATEGY.md` before `docs/GAME_DESIGN.md`.
