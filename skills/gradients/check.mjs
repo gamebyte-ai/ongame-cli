@@ -406,7 +406,8 @@ function translucent(name, raw) {
  * `globalAlpha` set last on the same target before it in the loop (`fills` holds only that target's fills). A Canvas style set (`ctx.fillStyle = ...`, `ctx.globalAlpha = ...`)
  * is judged the same way, together with the other one, at `at` (the shape it paints, when that comes later):
  * `globalAlpha = 1` after a see-through `fillStyle` still paints see-through. A bare Pixi `fill()` is assumed to use
- * the last `setFillStyle` the same way (a guess, not checked against PixiJS).
+ * the last `setFillStyle` the same way (a guess, not checked against PixiJS). A style the loop never sets on that
+ * target is read from `pre`, what preLoopStyles() found before the loop on it.
  */
 function seeThrough(f, fills, at = f.at, pre = []) {
   const bare = f.name === 'fill' && !f.prop && f.raw.every((a) => /^\s*(?:(['"])(?:nonzero|evenodd)\1)?\s*$/.test(a));
