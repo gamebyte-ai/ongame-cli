@@ -1,6 +1,6 @@
 ---
 name: assets
-description: Asset generation phase — full asset manifest from GAME_DESIGN.md, consistent art direction, real asset generation (not gray-box), and integration into game code.
+description: Asset generation phase — full asset manifest from GAME_DESIGN.md (or, in concept-to-game, from the concept screens), consistent art direction, real asset generation (not gray-box), and integration into game code (none in concept-to-game).
 ---
 # Assets Phase (production)
 
@@ -8,6 +8,9 @@ This phase generates the game's **visual identity**: in a single consistent art 
 prints ALL the visuals required by GAME_DESIGN.md with **real generated assets** and wires them into the
 game code. Output: a game that renders with real textures instead of gray-box and speaks a
 single language.
+
+**`concept-to-game` is the exception:** there this phase runs before `docs` and `code`, so it cuts the
+concept screens into assets and wires nothing. Read "Concept-to-game" below first.
 
 > You are an **asset-direction** expert. The task is not to print individual visuals one by
 > one; it is to establish a **consistent art-direction**, bring all assets into that language,
@@ -54,7 +57,31 @@ Only the legacy **grid mode** is prompt-only; describe the anchored character in
 A mascot that has to *act* on menus and result cards (cheer, wave, "oops") is a **`video`** asset instead (§3):
 fetch `pattern:mascot-video` before generating it.
 
-> **GRAYBOX-FIRST — you run AFTER `code`.** By the time this phase starts, the `code`
+## Concept-to-game: you run BEFORE `docs` and `code`
+
+Read the mode first: `state_get(buildId)` → `plan.path`. In `concept-to-game` the order is research, concept,
+assets, docs, then the maker's review, then code in a continuation (`/make-game`, "A new game starts with a concept
+review"). This case applies when the path is `concept-to-game` AND `gameDir` has no game code yet: the build before
+the review. It has no `docs/GAME_DESIGN.md` either. The concept screens are the picture the maker will review, so
+the assets come from them. These replace the matching steps below. After the review the game has code, so an
+assets run in a continuation follows the normal steps, §6 wiring included.
+
+1. **Source:** cut the assets from the concept screens recorded in `docs/CONCEPT.md`. Read
+   `knowledge_get({ key: 'pattern:concept-cut' })` for how. Do not ask "from the concept or from the design doc"
+   (§1a): there is no design doc, and the mode already chose the concept.
+2. **Manifest:** build it from the concept screens, `docs/CONCEPT.md`, `docs/ART_DIRECTION.md` and
+   `docs/RESEARCH.md`, not from `docs/GAME_DESIGN.md` (§1b). Take `ART_PREFIX` (§2) from `docs/ART_DIRECTION.md`.
+3. **Generate and write:** RULE 0, §3-§5 apply unchanged. Write every asset with `assets_materialize` and use
+   the `paths` it returns.
+4. **No code wiring.** Skip §6. Do not create `src/`, `public/assets/` or `src/assets.ts`, and do not scaffold.
+   Instead write `docs/ASSETS.md`: one row per asset with its manifest `id`, kind, the concept screen it was cut
+   from and its returned path. The code work after the review wires these files in.
+5. **Verify (§7):** skip `npx tsc --noEmit` and `preview_start`; there is no game to run. Open each written file
+   and check it is real (`placeholder: false`) and matches its screen. `assets_ok` is 1 when every manifest row has
+   a real path in `docs/ASSETS.md`; its comment says tsc was not run because no code exists yet.
+6. **Finish (§8):** the phase output names `docs/ASSETS.md` and the concept screens, not `src/assets.ts`.
+
+> **GRAYBOX-FIRST — you run AFTER `code`** (every mode except `concept-to-game`). By the time this phase starts, the `code`
 > phase has produced a fully-PLAYABLE graybox game (placeholder `PIXI.Graphics`/`PIXI.Text`). You are the **"dress"**
 > step: you author `src/assets.ts`, generate the real art in one art-direction, and SWAP the gray-box shapes for real
 > sprites WITHOUT changing the mechanic. The game already plays — you make it look published.
@@ -185,7 +212,8 @@ those anyway; they chose.
 > what you can name on the screen. Call `knowledge_get({ key: 'pattern:concept-cut' })` for how to cut a screen into
 > assets. If it returns empty, continue with your own judgment.
 
-Read `docs/GAME_DESIGN.md`. Write down EVERY visual the game needs. Manifest = a single table;
+Read `docs/GAME_DESIGN.md` (in `concept-to-game`, the concept screens instead: see "Concept-to-game"). Write down
+EVERY visual the game needs. Manifest = a single table;
 each row is an asset. **Do not skip any visual** — screens, HUD, entities, menu.
 
 Scan the categories (drop the ones that do not apply based on the game's genre):
