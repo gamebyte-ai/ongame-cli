@@ -18,8 +18,8 @@ node <this skill's dir>/apply.mjs --check <gameDir>/dist/index.html      # 0 = t
   An older block (v1/v2, with the "Built with" caption and the first-screen pill) is replaced in place.
 - **After the build, `--check` the built page.** Exit 1 means the build dropped the block (a build step that rewrites
   `index.html`); fix the build, do not publish without the credit.
-- **Timing.** The card holds the logo for 1.2 s after the page has loaded, then fades in 0.35 s; a tap after load
-  skips it. It goes at 6 s at the latest. The dev server shows no card, so look at it once on the built page
+- **Timing.** The card stays until the logo has been visible for at least 1.2 s and the page has loaded, then fades
+  in 0.35 s; a tap after load skips it. It goes at 6 s at the latest. The dev server shows no card, so look at it once on the built page
   (`npx vite preview`).
 - **A game that draws its first screen late** (its own loader after the page load) shows a dark gap between the card
   and that screen. Apply with `--wait ready` and call `window.ongameCredit?.ready()` once the first screen is drawn
