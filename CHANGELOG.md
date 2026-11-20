@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.7.82 — 2026-11-20
+
+- `/make-game` reads a strategy layer before designing a game: lessons on what made successful games work, by genre and by studio. Each lesson is applied, adapted or marked not used, and the decisions go to `docs/STRATEGY.md` before `docs/GAME_DESIGN.md`.
+- The new `skills/strategy/SKILL.md` says how to pick the matching files, decide each lesson, check an existing game against them, and add a new source as lessons in our own words.
+- First lessons: `genres/arrow-escape.md` (17 lessons on arrow escape puzzles: a fail state, sectioned levels, a schedule of new mechanics, late interstitials, purchases and launch ads), `studios/grand-games.md` (8 lessons) and `principles.md` (5 lessons for every genre). `TEMPLATE.md` is the shape for the next genre or studio.
+- Every lesson number says where it came from: *Observed:* in the reviewed game, *Estimated by the source:*, or *Our inference:* when we chose it. Agents copy that label into `docs/STRATEGY.md` and `docs/GAME_DESIGN.md`, so our own thresholds never read as the source's facts.
+- `test/strategy-layer.test.mjs` checks every strategy file's shape, ids and wording, the `/make-game` section and this version line.
+- Works with every ongame-cli release: the change is skill text only.
+- `skills/gradients/check.mjs` no longer reports rings whose line width grows while their colour stays the same. That is line art, not a fade. The check now looks only at a fill's colour and alpha for a fade; `width` and other style keys are ignored, and so is the width in a v7 `lineStyle(width, color, alpha)`.
+- `test/fixtures/gradients/not-fades.ts` holds both ring cases as passing ones.
+- Works with every ongame-cli release: the change is one script with no dependency.
+- `skills/gradients/check.mjs` no longer reports a line whose alpha changes just because rings are drawn beside it on another object. A stroke now counts as a ring fade only when it strokes growing rings on its own object. Two Graphics kept on one owner (`layer.rings`, `layer.path`) count as two objects.
+- `test/fixtures/gradients/not-fades.ts` holds both cases as passing ones.
+- `skills/gradients/check.mjs` now reports a Canvas fade that sets a see-through `fillStyle` and then `globalAlpha = 1` before each growing shape. The check judges the two together, as the canvas paints with both; before, it read only the last one set.
+- `test/fixtures/gradients/strips.js` holds it as a reported case.
+- `skills/gradients/check.mjs` no longer blames one canvas for another canvas's colour. A growing shape is now judged only by the fills and Canvas style sets on its own object. Before, a see-through `a.fillStyle` made `b.fillRect` on another context count as a stacked fade.
+- `test/fixtures/gradients/not-fades.ts` holds it as a passing case.
+- `skills/gradients/check.mjs` no longer reports a Canvas line drawn in a loop with a changing `ctx.globalAlpha` and only `ctx.stroke()`. A tapered stroke along a path is line art. `globalAlpha` now counts as the fill or the stroke that the next paint call makes, so a stroke-only loop is a fade only when it strokes growing rings. Only paint calls on the same context count: a fill on another canvas beside the line does not make it a fill.
+- `test/fixtures/gradients/not-fades.ts` holds the tapered stroke, alone and beside a fill on another context, as passing cases. `test/fixtures/gradients/strips.js` holds a `globalAlpha` glow on growing filled arcs and `globalAlpha` rings as reported cases.
+
 ## 1.7.81 — 2026-11-20
 
 - New games report how they are played: `/make-game` and the code phase write analytics shim v2 calls (`screen()`, `levelStart()` / `levelEnd()`, `economy()`, a `label` on every interactive object). The polish phase checks them, as it checks level events.

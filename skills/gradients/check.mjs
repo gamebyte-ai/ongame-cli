@@ -168,12 +168,31 @@ function calls(body, names, rawBody = body) {
   return out;
 }
 
-/** Canvas 2D style assignments (`ctx.fillStyle = ...`, `ctx.globalAlpha = ...`) as fill entries, like calls(). */
+/**
+ * Canvas 2D style assignments (`ctx.fillStyle = ...`, `ctx.globalAlpha = ...`) as fill entries, like calls().
+ * `globalAlpha` applies to every paint call on its own context up to that context's next `globalAlpha` set (wrapping
+ * round the loop body, since it paints on the next pass too). It counts as a fill when one of those calls is a
+ * `fill`/`fillRect`/`fillText`, and as a stroke when they are all `stroke`/`strokeRect`/`strokeText`. With no such
+ * call in the body it counts as a fill. Paint calls on another context (`other.fillRect`) do not count.
+ */
 function styleSets(body, rawBody) {
   const out = [];
+  const paints = [...body.matchAll(/\.\s*(fill|stroke)(?:Rect|Text)?\s*\(/g)]
+    .map((p) => ({ at: p.index, kind: p[1], on: target(body, p.index + p[0].length - 1) }));
+  const alphas = [...body.matchAll(/\.\s*(globalAlpha)\s*=(?!=)/g)]
+    .map((a) => ({ at: a.index, on: target(body, a.index + a[0].indexOf(a[1]) + a[1].length) }));
+  const paintedBy = (at, on) => {
+    const sets = alphas.filter((a) => a.on === on).map((a) => a.at);
+    const next = sets.find((a) => a > at);
+    const first = sets[0] ?? at;
+    // Up to the next set; with none after it, to the end of the body and on from its start up to the first set.
+    const mine = paints.filter((p) => p.on === on && (next !== undefined ? p.at > at && p.at < next : p.at > at || p.at < first));
+    return !mine.length || mine.some((p) => p.kind === 'fill') ? 'fill' : 'stroke';
+  };
   for (const m of body.matchAll(/\.\s*(fillStyle|globalAlpha|strokeStyle)\s*=(?!=)\s*([^;\n]*)/g)) {
     const from = m.index + m[0].length - m[2].length;
-    const name = m[1] === 'strokeStyle' ? 'stroke' : 'fill';
+    const on = target(body, m.index + m[0].indexOf(m[1]) + m[1].length); // the context it is set on
+    const name = m[1] === 'strokeStyle' ? 'stroke' : m[1] === 'globalAlpha' ? paintedBy(m.index, on) : 'fill';
     const value = m[1] === 'globalAlpha' ? `{ alpha: ${m[2]} }` : m[2];
     const raw = m[1] === 'globalAlpha' ? `{ alpha: ${rawBody.slice(from, from + m[2].length)} }` : rawBody.slice(from, from + m[2].length);
     out.push({ name, prop: m[1], args: [value], raw: [raw], at: m.index + 1 + m[1].length + (m[0].indexOf(m[1]) - 1) });
@@ -225,6 +244,43 @@ function receiver(s, open) {
     prev = root; root = name;
     if (root === 'this') return prev ? `this.${prev}` : 'this';
   }
+}
+
+/**
+ * The object a drawing call at `open` (its `(`) draws on, as its whole property path: `layer.rings.circle(` ->
+ * `layer.rings`, `g.circle(...).stroke(` -> `g`. Two Graphics kept on one owner (`layer.rings`, `layer.path`) are
+ * two objects, which `receiver()` (the root name only) cannot tell apart. A chain that starts with `new` gives `new`.
+ */
+function target(s, open) {
+  let k = open - 1;
+  const ident = () => { const e = k + 1; while (k >= 0 && /[\w$]/.test(s[k])) k--; return s.slice(k + 1, e); };
+  const ws = () => { while (k >= 0 && /\s/.test(s[k])) k--; };
+  const path = []; // innermost first: [{ name, called }]
+  ident(); // the method name
+  for (;;) {
+    ws();
+    if (s[k] === '?' && s[k + 1] === '.') k--;
+    if (s[k] !== '.') {
+      if (/(?:^|[^\w$.])new$/.test(s.slice(Math.max(0, k - 3), k + 1))) return 'new';
+      break;
+    }
+    k--; ws();
+    let called = false;
+    while (s[k] === ')' || s[k] === ']') { // a call or lookup in the chain: step over it
+      if (s[k] === ')') called = true;
+      const o = s[k] === ')' ? '(' : '[', c = s[k];
+      let d = 0;
+      for (; k >= 0; k--) { if (s[k] === c) d++; else if (s[k] === o && --d === 0) break; }
+      k--; ws();
+    }
+    const name = ident();
+    if (!name) break;
+    path.push({ name, called });
+  }
+  // From the root, the names up to the first call: `g.circle(...)` in `g.circle(...).stroke(` is a drawing call on g.
+  const out = [];
+  for (const seg of path.reverse()) { out.push(seg.name); if (seg.called) { if (out.length > 1) out.pop(); break; } }
+  return out.join('.');
 }
 
 /** The loops in blanked source: { at, vars, body, bodyAt, steps }. */
@@ -347,17 +403,37 @@ function translucent(name, raw) {
 
 /**
  * True when fill `f` is see-through. A Canvas `ctx.fill()` carries no style: it paints with the `fillStyle` and
- * `globalAlpha` set last before it in the loop. A bare Pixi `fill()` is assumed to use the last `setFillStyle` the
- * same way (a guess, not checked against PixiJS).
+ * `globalAlpha` set last before it in the loop. A Canvas style set (`ctx.fillStyle = ...`, `ctx.globalAlpha = ...`)
+ * is judged the same way, together with the other one, at `at` (the shape it paints, when that comes later):
+ * `globalAlpha = 1` after a see-through `fillStyle` still paints see-through. A bare Pixi `fill()` is assumed to use
+ * the last `setFillStyle` the same way (a guess, not checked against PixiJS).
  */
-function seeThrough(f, fills) {
+function seeThrough(f, fills, at = f.at) {
   const bare = f.name === 'fill' && !f.prop && f.raw.every((a) => /^\s*(?:(['"])(?:nonzero|evenodd)\1)?\s*$/.test(a));
-  if (!bare) return translucent(f.name, f.raw);
-  const before = fills.filter((x) => x.at < f.at).sort((a, b) => b.at - a.at);
+  if (!bare && !f.prop) return translucent(f.name, f.raw);
+  const before = fills.filter((x) => x.at <= Math.max(at, f.at)).sort((a, b) => b.at - a.at);
   const last = (pick) => before.find(pick);
   const style = last((x) => x.prop === 'fillStyle' || x.name === 'setFillStyle');
   const alpha = last((x) => x.prop === 'globalAlpha');
   return [style, alpha].some((x) => x && translucent(x.name, x.raw));
+}
+
+// Style keys that set what a fill or stroke looks like in colour; `width`, `alignment`, `cap` and the rest do not.
+const COLOUR_KEYS = new Set(['color', 'alpha', 'fill', 'fillStyle', 'strokeStyle']);
+/**
+ * The parts of a fill call's arguments that set colour or alpha: a bare colour argument, and in a style object only
+ * its colour keys (spreads are kept, since they may carry one). v7 `lineStyle(width, color, alpha)` drops its width.
+ */
+function colourArgs(f) {
+  const args = f.name === 'lineStyle' && !/^\s*\{/.test(f.args[0] ?? '') ? f.args.slice(1) : f.args;
+  return args.map((a) => {
+    const t = a.trim();
+    if (!t.startsWith('{') || close(t, 0) !== t.length - 1) return a;
+    return splitArgs(t.slice(1, -1)).filter((e) => {
+      const key = /^\s*([A-Za-z_$][\w$]*)\s*(?::(?!:)|$)/.exec(e);
+      return !key || COLOUR_KEYS.has(key[1]);
+    }).join(',');
+  });
 }
 
 /** Findings for one source text: [{ line, fillLine, why }]. */
@@ -395,22 +471,29 @@ export function scan(src) {
     for (const f of fills) {
       const style = f.args.join(',');
       if (/\bnew\s+FillGradient\b/.test(style)) continue;
-      const read = reads(withoutLookups(style));
+      const colour = colourArgs(f).join(','); // a ramp is in colour or alpha only: a growing line width is line art
+      const read = reads(withoutLookups(colour));
       if (![...read].some((x) => ramp.has(x))) continue;
-      if (impure(style, dep) || [...read].some((x) => dep.has(x) && !ramp.has(x))) continue; // mixed with per-item data
-      if (!FILL_ONLY.has(f.name) && !concentric.length) continue; // a tapered stroke along a path: line art
+      if (impure(colour, dep) || [...read].some((x) => dep.has(x) && !ramp.has(x))) continue; // mixed with per-item data
+      // A stroke is a ring fade only when it strokes rings on its own object; rings on another object beside a
+      // tapered line along a path do not make that line a fade.
+      if (!FILL_ONLY.has(f.name) && !concentric.some((sh) => target(loop.body, sh.at) === target(loop.body, f.at))) continue;
       why = 'its fill changes with each pass of the loop'; at = f.at; break;
     }
     if (!why) {
-      // Each concentric shape is judged by the fill that follows it, before the next shape: its own fill.
-      const sorted = [...shapes].sort((a, b) => a.at - b.at);
+      // Each concentric shape is judged by the fill that follows it, before the next shape: its own fill. Only shapes
+      // and fills on the shape's own object count: `a.fillStyle` does not paint what `b.fillRect` draws.
+      const target = (c) => receiver(loop.body, c.at);
       for (const sh of concentric) {
+        const on = target(sh);
+        const sorted = shapes.filter((x) => target(x) === on).sort((a, b) => a.at - b.at);
+        const mine = fills.filter((f) => target(f) === on);
         const next = sorted.find((x) => x.at > sh.at)?.at ?? Infinity;
         const prev = [...sorted].reverse().find((x) => x.at < sh.at)?.at ?? -1;
         // Pixi v8 fills after the shape; v7's beginFill (and Canvas' fillStyle) is set before it.
-        const own = fills.filter((f) => f.at > sh.at && f.at < next).sort((a, b) => a.at - b.at)[0]
-          ?? fills.filter((f) => f.at < sh.at && f.at > prev && f.name !== 'stroke').sort((a, b) => b.at - a.at)[0];
-        if (own && FILL_ONLY.has(own.name) && seeThrough(own, fills)) {
+        const own = mine.filter((f) => f.at > sh.at && f.at < next).sort((a, b) => a.at - b.at)[0]
+          ?? mine.filter((f) => f.at < sh.at && f.at > prev && f.name !== 'stroke').sort((a, b) => b.at - a.at)[0];
+        if (own && FILL_ONLY.has(own.name) && seeThrough(own, mine, sh.at)) {
           why = 'it stacks translucent shapes of growing size on one centre'; at = sh.at; break;
         }
       }

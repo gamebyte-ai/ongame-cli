@@ -93,3 +93,45 @@ export function pageDots(g: Graphics, pages: number, cur: number): void {
 export function segmentedBar(g: Graphics, filled: number): void {
   for (let i = 0; i < 10; i++) g.rect(i * 22, 0, 20, 12).fill(i < filled ? 0x6fd36f : 0x2a2a2a);
 }
+
+export function widerRings(g: Graphics): void {
+  for (let i = 0; i < 10; i++) g.circle(0, 0, 10 + i * 10).stroke({ color: 0xffffff, width: 1 + i }); // one opaque colour: line art
+}
+
+export function widerRingsV7(g: Graphics): void {
+  for (let i = 0; i < 10; i++) { g.lineStyle(1 + i, 0xffffff, 1); g.drawCircle(0, 0, 10 + i * 10); } // v7: width comes first
+}
+
+export function ringsBesideFadingLine(rings: Graphics, path: Graphics): void {
+  for (let i = 0; i < 20; i++) {                               // the rings and the fading line are two objects
+    rings.circle(0, 0, 10 + i * 4).stroke({ color: 0xffffff, width: 1 });
+    path.moveTo(i * 20, 0).lineTo(i * 20, 50).stroke({ color: 0xffffff, alpha: i / 20 });
+  }
+}
+
+export function ringsBesideFadingLineOnOneOwner(layer: { rings: Graphics; path: Graphics }): void {
+  for (let i = 0; i < 20; i++) {                               // two Graphics kept on one owner are still two objects
+    layer.rings.circle(0, 0, 10 + i * 4).stroke({ color: 0xffffff, width: 1 });
+    layer.path.moveTo(i * 20, 0).lineTo(i * 20, 50).stroke({ color: 0xffffff, alpha: i / 20 });
+  }
+}
+
+export function twoCanvases(a: CanvasRenderingContext2D, b: CanvasRenderingContext2D): void {
+  // a's see-through fillStyle does not paint b's rects; b keeps its own opaque fill
+  for (let i = 0; i < 20; i++) { a.fillStyle = 'rgba(255,255,255,0.05)'; b.fillRect(0, 0, 100 - i * 4, 100 - i * 4); }
+}
+
+export function canvasTaperedStroke(ctx: CanvasRenderingContext2D): void {
+  for (let i = 0; i < 20; i++) {                               // globalAlpha here is the stroke's: a tapered line, line art
+    ctx.globalAlpha = i / 20;
+    ctx.beginPath(); ctx.moveTo(i * 20, 0); ctx.lineTo(i * 20 + 20, 0); ctx.stroke();
+  }
+}
+
+export function canvasTaperedStrokeBesideAnotherCanvas(ctx: CanvasRenderingContext2D, other: CanvasRenderingContext2D): void {
+  for (let i = 0; i < 20; i++) {                               // the fill is on another context: ctx's alpha is still a stroke's
+    ctx.globalAlpha = i / 20;
+    ctx.beginPath(); ctx.moveTo(i * 20, 0); ctx.lineTo(i * 20 + 20, 0); ctx.stroke();
+    other.fillRect(0, 0, 10, 10);
+  }
+}
