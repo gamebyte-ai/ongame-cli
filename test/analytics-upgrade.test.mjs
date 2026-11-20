@@ -173,6 +173,30 @@ test('default imports and re-exports count as names the game needs', () => {
   assert.equal(run(dir3, '--shim', v2File(), '--audience', 'general').status, 2);
 });
 
+test('an import from a game helper named telemetry is not an import from the shim', () => {
+  const dir = game({ main: "import { quit } from '../utils/telemetry';\nimport { trackLevelStart } from '../telemetry';\nquit(); trackLevelStart(1);\n" });
+  fs.mkdirSync(path.join(dir, 'src', 'utils'));
+  fs.writeFileSync(path.join(dir, 'src', 'utils', 'telemetry.ts'), 'export function quit(): void {}\n');
+  const r = run(dir, '--shim', v2File(), '--audience', 'general');
+  assert.equal(r.status, 0, r.stdout);
+  assert.equal(summary(r).shim, 'upgraded');
+  // quit still comes from the helper, which the upgrade leaves as it was.
+  assert.equal(fs.readFileSync(path.join(dir, 'src/utils/telemetry.ts'), 'utf8'), 'export function quit(): void {}\n');
+  assert.match(fs.readFileSync(path.join(dir, 'src/views/Main.ts'), 'utf8'), /import \{ quit \} from '\.\.\/utils\/telemetry'/);
+  // The same name taken from the shim itself is still refused.
+  const shimQuit = game({ main: "import { quit } from '../telemetry';\nquit();\n" });
+  const refused = run(shimQuit, '--shim', v2File(), '--audience', 'general');
+  assert.equal(refused.status, 2);
+  assert.match(refused.stdout, /src\/views\/Main\.ts imports quit, which the v2 shim does not export/);
+  // So is an alias such as '@/telemetry', and a namespace or dynamic import of the helper is no refusal either.
+  assert.equal(run(game({ main: "import { quit } from '@/telemetry';\n" }), '--shim', v2File(), '--audience', 'general').status, 2);
+  const dir2 = game({ main: "import * as U from '../utils/telemetry';\nconst { quit } = U; quit();\nexport const l = () => import('../utils/telemetry.js');\n" });
+  fs.mkdirSync(path.join(dir2, 'src', 'utils'));
+  fs.writeFileSync(path.join(dir2, 'src', 'utils', 'telemetry.ts'), 'export function quit(): void {}\n');
+  const r2 = run(dir2, '--shim', v2File(), '--audience', 'general');
+  assert.equal(r2.status, 0, r2.stdout);
+});
+
 test('the page promises an opt-out only when the game calls setConsent', () => {
   const dir = game({ shim: SHIM_V2 });
   run(dir, '--audience', 'general');
