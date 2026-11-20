@@ -310,8 +310,9 @@ did not clearly improve, keep its old assets.
      `'complete'` on a genuine WIN only — counting a fail or quit as a completion hides the difficulty spike
      the funnel exists to find). If the game genuinely has no levels — an endless runner, a single-board toy —
      that is not a gap: say so plainly rather than inventing a level number.
-  1c. **CHECK screens and taps the same way.** `grep -rn --exclude=telemetry.ts "screen(" {gameDir}/src` finds nothing → add `screen('<id>')`
-     where each screen is shown. Every interactive Pixi object (`eventMode` `'static'` or `'dynamic'`) needs a
+  1c. **CHECK screens and taps the same way.** Only when `src/telemetry.ts` exports `screen` (shim v2):
+     `grep -rn --exclude=telemetry.ts "screen(" {gameDir}/src` finds nothing → add `screen('<id>')` where each screen is shown.
+     With shim v1, add no v2 call. Every interactive Pixi object (`eventMode` `'static'` or `'dynamic'`) needs a
      `label`; give each unlabelled one a short, stable name. Rules: `skills/analytics/SKILL.md`.
   1d. **Shim v2, audience and privacy page.** `Bash`: `node <pluginRoot>/skills/analytics/upgrade.mjs {gameDir}`.
      Exit 3 → ask the maker once whether the game is aimed at children (the question and options are in

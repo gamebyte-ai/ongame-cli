@@ -100,6 +100,8 @@ export function importedNames(srcDir) {
         clause = clause.replace(ns[0], '');
       }
       if (m[1] === 'import' && /^[A-Za-z_$][\w$]*/.test(clause.replace(/^[\s,]+/, ''))) add('default', file);
+      // `export * from` passes every name on; its users are elsewhere, so refuse rather than guess.
+      if (m[1] === 'export' && clause.startsWith('*')) add('* (a wildcard re-export)', file);
     }
   }
   return used;
