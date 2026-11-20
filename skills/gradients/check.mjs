@@ -483,11 +483,11 @@ export function scan(src) {
     if (!why) {
       // Each concentric shape is judged by the fill that follows it, before the next shape: its own fill. Only shapes
       // and fills on the shape's own object count: `a.fillStyle` does not paint what `b.fillRect` draws.
-      const target = (c) => receiver(loop.body, c.at);
+      const onTarget = (c) => target(loop.body, c.at);
       for (const sh of concentric) {
-        const on = target(sh);
-        const sorted = shapes.filter((x) => target(x) === on).sort((a, b) => a.at - b.at);
-        const mine = fills.filter((f) => target(f) === on);
+        const on = onTarget(sh);
+        const sorted = shapes.filter((x) => onTarget(x) === on).sort((a, b) => a.at - b.at);
+        const mine = fills.filter((f) => onTarget(f) === on);
         const next = sorted.find((x) => x.at > sh.at)?.at ?? Infinity;
         const prev = [...sorted].reverse().find((x) => x.at < sh.at)?.at ?? -1;
         // Pixi v8 fills after the shape; v7's beginFill (and Canvas' fillStyle) is set before it.
