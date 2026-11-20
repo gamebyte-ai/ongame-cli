@@ -35,10 +35,11 @@ test('the polish phase names the session events the SDK sends by itself', () => 
 
 test('the plugin version, lock and changelog name the release that adds these lines', () => {
   const version = JSON.parse(read('.claude-plugin/plugin.json')).version;
-  assert.equal(version, '1.7.87');
+  assert.ok(version.localeCompare('1.7.87', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.87 or later`);
   assert.equal(JSON.parse(read('skills/SKILLS.lock.json')).pluginVersion, version);
   const changelog = read('CHANGELOG.md');
-  const i = changelog.indexOf(`## ${version} `);
-  assert.ok(i > -1, 'the changelog has an entry for this version');
-  assert.ok(changelog.slice(i, changelog.indexOf('\n## ', i + 1)).includes('`mechanics.json`'));
+  const i = changelog.indexOf('## 1.7.87 ');
+  assert.ok(i > -1, 'the changelog has an entry for 1.7.87');
+  const end = changelog.indexOf('\n## ', i + 1);
+  assert.ok(changelog.slice(i, end === -1 ? undefined : end).includes('`mechanics.json`'));
 });
