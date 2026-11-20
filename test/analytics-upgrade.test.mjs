@@ -286,8 +286,8 @@ test('nothing in the analytics files names an internal tool or person', () => {
 
 test('the plugin version and changelog carry this change', () => {
   const version = JSON.parse(read('.claude-plugin/plugin.json')).version;
-  assert.ok(version.localeCompare('1.7.80', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.80 or later`);
-  assert.ok(read('CHANGELOG.md').includes('## 1.7.80'));
+  assert.ok(version.localeCompare('1.7.81', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.81 or later`);
+  assert.ok(read('CHANGELOG.md').includes('## 1.7.81'));
 });
 
 test('a refused file is named with forward slashes on every OS', async () => {

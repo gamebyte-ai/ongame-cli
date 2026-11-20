@@ -1,5 +1,5 @@
 {
-  "pluginVersion": "1.7.80",
+  "pluginVersion": "1.7.81",
   "generatedAt": "2026-11-20",
   "skills": {
     "analytics": {
@@ -21,6 +21,11 @@
       "sha256": "93045e7728be657b860115bb38753cd70913cc5ee2e43a43c0562a56222c4b74",
       "bytes": 5028,
       "lines": 88
+    },
+    "gradients": {
+      "sha256": "7f435eeed457d5bbdcf2619c1a8d6df2338064896e2a57b734476d62c4396b21",
+      "bytes": 4092,
+      "lines": 74
     },
     "intake": {
       "sha256": "4a02048a51710548b5a08aec1c14bc2faf7e881dcc1b703fe0104c011188fb8f",
@@ -68,9 +73,9 @@
       "lines": 100
     },
     "phases/polish": {
-      "sha256": "556a810b0c8bce39515af20733f1ffe547f20f2db1fcc72376750a47a31fdd34",
-      "bytes": 50741,
-      "lines": 508
+      "sha256": "977becc80bf25bd3057315c49eacb546713009b63a76fe5af634905087e34655",
+      "bytes": 51163,
+      "lines": 512
     },
     "phases/research": {
       "sha256": "121ee95275b701a4d80ed7535013c015780c280bd37542608a2a65d24f4bcbe5",

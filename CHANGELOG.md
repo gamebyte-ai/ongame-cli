@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.7.80 — 2026-11-20
+## 1.7.81 — 2026-11-20
 
 - New games report how they are played: `/make-game` and the code phase write analytics shim v2 calls (`screen()`, `levelStart()` / `levelEnd()`, `economy()`, a `label` on every interactive object). The polish phase checks them, as it checks level events.
 - `/analytics add` upgrades an existing web game to shim v2. Every call the game already makes keeps working, and telemetry is wired into `index.html` again. A second run changes nothing.
@@ -10,6 +10,16 @@
 - `/publish` writes the privacy page before it builds.
 - Shim v2 itself comes from the bundled game template. With an older onGame CLI, `/analytics add` says to update it and leaves the shim as it was.
 - `test/analytics-upgrade.test.mjs` checks these steps and this version line.
+
+## 1.7.80 — 2026-11-20
+
+- `skills/gradients/check.mjs` now finds two fades it missed. A Canvas glow that sets a see-through `fillStyle` and then calls a bare `ctx.fill()` on growing arcs is reported. A fade whose alpha is declared over two lines (`const t =` then `i / 20;`) is reported too.
+- `test/fixtures/gradients/strips.js` holds both as reported cases.
+- Works with every ongame-cli release: the change is one script with no dependency.
+- Anything in a game that fades (a glow, light rays, a sky, a vignette, shading) is drawn as one shape with one gradient fill. The rule now has its own skill, `gradients`, which loads whenever a game draws one, in a new game or a change to a finished one. It gives the PixiJS v8 `FillGradient` code.
+- `skills/gradients/check.mjs` finds fades faked with stacked rings, bands, strips or discs in a game's source and prints each as file:line. `/make-game` and the polish review run it before a game is called done. A colour picked per item (`palette[i]`, `colorOf(i)`, page dots, a segmented bar) and a new shape per pass are not fades and are not reported.
+- `test/gradients-rule.test.mjs` checks it: stacked-ring rays fail, the same rays with one `FillGradient` pass.
+- Works with every ongame-cli release: the change is skill text and one script with no dependency.
 
 ## 1.7.79 — 2026-11-20
 
