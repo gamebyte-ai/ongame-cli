@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.87 — 2026-11-20
+
+- `/make-game` now tells the agent what to do with a teardown's `mechanics.json`. It copies the sheet into the game, starts the tuning from its numbers and writes `mechanics.bind.json`. `play_gate` then reports each bound number as `match`, `drift` or `unread`. It never blocks. The CLI release `cli-v0.2.49` has this `play_gate` result.
+- The concept phase's look step names the file it writes, `docs/ART_DIRECTION.md`.
+- The polish phase names the two session events the telemetry SDK sends, `session_start` and `session_end`.
+- `test/source-parity-text.test.mjs` checks the three lines and this version.
+
 ## 1.7.86 — 2026-11-20
 
 - The launch credit is now the onGame logo alone on a dark screen (`#0e121b`), with no caption and no motion: it holds for 1.2 s after the page loads, then fades. The "Built with" caption and the first-screen pill are gone, so nothing of onGame stays on the game's screens after the card.

@@ -329,6 +329,13 @@ A Unity game is played the same way: build it for WebGL into `{gameDir}/dist` (`
 A game with no web build to play (Unity with no WebGL build support, a docs-only change) calls `play_gate` with
 `skip: {reason}`; tell the user it was not played. An install with no `play_gate` tool cannot play it either: say the game was not played on record.
 Give the user the check lines and any waiver with its reason.
+When the user gives a teardown's `mechanics.json` (the original game's feel numbers, each with its source), copy it
+unchanged to `{gameDir}/mechanics.json` and start the game's tuning from its values. Publish those tuning values in
+`__game.snapshot()`, and write `{gameDir}/mechanics.bind.json` beside the sheet: for each sheet id the game holds,
+`{"<id>": {"path": "/tuning/reach", "tolerance": 0.05, "scale": 1}}`. `path` is the snapshot field; `tolerance` is the
+allowed share of the value (default 0.05); `scale` is game units per sheet unit, for a game drawn at another size.
+`play_gate` then returns `mechanics`: each bound number as `match`, `drift` or `unread`. It never blocks. Bring a
+drifted number back to the sheet, or keep a deliberate change and say why in `play_review`.
 When `play_gate` passes, call `brain_reinforce` once for each recalled lesson you applied that no `pass` verdict
 reinforced yet. A blocked or skipped play reinforces nothing.
 

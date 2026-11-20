@@ -286,7 +286,7 @@ did not clearly improve, keep its old assets.
   1. `telemetry_provision({gameId: <game slug>, gameTitle: <visible game title>})` → returns `{ingestKey, endpoint, sdkUrl, snippet}`. This mints
      a per-game **public ingest key** (gate, via your OAuth identity — a tenant mints only its own) and builds the
      `ongame-telemetry` SDK snippet (NO disk write — it returns the snippet). By itself the SDK sends
-     sessions (and from SDK 2.0 also active time, taps on labelled objects and attempts left open), keyed by a random install id
+     sessions (`session_start` and `session_end`, and from SDK 2.0 also active time, taps on labelled objects and attempts left open), keyed by a random install id
      (pseudonymous, not anonymous); no PII.
   1b. **CHECK the level funnel is actually wired — do not assume it is.** The SDK's own events answer
      *"did anyone come back"* and *"what did they tap"*, nothing more; which level players stop at comes from
