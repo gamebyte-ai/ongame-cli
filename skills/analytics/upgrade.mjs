@@ -93,7 +93,7 @@ export function importedNames(srcDir) {
       }
       const ns = clause.match(/\*\s*as\s+([A-Za-z_$][\w$]*)/);
       if (ns && m[1] === 'import') {
-        for (const u of code.matchAll(new RegExp(String.raw`\b${ns[1]}\.([A-Za-z_$][\w$]*)`, 'g'))) add(u[1], file);
+        for (const u of code.matchAll(new RegExp(String.raw`(?<![\w$.])${ns[1]}\s*\.\s*([A-Za-z_$][\w$]*)`, 'g'))) add(u[1], file);
         // Any other use (destructuring, T['name'], passing T on) hides which names it needs: refuse rather than guess.
         const uses = [...code.matchAll(new RegExp(String.raw`(?<![\w$.])${ns[1]}\b(?!\s*\.)`, 'g'))].length;
         if (uses > 1) add(`${ns[1]} (used other than as ${ns[1]}.name)`, file);
