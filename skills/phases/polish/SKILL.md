@@ -179,8 +179,9 @@ Call `knowledge_get({ key: "pattern:polish-juice-recipes" })` for the tuned juic
 > The effect does NOT BLOCK input — the input lock already exists in the code phase during cascade resolving.
 
 **Anything soft — a glow, light rays, a sky, ribbon shading, a sparkle halo — is ONE shape with a gradient
-fill, never a stack of flat shapes or strips** (a stack renders as visible rings). Call
-`knowledge_get({ key: 'pattern:gradients' })` before drawing the first one.
+fill, never a stack of flat shapes or strips** (a stack renders as visible rings). Read `skills/gradients/SKILL.md`
+before drawing the first one: it has the PixiJS v8 `FillGradient` code and the source check. Call
+`knowledge_get({ key: 'pattern:gradients' })` too, for more examples.
 
 **If the game has ABILITIES** (spells, skills, ultimates, dashes, projectiles with a status effect —
 action/RPG/shooter/MOBA-shaped, 2D or 3D), the juice above is not enough: an ability effect has to
@@ -295,20 +296,31 @@ did not clearly improve, keep its old assets.
 - Provision shipped-game **player telemetry** so the deployed game feeds retention measurement ("which games retain") in **two steps**:
   1. `telemetry_provision({gameId: <game slug>, gameTitle: <visible game title>})` → returns `{ingestKey, endpoint, sdkUrl, snippet}`. This mints
      a per-game **public ingest key** (gate, via your OAuth identity — a tenant mints only its own) and builds the
-     `ongame-telemetry` SDK snippet (NO disk write — it returns the snippet). The SDK auto-emits exactly two
-     events — `session_start` and `session_end` — with an anonymous install id (D1/D7 retention); no PII.
-  1b. **CHECK the level funnel is actually wired — do not assume it is.** The SDK auto-emits exactly two events,
-     which answer *"did anyone come back"* and nothing else; which level players stop at comes from
+     `ongame-telemetry` SDK snippet (NO disk write — it returns the snippet). By itself the SDK sends
+     sessions (and from SDK 2.0 also active time, taps on labelled objects and attempts left open), keyed by a random install id
+     (pseudonymous, not anonymous); no PII.
+  1b. **CHECK the level funnel is actually wired — do not assume it is.** The SDK's own events answer
+     *"did anyone come back"* and *"what did they tap"*, nothing more; which level players stop at comes from
      `level_start` / `level_complete`, and those exist only if the game's own code sends them. That is the code
      phase's job (`src/telemetry.ts` → `trackLevelStart` / `trackLevelComplete`), so here you VERIFY rather than
      author — a game can provision, inject, build and publish perfectly with zero instrumentation, and every
      signal in this phase still reads green. Measured consequence: months of shipped games reporting healthy
      sessions and retention beside a completely empty funnel.
-     `Bash`: `grep -rl "trackLevelStart\|level_start" {gameDir}/src` → if the game HAS levels and this finds
-     nothing, add the two calls at the level transitions now (same rules as the code phase: numeric level, and
-     `level_complete` on a genuine WIN only — counting a fail or quit as a completion hides the difficulty spike
+     `Bash`: `grep -rl --exclude=telemetry.ts "levelStart\|trackLevelStart\|level_start" {gameDir}/src` → if the game HAS levels and this finds
+     nothing, add the calls at the level transitions now (same rules as the code phase: numeric level, and
+     `'complete'` on a genuine WIN only — counting a fail or quit as a completion hides the difficulty spike
      the funnel exists to find). If the game genuinely has no levels — an endless runner, a single-board toy —
      that is not a gap: say so plainly rather than inventing a level number.
+  1c. **CHECK screens and taps the same way.** Only when `src/telemetry.ts` exports `screen` (shim v2):
+     `grep -rn --exclude=telemetry.ts "screen(" {gameDir}/src` finds nothing → add `screen('<id>')` where each screen is shown.
+     With shim v1, add no v2 call. Every interactive Pixi object (`eventMode` `'static'` or `'dynamic'`) needs a
+     `label`; give each unlabelled one a short, stable name. Rules: `skills/analytics/SKILL.md`.
+  1d. **Shim v2, audience and privacy page.** `Bash`: `node <pluginRoot>/skills/analytics/upgrade.mjs {gameDir}`.
+     Exit 3 → ask the maker once whether the game is aimed at children (the question and options are in
+     `skills/analytics/SKILL.md`), then run again with `--audience`. Exit 5 → remove the telemetry scripts it names, run it
+     again. Exit 4 → the game has shim v1: run `/analytics add`
+     steps 1-2; when that upgrade succeeds, do 1c again for the v2 calls. Exit 0 or 4 with `"audience":"children"` → skip step 2 below; remove any `__ONGAME_TELEMETRY__` config and
+     telemetry `sdk.js` tag instead, so the game makes no id.
   2. `telemetry_inject(gameDir, indexFile, snippet)` → writes the returned `snippet` into the SOURCE
      `index.html` on disk. `injected: false` with a `reason` → the page still holds an older telemetry config, maybe
      another maker's key. Fix or delete the script the `note` names, then call `telemetry_inject` again. If it still
@@ -367,7 +379,10 @@ did not clearly improve, keep its old assets.
      this game, with the reason. Its `layout_fits` reads `window.__game.layout()` (the gamelabs-base template
      publishes it for the PixiJS HUD) after every phone step. Then open both footage images and call `play_review`.
      In the win frame, look at the light rays: rays that keep one flat colour out to their tips are a failed
-     check. Give them the centre-to-edge gradient (Sub-phase 8), rebuild and play again.
+     check. Give them the centre-to-edge gradient (Sub-phase 8), rebuild and play again. Rays, glows or a sky that
+     show rings or bands are failed the same way. Before the play gate, run
+     `node <this skill's folder>/../../gradients/check.mjs {gameDir}`: exit 1 names each fade made of stacked shapes. Draw
+     each one as one shape with one gradient fill, rebuild and run it again.
      Publish and `build.done` are refused until it passed for this `dist/`.
   2. **Pre-publish check — fix everything it finds before step 3.** Every refusal step 3 can give is findable here.
      - **A build behind the game:** you hold this build's `buildId` from `state_init`, and step 3's `gameId` is the

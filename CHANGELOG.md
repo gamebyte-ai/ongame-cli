@@ -1,20 +1,36 @@
 # Changelog
 
-## 1.7.81 — 2026-11-20
-
-- `genres/arrow-escape.md` now carries what our teardown of the Maze Out Android build shows, next to the podcast's lessons. Lessons 1, 2, 6, 7, 8 and 10 gain observed numbers: 5 lives at 30 minutes each, the obstacle levels, the hard-level beat and the timer. Each one keeps its label: *Observed:*, *Estimated by the source:* or *Our inference:*.
-- Six new lessons, `arrow-escape/18` to `arrow-escape/23`: grow the board as the clock shrinks, boosters per fail state, rising continue prices, quick-clear combos, what plays after the last level, and a daily level with its own rules.
-- `test/strategy-layer.test.mjs` checks the corrected lives line, the new lessons and this version line.
-- Works with every ongame-cli release: the change is skill text only.
-
-## 1.7.80 — 2026-11-20
+## 1.7.82 — 2026-11-20
 
 - `/make-game` reads a strategy layer before designing a game: lessons on what made successful games work, by genre and by studio. Each lesson is applied, adapted or marked not used, and the decisions go to `docs/STRATEGY.md` before `docs/GAME_DESIGN.md`.
 - The new `skills/strategy/SKILL.md` says how to pick the matching files, decide each lesson, check an existing game against them, and add a new source as lessons in our own words.
-- First lessons: `genres/arrow-escape.md` (17 lessons on arrow escape puzzles: a fail state, sectioned levels, a schedule of new mechanics, late interstitials, purchases and launch ads), `studios/grand-games.md` (8 lessons) and `principles.md` (5 lessons for every genre). `TEMPLATE.md` is the shape for the next genre or studio.
+- First lessons: `genres/arrow-escape.md` (23 lessons on arrow escape puzzles: a fail state, sectioned levels, a schedule of new mechanics, late interstitials, purchases and launch ads), `studios/grand-games.md` (8 lessons) and `principles.md` (5 lessons for every genre). `TEMPLATE.md` is the shape for the next genre or studio.
 - Every lesson number says where it came from: *Observed:* in the reviewed game, *Estimated by the source:*, or *Our inference:* when we chose it. Agents copy that label into `docs/STRATEGY.md` and `docs/GAME_DESIGN.md`, so our own thresholds never read as the source's facts.
-- `test/strategy-layer.test.mjs` checks every strategy file's shape, ids and wording, the `/make-game` section and this version line.
+- `genres/arrow-escape.md` also carries what our teardown of the Maze Out Android build shows, next to the podcast's lessons. Lessons 1, 2, 6, 7, 8 and 10 gain observed numbers: 5 lives at 30 minutes each, the obstacle levels, the hard-level beat and the timer. Each one keeps its label: *Observed:*, *Estimated by the source:* or *Our inference:*.
+- Six new lessons, `arrow-escape/18` to `arrow-escape/23`: grow the board as the clock shrinks, boosters per fail state, rising continue prices, quick-clear combos, what plays after the last level, and a daily level with its own rules.
+- `test/strategy-layer.test.mjs` checks every strategy file's shape, ids and wording, every lesson number's label, the `/make-game` section, the teardown's lessons and this version line.
 - Works with every ongame-cli release: the change is skill text only.
+
+## 1.7.81 — 2026-11-20
+
+- New games report how they are played: `/make-game` and the code phase write analytics shim v2 calls (`screen()`, `levelStart()` / `levelEnd()`, `economy()`, a `label` on every interactive object). The polish phase checks them, as it checks level events.
+- `/analytics add` upgrades an existing web game to shim v2. Every call the game already makes keeps working, and telemetry is wired into `index.html` again. A second run changes nothing.
+- `skills/analytics/upgrade.mjs` does the file work: it swaps the shim (the old one is kept in `.ongame/archive/`), refuses when the game imports a name v2 lacks, and writes `public/privacy.html`.
+- The maker is asked once whether the game is aimed at children. A children's game gets no analytics tag and no id; its privacy page says nothing is collected.
+- The privacy page and `skills/analytics/store-labels.md` list exactly the 17 events in `skills/analytics/events.json`, with the App Store and Google Play answers.
+- `/publish` writes the privacy page before it builds.
+- Shim v2 itself comes from the bundled game template. With an older onGame CLI, `/analytics add` says to update it and leaves the shim as it was.
+- `test/analytics-upgrade.test.mjs` checks these steps and this version line.
+
+## 1.7.80 — 2026-11-20
+
+- `skills/gradients/check.mjs` now finds two fades it missed. A Canvas glow that sets a see-through `fillStyle` and then calls a bare `ctx.fill()` on growing arcs is reported. A fade whose alpha is declared over two lines (`const t =` then `i / 20;`) is reported too.
+- `test/fixtures/gradients/strips.js` holds both as reported cases.
+- Works with every ongame-cli release: the change is one script with no dependency.
+- Anything in a game that fades (a glow, light rays, a sky, a vignette, shading) is drawn as one shape with one gradient fill. The rule now has its own skill, `gradients`, which loads whenever a game draws one, in a new game or a change to a finished one. It gives the PixiJS v8 `FillGradient` code.
+- `skills/gradients/check.mjs` finds fades faked with stacked rings, bands, strips or discs in a game's source and prints each as file:line. `/make-game` and the polish review run it before a game is called done. A colour picked per item (`palette[i]`, `colorOf(i)`, page dots, a segmented bar) and a new shape per pass are not fades and are not reported.
+- `test/gradients-rule.test.mjs` checks it: stacked-ring rays fail, the same rays with one `FillGradient` pass.
+- Works with every ongame-cli release: the change is skill text and one script with no dependency.
 
 ## 1.7.79 — 2026-11-20
 

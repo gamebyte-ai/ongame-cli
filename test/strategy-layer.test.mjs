@@ -160,7 +160,7 @@ test('the arrow escape lessons carry what made the reviewed game work', () => {
   const genre = read('skills/strategy/genres/arrow-escape.md');
   for (const needle of [
     '**arrow-escape/1 — Give the game a way to lose.**',
-    'a time limit per level, and a set of lives. *Observed:* 5 lives, each\nrefilled after 30 minutes.',
+    'a time limit per level, and a set of lives. *Observed:* 5 lives, each refilled after 30 minutes.',
     '**arrow-escape/4 — Reveal the board in sections.**',
     '**arrow-escape/7 — Add new mechanics on a steady schedule.**',
     'about 15 mechanics by level 300 to 500',
@@ -221,9 +221,9 @@ test("the arrow escape lessons carry what the reviewed game's build shows", () =
   assert.ok(meta.sources.some((s) => s.includes('teardown of the Maze Out Android build')), 'the teardown is a source');
   assert.ok(genre.indexOf('\n## Seen in the reviewed game\'s build\n') > genre.indexOf('\n## Launch ads and growth\n'), 'the build section comes last');
   for (const needle of [
-    'at levels 7, 20, 35, 50, 70\nand 100',
-    'one hard level (the 4th) and one very hard level (the\n9th)',
-    'the time limit is 180 s at\nlevel 1 and averages 127 s over levels 201 to 300',
+    'at levels 7, 20, 35, 50, 70 and 100',
+    'one hard level (the 4th) and one very hard level (the 9th)',
+    'the time limit is 180 s at level 1 and averages 127 s over levels 201 to 300',
     '**arrow-escape/18 — Grow the board as the clock shrinks.**',
     '**arrow-escape/19 — Give each booster a fail state to answer.**',
     '**arrow-escape/20 — Raise the price of each continue in a level.**',
@@ -231,11 +231,11 @@ test("the arrow escape lessons carry what the reviewed game's build shows", () =
     '**arrow-escape/22 — Plan what comes after the last level.**',
     '**arrow-escape/23 — Give the daily level its own rules.**',
   ]) {
-    assert.ok(genre.includes(needle), needle);
+    assert.ok(genre.replace(/\s+/g, ' ').includes(needle), needle);
   }
   const version = JSON.parse(read('.claude-plugin/plugin.json')).version;
-  assert.ok(version.localeCompare('1.7.81', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.81 or later`);
-  assert.ok(read('CHANGELOG.md').includes('## 1.7.81'));
+  assert.ok(version.localeCompare('1.7.82', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.82 or later`);
+  assert.ok(read('CHANGELOG.md').includes('## 1.7.82'));
 });
 
 test('the strategy text ships to outside users: no internal words, no pasted transcript', () => {
@@ -258,6 +258,6 @@ test('the skill is pinned in the lock and the release names it', () => {
   const lock = JSON.parse(read('skills/SKILLS.lock.json'));
   assert.ok(lock.skills.strategy, 'strategy is in SKILLS.lock.json');
   const version = JSON.parse(read('.claude-plugin/plugin.json')).version;
-  assert.ok(version.localeCompare('1.7.80', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.80 or later`);
-  assert.ok(read('CHANGELOG.md').includes('## 1.7.80'));
+  assert.ok(version.localeCompare('1.7.82', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.82 or later`);
+  assert.ok(read('CHANGELOG.md').includes('## 1.7.82'));
 });
