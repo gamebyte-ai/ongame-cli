@@ -15,6 +15,8 @@
 - `test/fixtures/gradients/not-fades.ts` holds both cases as passing ones.
 - `skills/gradients/check.mjs` now reports a Canvas fade that sets a see-through `fillStyle` and then `globalAlpha = 1` before each growing shape. The check judges the two together, as the canvas paints with both; before, it read only the last one set.
 - `test/fixtures/gradients/strips.js` holds it as a reported case.
+- `skills/gradients/check.mjs` no longer blames one canvas for another canvas's colour. A growing shape is now judged only by the fills and Canvas style sets on its own object. Before, a see-through `a.fillStyle` made `b.fillRect` on another context count as a stacked fade.
+- `test/fixtures/gradients/not-fades.ts` holds it as a passing case.
 
 ## 1.7.81 — 2026-11-20
 

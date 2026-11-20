@@ -115,3 +115,8 @@ export function ringsBesideFadingLineOnOneOwner(layer: { rings: Graphics; path: 
     layer.path.moveTo(i * 20, 0).lineTo(i * 20, 50).stroke({ color: 0xffffff, alpha: i / 20 });
   }
 }
+
+export function twoCanvases(a: CanvasRenderingContext2D, b: CanvasRenderingContext2D): void {
+  // a's see-through fillStyle does not paint b's rects; b keeps its own opaque fill
+  for (let i = 0; i < 20; i++) { a.fillStyle = 'rgba(255,255,255,0.05)'; b.fillRect(0, 0, 100 - i * 4, 100 - i * 4); }
+}

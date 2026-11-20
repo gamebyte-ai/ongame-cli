@@ -462,15 +462,19 @@ export function scan(src) {
       why = 'its fill changes with each pass of the loop'; at = f.at; break;
     }
     if (!why) {
-      // Each concentric shape is judged by the fill that follows it, before the next shape: its own fill.
-      const sorted = [...shapes].sort((a, b) => a.at - b.at);
+      // Each concentric shape is judged by the fill that follows it, before the next shape: its own fill. Only shapes
+      // and fills on the shape's own object count: `a.fillStyle` does not paint what `b.fillRect` draws.
+      const target = (c) => receiver(loop.body, c.at);
       for (const sh of concentric) {
+        const on = target(sh);
+        const sorted = shapes.filter((x) => target(x) === on).sort((a, b) => a.at - b.at);
+        const mine = fills.filter((f) => target(f) === on);
         const next = sorted.find((x) => x.at > sh.at)?.at ?? Infinity;
         const prev = [...sorted].reverse().find((x) => x.at < sh.at)?.at ?? -1;
         // Pixi v8 fills after the shape; v7's beginFill (and Canvas' fillStyle) is set before it.
-        const own = fills.filter((f) => f.at > sh.at && f.at < next).sort((a, b) => a.at - b.at)[0]
-          ?? fills.filter((f) => f.at < sh.at && f.at > prev && f.name !== 'stroke').sort((a, b) => b.at - a.at)[0];
-        if (own && FILL_ONLY.has(own.name) && seeThrough(own, fills, sh.at)) {
+        const own = mine.filter((f) => f.at > sh.at && f.at < next).sort((a, b) => a.at - b.at)[0]
+          ?? mine.filter((f) => f.at < sh.at && f.at > prev && f.name !== 'stroke').sort((a, b) => b.at - a.at)[0];
+        if (own && FILL_ONLY.has(own.name) && seeThrough(own, mine, sh.at)) {
           why = 'it stacks translucent shapes of growing size on one centre'; at = sh.at; break;
         }
       }
