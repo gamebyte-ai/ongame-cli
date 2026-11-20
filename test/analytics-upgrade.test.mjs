@@ -184,21 +184,44 @@ test('default imports and re-exports count as names the game needs', () => {
   assert.equal(run(dir3, '--shim', v2File(), '--audience', 'general').status, 2);
 });
 
-test('the page promises an opt-out only when the game calls setConsent', () => {
+test('a game that only calls setConsent(true) at start gets no opt-out promise, and --check agrees', () => {
+  const dir = game({ shim: SHIM_V2, main: "import { setConsent } from '../telemetry';\nsetConsent(true);\n" });
+  const r = run(dir, '--audience', 'general');
+  assert.equal(r.status, 0, r.stdout);
+  const page = fs.readFileSync(path.join(dir, 'public/privacy.html'), 'utf8');
+  assert.ok(!page.includes('turn analytics off'), 'no switch the player can use, so no promise');
+  assert.equal(run('--check', dir).status, 0);
+});
+
+test('the page promises an opt-out only when the maker says the player has a switch', () => {
   const dir = game({ shim: SHIM_V2 });
   run(dir, '--audience', 'general');
   const page = () => fs.readFileSync(path.join(dir, 'public/privacy.html'), 'utf8');
+  const settings = () => JSON.parse(fs.readFileSync(path.join(dir, '.ongame/analytics.json'), 'utf8'));
   assert.ok(!page().includes('turn analytics off'));
-  fs.writeFileSync(path.join(dir, 'src/views/Settings.ts'), "import { setConsent } from '../telemetry';\nexport const off = () => setConsent(false);\n");
-  assert.equal(run('--check', dir).status, 1, 'the page is out of date once the switch exists');
-  // A commented-out call is no switch; an aliased one is.
-  fs.writeFileSync(path.join(dir, 'src/views/Settings.ts'), "import { setConsent } from '../telemetry';\n// setConsent(false);\n");
-  assert.equal(summary(run(dir)).privacy, 'unchanged');
+  // A setConsent call in the code is no promise by itself: the run names the question instead.
   fs.writeFileSync(path.join(dir, 'src/views/Settings.ts'), "import { setConsent as consent } from '../telemetry';\nexport const off = () => consent(false);\n");
-  const r = run(dir);
-  assert.equal(summary(r).privacy, 'updated');
+  const asked = run(dir);
+  assert.equal(summary(asked).privacy, 'unchanged');
+  assert.match(asked.stdout, /--opt-out yes/);
+  assert.ok(!page().includes('turn analytics off'));
+  assert.equal(run('--check', dir).status, 0);
+  // The maker's answer is kept with the game and drives the page and --check.
+  const yes = run(dir, '--opt-out', 'yes');
+  assert.equal(yes.status, 0, yes.stdout);
+  assert.equal(summary(yes).privacy, 'updated');
+  assert.equal(settings().optOut, true);
   assert.ok(page().includes("You can turn analytics off in the game's settings."));
   assert.equal(run('--check', dir).status, 0);
+  assert.equal(summary(run(dir)).changed, false);
+  // Without the answer on file, --check reads the page as out of date.
+  fs.writeFileSync(path.join(dir, '.ongame/analytics.json'), JSON.stringify({ audience: 'general', consentDefault: 'on' }));
+  assert.equal(run('--check', dir).status, 1);
+  const no = run(dir, '--opt-out', 'no');
+  assert.equal(summary(no).privacy, 'updated');
+  assert.equal(settings().optOut, false);
+  assert.ok(!page().includes('turn analytics off'));
+  assert.equal(run(dir, '--opt-out', 'maybe').status, 2);
 });
 
 test('a children\'s game loses the telemetry block, and --check fails while any tag is left', () => {
@@ -297,8 +320,8 @@ test('nothing in the analytics files names an internal tool or person', () => {
 
 test('the plugin version and changelog carry this change', () => {
   const version = JSON.parse(read('.claude-plugin/plugin.json')).version;
-  assert.ok(version.localeCompare('1.7.81', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.81 or later`);
-  assert.ok(read('CHANGELOG.md').includes('## 1.7.81'));
+  assert.ok(version.localeCompare('1.7.82', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.82 or later`);
+  assert.ok(read('CHANGELOG.md').includes('## 1.7.82'));
 });
 
 test('a refused file is named with forward slashes on every OS', async () => {
