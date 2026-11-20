@@ -175,6 +175,23 @@ loading screen — consult `skills/mascot-video/SKILL.md` before the first `kind
 the prompt, sending takes one at a time, what to do when a video call times out (the clip is often delivered and billed
 later), and the check and packing tools.
 
+## Design the game's rules before its content
+
+Every new game, and every change to a game's rules, levels, layout or economy, follows
+`skills/game-design/SKILL.md` — or, where that file is not on disk, the same rules as stated here. It is on by
+default, not a phase or an approval gate. Write the answers to `docs/GAME_DESIGN.md` before the first level or
+game-rule code, and carry it into later work and re-runs:
+1. **Capacity:** every container (jar, tube, slot, tray, queue) has a written capacity, shown on screen, and
+   a rule for a piece that arrives when it is full.
+2. **Waiting and blocked:** every state a piece can be in, and the exact condition that moves it in and out.
+3. **Caps in play:** the most pieces in play, containers open and pieces sent at once, and what happens at each.
+4. **Odds model first:** before levels are generated, compute the chances that matter (solvable deal, dead end,
+   moves to win) and build the difficulty curve from them; level design then works from this model.
+5. **Phone sizes:** each piece's size in CSS px at 360x640; tapped pieces at least 44x44 px, read-only pieces
+   at least 28 px, kinds told apart by more than colour.
+6. **Rival study, applied:** the looks, on-screen sizes and economy of at least three popular games in the
+   genre, in one table, and where each finding changed this game.
+
 ## Work and verify
 
 Work towards the confirmed brief, choose the necessary tools and implementation approach, and keep the scope
