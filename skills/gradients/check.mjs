@@ -466,18 +466,23 @@ function preLoopStyles(s, src, at) {
       ? { ...entry, args: [`{ alpha: ${m[2]} }`], raw: [`{ alpha: ${raw} }`] }
       : { ...entry, args: [m[2]], raw: [raw] });
   }
-  for (const m of region.matchAll(/\.\s*(?:restore|reset)\s*\(/g)) {
-    if (m.index > k) unknown(target(region, m.index + m[0].length - 1), m.index);
-  }
-  // An update (`ctx.globalAlpha *= 2`) gives a value this check does not work out.
-  for (const m of region.matchAll(/\.\s*(fillStyle|globalAlpha)\s*(?:\*\*|<<|>>>?|&&|\|\||\?\?|[-+*/%&|^])=/g)) {
-    if (m.index > k) unknown(target(region, m.index + m[0].indexOf(m[1]) + m[1].length), m.index);
-  }
-  // Setting `ctx.canvas.width` or `.height` resets every style of ctx.
-  for (const m of region.matchAll(/\.\s*canvas\s*\.\s*(?:width|height)\s*=(?!=)/g)) {
-    if (m.index > k) unknown(target(region, m.index + m[0].indexOf('canvas') + 'canvas'.length), m.index);
-  }
+  for (const v of styleVoids(region)) if (v.at > k) unknown(v.on, v.at);
   return out.sort((x, y) => x.at - y.at);
+}
+
+const UPDATE = String.raw`(?:(?:\*\*|<<|>>>?|&&|\|\||\?\?|[-+*/%&|^])=|\+\+|--)`;
+/**
+ * Calls and writes in `text` after which a context's `fillStyle` and `globalAlpha` are not known: `restore()`,
+ * `reset()`, any write to `ctx.canvas.width` or `.height` (a resize resets every style), and an update of a style
+ * (`ctx.globalAlpha *= 2`). Each as { on, at }, `on` being the context's path as `target()` gives it.
+ */
+function styleVoids(text) {
+  const out = [];
+  const add = (re, end) => { for (const m of text.matchAll(re)) out.push({ on: target(text, end(m)), at: m.index }); };
+  add(/\.\s*(?:restore|reset)\s*\(/g, (m) => m.index + m[0].length - 1);
+  add(new RegExp(String.raw`\.\s*canvas\s*\.\s*(?:width|height)\s*(?:=(?!=)|${UPDATE})`, 'g'), (m) => m.index + m[0].indexOf('canvas') + 6);
+  add(new RegExp(String.raw`\.\s*(fillStyle|globalAlpha)\s*${UPDATE}`, 'g'), (m) => m.index + m[0].indexOf(m[1]) + m[1].length);
+  return out;
 }
 
 /**
@@ -557,12 +562,8 @@ export function scan(src) {
       why = 'its fill changes with each pass of the loop'; at = f.at; break;
     }
     const shapeTarget = (c) => target(loop.body, c.at); // the whole path (`a.two`), before `target` is shadowed below
-    // A restore() or reset() in the loop may undo a style set before it: that style is then not known.
-    // So does a resize of its canvas (`ctx.canvas.width = ...`).
-    const undone = new Set([
-      ...[...loop.body.matchAll(/\.\s*(?:restore|reset)\s*\(/g)].map((m) => target(loop.body, m.index + m[0].length - 1)),
-      ...[...loop.body.matchAll(/\.\s*canvas\s*\.\s*(?:width|height)\s*=(?!=)/g)].map((m) => target(loop.body, m.index + m[0].indexOf('canvas') + 'canvas'.length)),
-    ]);
+    // A restore(), a reset(), a canvas resize or a style update in the loop may undo a style set before it.
+    const undone = new Set(styleVoids(loop.body).map((v) => v.on));
     if (!why) {
       // Each concentric shape is judged by the fill that follows it, before the next shape: its own fill. Only shapes
       // and fills on the shape's own object count: `a.fillStyle` does not paint what `b.fillRect` draws.
