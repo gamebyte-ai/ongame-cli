@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import { test, after } from 'node:test';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
@@ -287,4 +288,10 @@ test('the plugin version and changelog carry this change', () => {
   const version = JSON.parse(read('.claude-plugin/plugin.json')).version;
   assert.ok(version.localeCompare('1.7.80', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.80 or later`);
   assert.ok(read('CHANGELOG.md').includes('## 1.7.80'));
+});
+
+test('a refused file is named with forward slashes on every OS', async () => {
+  const { shownPath } = await import(pathToFileURL(UPGRADE).href);
+  assert.equal(shownPath('C:\\games\\g', 'C:\\games\\g\\src\\views\\Main.ts', path.win32), 'src/views/Main.ts');
+  assert.equal(shownPath('/games/g', '/games/g/src/views/Main.ts', path.posix), 'src/views/Main.ts');
 });

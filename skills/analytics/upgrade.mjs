@@ -23,10 +23,14 @@
  */
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { join, dirname, basename, resolve } from 'node:path';
+import { join, dirname, basename, resolve, relative, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+
+// A path inside the game, with forward slashes on every OS, so messages read the same on Windows.
+export const shownPath = (root, file, p = { relative, sep }) => p.relative(root, file).split(p.sep).join('/');
+
 const REGISTRY = JSON.parse(readFileSync(join(HERE, 'events.json'), 'utf8'));
 const PRIVACY_TEMPLATE = readFileSync(join(HERE, 'privacy.html'), 'utf8');
 const PRIVACY_MARKER = '<!-- ongame:privacy v';
@@ -268,7 +272,7 @@ export function run(argv, log = console.log) {
     const offered = exportedNames(candidate);
     const broken = [...importedNames(join(gameDir, 'src'))].filter(([name]) => !offered.has(name));
     if (broken.length) {
-      for (const [name, file] of broken) log(`refused: ${file.slice(gameDir.length + 1)} imports ${name}, which the v2 shim does not export`);
+      for (const [name, file] of broken) log(`refused: ${shownPath(gameDir, file)} imports ${name}, which the v2 shim does not export`);
       return 2;
     }
     nextShim = candidate;
