@@ -517,8 +517,9 @@ function rebound(text) {
 const UPDATE = String.raw`(?:(?:\*\*|<<|>>>?|&&|\|\||\?\?|[-+*/%&|^])=|\+\+|--)`;
 /**
  * Calls and writes in `text` after which a context's `fillStyle` and `globalAlpha` are not known: `restore()`,
- * `reset()`, any write to `ctx.canvas.width` or `.height` (a resize resets every style), and an update of a style
- * (`ctx.globalAlpha *= 2`). Each as { on, at }, `on` being the context's path as `target()` gives it.
+ * `reset()`, any write to `ctx.canvas.width` or `.height` (a resize resets every style), an update of a style
+ * (`ctx.globalAlpha *= 2`), and any write through brackets on a path or its canvas (`ctx['globalAlpha'] = 1`,
+ * `ctx.canvas['width'] = 400`). Each as { on, at }, `on` being the context's path as `target()` gives it.
  */
 function styleVoids(text) {
   const out = [];
@@ -529,6 +530,23 @@ function styleVoids(text) {
   // The same written as a prefix update: `++ctx.canvas.width`, `--ctx.globalAlpha`.
   add(/(?:\+\+|--)\s*[\w$.\s]*?\.\s*(canvas\s*\.\s*(?:width|height)|fillStyle|globalAlpha)\b/g,
     (m) => m.index + m[0].indexOf(m[1]) + (m[1].startsWith('canvas') ? 6 : m[1].length));
+  // Any write through brackets (`ctx['globalAlpha'] = 1`, `ctx[key] = v`, `ctx.canvas['width'] = 400`,
+  // `++ctx.canvas['height']`): the key is not read, so the write may change a style or resize the canvas.
+  const bracketWrite = (open) => {
+    const base = text.slice(Math.max(0, open - 500), open); // the path before the bracket fits in this window
+    const canvas = /\.\s*canvas\s*$/.exec(base);
+    // `ctx.canvas[...]` resizes ctx; otherwise the write is on the path before the bracket (`target()` of `path.w(`).
+    out.push({ on: target(canvas ? base : `${base}.w`, canvas ? canvas.index + canvas[0].trimEnd().length : base.length + 2), at: open });
+  };
+  const at = (re, i) => { re.lastIndex = i; return re.test(text); };
+  const chained = /\s*\[/y, write = new RegExp(String.raw`\s*(?:=(?![=>])|${UPDATE})`, 'y'), member = /\s*[.(]/y;
+  for (const m of text.matchAll(/[\w$\])]\s*\[/g)) {
+    const open = m.index + m[0].length - 1, end = close(text, open);
+    // Only the last bracket of a chain is the write (`ctx['canvas']['width'] = 1` writes `['width']`).
+    if (end < 0 || at(chained, end + 1)) continue;
+    const prefix = /(?:\+\+|--)[ \t]*[\w$. \t[\]]*$/.test(text.slice(Math.max(0, m.index - 200), m.index + 1));
+    if (at(write, end + 1) || (prefix && !at(member, end + 1))) bracketWrite(open);
+  }
   return out;
 }
 

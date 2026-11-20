@@ -5,6 +5,10 @@
 - `/make-game` takes the flag `--no-concept`. It turns off the concept review default for a new game, and the agent judges the mode from the rest of the request. The flag stays out of the game's concept.
 - `concept-to-game` now names its target: it registers `plan.target: "production"` with its phases.
 - `test/concept-to-game-text.test.mjs` checks both lines and this version.
+- `/make-game` now tells the agent what to do with a teardown's `mechanics.json`. It copies the sheet into the game, starts the tuning from its numbers and writes `mechanics.bind.json`. `play_gate` then reports each bound number as `match`, `drift` or `unread`. It never blocks. The CLI release `cli-v0.2.49` has this `play_gate` result.
+- The concept phase's look step names the file it writes, `docs/ART_DIRECTION.md`.
+- The polish phase names the two session events the telemetry SDK sends, `session_start` and `session_end`.
+- `test/source-parity-text.test.mjs` checks the three lines and this version.
 
 ## 1.7.86 — 2026-11-20
 
