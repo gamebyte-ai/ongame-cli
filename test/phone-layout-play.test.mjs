@@ -13,10 +13,13 @@ test('make-game and polish point the phone layout rules at layout_fits', () => {
     assert.ok(make.includes(needle), needle);
   }
   const polish = read('skills/phases/polish/SKILL.md');
-  for (const needle of ['`nothing_offscreen`, `layout_fits` at 360x640 and 390x844', "fails `play_gate`'s `layout_fits`",
-    'window.__game.layout()']) {
+  for (const needle of ["fails `play_gate`'s `layout_fits`", 'window.__game.layout()']) {
     assert.ok(polish.includes(needle), needle);
   }
+  // The HUD layout rules moved from the polish phase to skills/phone-layout, which the polish phase points to.
+  assert.ok(polish.includes('skills/phone-layout/SKILL.md'));
+  const layout = read('skills/phone-layout/SKILL.md');
+  assert.ok(layout.includes('`nothing_offscreen`, `layout_fits` at 360x640 and 390x844'));
   assert.ok(!polish.includes('the touch target is ≥44px'), 'polish no longer restates the 44 px rule');
 });
 

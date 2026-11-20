@@ -172,6 +172,20 @@ a working artifact, not a phase or an approval gate, but it is ORDERED: show it 
 level or content art included — collecting reference evidence may come first. Skip it for single-screen or
 non-visual work.
 
+Five skills hold rules every game follows, with or without phases. Consult each before the work it names, in a
+new game and in a change to a finished one:
+- the concept, `docs/GAME_DESIGN.md` or the look of a game — `skills/game-concept/SKILL.md`: research the genre,
+  the user's request outranks the research angle, the core loop and hook, a light design doc with every number
+  labelled, and the look locked in `docs/ART_DIRECTION.md` before any asset;
+- the game's code — `skills/game-code/SKILL.md`: the genre's knowledge, one state machine, input locked during
+  animation, a clean restart, level tracking, ads, real-money items, lives or a shop only when the design chose
+  them, and 60 fps on phones;
+- the levels of a level-based game, before `skills/level-design/SKILL.md` — `skills/difficulty-curve/SKILL.md`: the
+  curve from `levels_generate` on a D1, D7 or D30 profile, its check, and a levels review that reads the economy;
+- any asset request — `skills/asset-anchor/SKILL.md`: anchor it to what the game already has, never generate cold;
+- the HUD and screen layout, and before calling a game done on phones — `skills/phone-layout/SKILL.md`: layout
+  components that reflow, and the device-reality checks.
+
 Before the levels of a level-based game are generated or authored — a numbered sequence of puzzle, casual or
 hybrid-casual stages — consult `skills/level-design/SKILL.md` — or, where that file is not on disk, the same procedure as
 `knowledge_get({ key: 'pattern:level-design' })`. For such games it is required. It is a working artifact, not a
