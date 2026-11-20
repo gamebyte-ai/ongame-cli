@@ -8,6 +8,9 @@
 - Every lesson number says where it came from: *Observed:* in the reviewed game, *Estimated by the source:*, or *Our inference:* when we chose it. Agents copy that label into `docs/STRATEGY.md` and `docs/GAME_DESIGN.md`, so our own thresholds never read as the source's facts.
 - `test/strategy-layer.test.mjs` checks every strategy file's shape, ids and wording, the `/make-game` section and this version line.
 - Works with every ongame-cli release: the change is skill text only.
+- `skills/gradients/check.mjs` no longer reports rings whose line width grows while their colour stays the same. That is line art, not a fade. The check now looks only at a fill's colour and alpha for a fade; `width` and other style keys are ignored, and so is the width in a v7 `lineStyle(width, color, alpha)`.
+- `test/fixtures/gradients/not-fades.ts` holds both ring cases as passing ones.
+- Works with every ongame-cli release: the change is one script with no dependency.
 
 ## 1.7.81 — 2026-11-20
 

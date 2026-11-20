@@ -93,3 +93,11 @@ export function pageDots(g: Graphics, pages: number, cur: number): void {
 export function segmentedBar(g: Graphics, filled: number): void {
   for (let i = 0; i < 10; i++) g.rect(i * 22, 0, 20, 12).fill(i < filled ? 0x6fd36f : 0x2a2a2a);
 }
+
+export function widerRings(g: Graphics): void {
+  for (let i = 0; i < 10; i++) g.circle(0, 0, 10 + i * 10).stroke({ color: 0xffffff, width: 1 + i }); // one opaque colour: line art
+}
+
+export function widerRingsV7(g: Graphics): void {
+  for (let i = 0; i < 10; i++) { g.lineStyle(1 + i, 0xffffff, 1); g.drawCircle(0, 0, 10 + i * 10); } // v7: width comes first
+}

@@ -360,6 +360,24 @@ function seeThrough(f, fills) {
   return [style, alpha].some((x) => x && translucent(x.name, x.raw));
 }
 
+// Style keys that set what a fill or stroke looks like in colour; `width`, `alignment`, `cap` and the rest do not.
+const COLOUR_KEYS = new Set(['color', 'alpha', 'fill', 'fillStyle', 'strokeStyle']);
+/**
+ * The parts of a fill call's arguments that set colour or alpha: a bare colour argument, and in a style object only
+ * its colour keys (spreads are kept, since they may carry one). v7 `lineStyle(width, color, alpha)` drops its width.
+ */
+function colourArgs(f) {
+  const args = f.name === 'lineStyle' && !/^\s*\{/.test(f.args[0] ?? '') ? f.args.slice(1) : f.args;
+  return args.map((a) => {
+    const t = a.trim();
+    if (!t.startsWith('{') || close(t, 0) !== t.length - 1) return a;
+    return splitArgs(t.slice(1, -1)).filter((e) => {
+      const key = /^\s*([A-Za-z_$][\w$]*)\s*(?::(?!:)|$)/.exec(e);
+      return !key || COLOUR_KEYS.has(key[1]);
+    }).join(',');
+  });
+}
+
 /** Findings for one source text: [{ line, fillLine, why }]. */
 export function scan(src) {
   const s = blank(src);
@@ -395,9 +413,10 @@ export function scan(src) {
     for (const f of fills) {
       const style = f.args.join(',');
       if (/\bnew\s+FillGradient\b/.test(style)) continue;
-      const read = reads(withoutLookups(style));
+      const colour = colourArgs(f).join(','); // a ramp is in colour or alpha only: a growing line width is line art
+      const read = reads(withoutLookups(colour));
       if (![...read].some((x) => ramp.has(x))) continue;
-      if (impure(style, dep) || [...read].some((x) => dep.has(x) && !ramp.has(x))) continue; // mixed with per-item data
+      if (impure(colour, dep) || [...read].some((x) => dep.has(x) && !ramp.has(x))) continue; // mixed with per-item data
       if (!FILL_ONLY.has(f.name) && !concentric.length) continue; // a tapered stroke along a path: line art
       why = 'its fill changes with each pass of the loop'; at = f.at; break;
     }
