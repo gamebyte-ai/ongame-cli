@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.81 — 2026-11-20
+
+- `skills/gradients/check.mjs` no longer reports rings whose line width grows while their colour stays the same. That is line art, not a fade. The check now looks only at a fill's colour and alpha for a fade; `width` and other style keys are ignored, and so is the width in a v7 `lineStyle(width, color, alpha)`.
+- `test/fixtures/gradients/not-fades.ts` holds both ring cases as passing ones.
+- Works with every ongame-cli release: the change is one script with no dependency.
+
 ## 1.7.80 — 2026-11-20
 
 - `skills/gradients/check.mjs` now finds two fades it missed. A Canvas glow that sets a see-through `fillStyle` and then calls a bare `ctx.fill()` on growing arcs is reported. A fade whose alpha is declared over two lines (`const t =` then `i / 20;`) is reported too.
