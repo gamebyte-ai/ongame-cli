@@ -8,7 +8,7 @@
 - The maker is asked once whether the game is aimed at children. A children's game gets no analytics tag and no id; its privacy page says nothing is collected.
 - The privacy page and `skills/analytics/store-labels.md` list exactly the 17 events in `skills/analytics/events.json`, with the App Store and Google Play answers.
 - `/publish` writes the privacy page before it builds.
-- Shim v2 itself comes from the bundled game template. With an older onGame CLI, `/analytics add` says to update it and changes nothing.
+- Shim v2 itself comes from the bundled game template. With an older onGame CLI, `/analytics add` says to update it and leaves the shim as it was.
 - `test/analytics-upgrade.test.mjs` checks these steps and this version line.
 
 ## 1.7.78 — 2026-11-20

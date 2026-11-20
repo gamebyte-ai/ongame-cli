@@ -34,8 +34,8 @@ Without this step the published game reports nothing about how people play it.
 
 0. `Bash`: `node <pluginRoot>/skills/analytics/upgrade.mjs {gameDir}` → writes `public/privacy.html` and keeps it current.
    Exit 3 → ask the maker once whether the game is aimed at children (`skills/analytics/SKILL.md`), then run it again
-   with `--audience`. Exit 4 → the game has shim v1; publish anyway and suggest `/analytics add` in the hand-over.
-   `"audience":"children"` → skip steps 1-2, and remove any `__ONGAME_TELEMETRY__` config and telemetry `sdk.js` tag.
+   with `--audience`. Exit 4 → the game has shim v1; go on as for exit 0 and suggest `/analytics add` in the hand-over.
+   After exit 0 or 4, read `audience` from the last line's JSON. `"audience":"children"` → skip steps 1-2, and remove any `__ONGAME_TELEMETRY__` config and telemetry `sdk.js` tag.
 
 1. `telemetry_provision({gameId: <slug>, gameTitle: <visible game title>, appVersion: <version from package.json>})` (an `ongame` cloud tool) → `{snippet}`
    or `null`. Use the same `<slug>` you will publish under.

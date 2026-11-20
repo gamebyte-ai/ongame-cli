@@ -36,10 +36,11 @@ currency and tutorial steps. The published page's `sdk.js` does the sending; the
 - Exit 3: the audience is not recorded. Ask the maker once, with `ask_user`: **"Is this game aimed at children?"**
   with the options **No, general audience** and **Yes, aimed at children**. Run again with `--audience`.
   The answer is kept in `.ongame/analytics.json`; never ask again for that game.
-- Exit 4: the shim is not v2. Update the onGame CLI, then take `src/telemetry.ts` from a fresh scaffold.
+- Exit 4: the shim is not v2. The audience and privacy page are saved anyway and the JSON line is printed; the shim
+  is left as it was. Update the onGame CLI, then take `src/telemetry.ts` from a fresh scaffold.
 - Exit 2: a file imports a name the v2 shim does not export. The output names the file and the name. Change that
   call to its v2 form, then run again.
-- Exit 0: the last line is JSON, `{audience, consentDefault, shim, privacy, changed}`. `changed: false` means the
+- Exit 0 (and exit 4): the last line is JSON, `{audience, consentDefault, shim, privacy, changed}`. `changed: false` means the
   game already had all of it.
 
 `--check <gameDir>` exits 0 only when the audience is recorded, the shim is v2 and `public/privacy.html` is current.

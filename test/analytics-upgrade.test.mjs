@@ -102,14 +102,30 @@ test('a game that imports a name v2 does not export is refused, with nothing wri
   assert.deepEqual(snapshot(dir), before);
 });
 
-test('a v1 file offered as the new shim is refused with exit 4', () => {
+test('a v1 shim gets exit 4, keeps its file, and still saves a children answer and the page', () => {
   const dir = game();
   const old = path.join(tmp('analytics-shim-'), 'telemetry.ts');
   fs.writeFileSync(old, SHIM_V1);
-  const r = run(dir, '--shim', old, '--audience', 'general');
+  const r = run(dir, '--shim', old, '--audience', 'children');
   assert.equal(r.status, 4);
   assert.match(r.stdout, /lacks setConsent, screen, tap, levelStart, levelEnd/);
+  assert.deepEqual(summary(r), { audience: 'children', consentDefault: 'off', shim: 'not-v2', privacy: 'added', changed: true });
+  assert.equal(fs.readFileSync(path.join(dir, 'src/telemetry.ts'), 'utf8'), SHIM_V1);
+  // /publish on this old game: no --shim, no question again, and the children answer comes back.
+  const publish = run(dir);
+  assert.equal(publish.status, 4);
+  assert.equal(summary(publish).audience, 'children');
+  assert.equal(summary(publish).changed, false);
   assert.equal(run('--check', dir).status, 1);
+});
+
+test('type imports from the shim count as kept when v2 exports the same type', () => {
+  const dir = game({ main: "import type { Meta } from './telemetry';\nimport { type LevelMeta, trackLevelStart } from './telemetry';\nexport const m: Meta = {}; trackLevelStart(1);\n" });
+  const f = path.join(tmp('analytics-shim-'), 'telemetry.ts');
+  fs.writeFileSync(f, SHIM_V2.replace('type Meta =', 'export type Meta =') + 'export interface LevelMeta { level_id?: string }\n');
+  const r = run(dir, '--shim', f, '--audience', 'general');
+  assert.equal(r.status, 0, r.stdout);
+  assert.equal(summary(r).shim, 'upgraded');
 });
 
 test('a new game that already has v2 needs no --shim', () => {

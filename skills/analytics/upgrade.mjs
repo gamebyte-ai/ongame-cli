@@ -16,8 +16,8 @@
  *    site root, so it is served at /privacy.html). A privacy.html the maker wrote, with no onGame marker, is kept.
  *
  * Exit codes: 0 done (or --check passed), 1 --check failed, 2 refused (nothing written), 3 audience unknown,
- * 4 the shim is not v2.
- * The last stdout line is a JSON summary: {audience, consentDefault, shim, privacy, changed}.
+ * 4 the shim is not v2 (the audience and privacy page are still saved; the shim is left as it was).
+ * After exit 0 or 4 the last stdout line is a JSON summary: {audience, consentDefault, shim, privacy, changed}.
  */
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -44,7 +44,7 @@ const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 /** Names a TypeScript/JavaScript module exports (function, const, let, class, `export { a, b as c }`). */
 export function exportedNames(src) {
   const names = new Set();
-  for (const m of src.matchAll(/^\s*export\s+(?:async\s+)?(?:function\*?|const|let|var|class)\s+([A-Za-z_$][\w$]*)/gm)) names.add(m[1]);
+  for (const m of src.matchAll(/^\s*export\s+(?:async\s+)?(?:function\*?|const|let|var|class|type|interface|enum|declare\s+(?:const|function))\s+([A-Za-z_$][\w$]*)/gm)) names.add(m[1]);
   for (const m of src.matchAll(/^\s*export\s*\{([^}]*)\}/gm)) {
     for (const part of m[1].split(',')) {
       const name = part.trim().split(/\s+as\s+/).pop()?.trim();
@@ -196,11 +196,12 @@ export function run(argv, log = console.log) {
   const current = existsSync(shimPath) ? readFileSync(shimPath, 'utf8') : null;
   const candidate = opts.shim ? readFileSync(opts.shim, 'utf8') : current;
   const missingV2 = V2_EXPORTS.filter((n) => !exportedNames(candidate ?? '').has(n));
-  if (missingV2.length) {
+  const notV2 = missingV2.length > 0;
+  if (notV2) {
+    // The audience and the privacy page are still saved: the served SDK sends its own events whatever the shim is.
     log(`not v2: ${opts.shim ?? 'src/telemetry.ts'} lacks ${missingV2.join(', ')}. Update the onGame CLI, then take src/telemetry.ts from a fresh scaffold.`);
-    return 4;
-  }
-  if (candidate !== current) {
+    shimState = 'not-v2';
+  } else if (candidate !== current) {
     const offered = exportedNames(candidate);
     const broken = [...importedNames(join(gameDir, 'src'))].filter(([name]) => !offered.has(name));
     if (broken.length) {
@@ -233,7 +234,7 @@ export function run(argv, log = console.log) {
 
   const changed = settingsChanged || nextShim !== null || privacyState === 'added' || privacyState === 'updated';
   log(JSON.stringify({ audience, consentDefault: settings.consentDefault, shim: shimState, privacy: privacyState, changed }));
-  return 0;
+  return notV2 ? 4 : 0;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) process.exitCode = run(process.argv.slice(2));
