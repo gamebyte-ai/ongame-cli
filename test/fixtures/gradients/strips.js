@@ -84,3 +84,10 @@ export function preLoopAlphaRects(ctx) {
     for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
   }
 }
+
+export function preLoopGlowWithoutSemicolons(ctx) {
+  ctx.save()
+  ctx.globalAlpha = 0.1
+  for (let i = 0; i < 20; i++) { ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4) }
+  ctx.restore()
+}

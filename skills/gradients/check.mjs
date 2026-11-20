@@ -448,7 +448,7 @@ function preLoopStyles(s, src, at) {
   const sure = (i) => {
     if (dropped.some(([o, e]) => i > o && i < e)) return false;
     if (/(?:^|[^\w$.])(?:case\b[^:;]*|default\s*):/.test(text.slice(i, at))) return false; // another switch case
-    const head = text.slice(Math.max(k, text.lastIndexOf(';', i), text.lastIndexOf('{', i), text.lastIndexOf('}', i)) + 1, i);
+    const head = statementHead(text.slice(Math.max(k, text.lastIndexOf(';', i), text.lastIndexOf('{', i), text.lastIndexOf('}', i)) + 1, i));
     // A condition or a callback; `) x` also catches a head cut at a `for (;;)` header's own `;`.
     return !/^\s*(?:(?:if|else|for|while|do)\b|\))|\)\s*[\w$]|&&|\|\||\?(?!\.)|=>/.test(head);
   };
@@ -464,8 +464,12 @@ function preLoopStyles(s, src, at) {
     // The source text of the value, without a comment after it (`= 1 // opaque`) or inside it.
     const raw = src.slice(from, from + m[2].trimEnd().length).replace(/\/\*[\s\S]*?\*\/|\/\/.*$/g, '').trim();
     const entry = { name: 'fill', prop: m[1], on: target(region, end), at: m.index, sure: sure(m.index) };
-    // `a = x, b = y` in one statement: this regex reads it as one value, so neither style is known after it.
-    if (splitArgs(m[2]).length > 1) { unknown(entry.on, m.index); continue; }
+    // `a = x, b = y` in one statement: this regex reads it as one value, so no style it sets is known after it.
+    if (splitArgs(m[2]).length > 1) {
+      unknown(entry.on, m.index);
+      for (const x of m[2].matchAll(/\.\s*(fillStyle|globalAlpha)\b/g)) unknown(target(region, from + x.index + x[0].length), m.index);
+      continue;
+    }
     out.push(m[1] === 'globalAlpha'
       ? { ...entry, args: [`{ alpha: ${m[2]} }`], raw: [`{ alpha: ${raw} }`] }
       : { ...entry, args: [m[2]], raw: [raw] });
@@ -475,6 +479,24 @@ function preLoopStyles(s, src, at) {
   // that starts with it loses its styles.
   for (const b of rebound(region)) if (b.at > k) unknown(b.on, b.at, true);
   return out.sort((x, y) => x.at - y.at);
+}
+
+/**
+ * The part of `head` (text from the last `;`, `{` or `}` up to a statement) that is the statement's own: without
+ * semicolons a line break also ends a statement (`ctx.save()` on the line before), unless that line goes on into this
+ * one (it ends with an operator, `(` or `,`, or is an `if (...)`, `for (...)`, `while (...)`, `else` or `do` alone).
+ */
+function statementHead(head) {
+  const lines = head.split('\n');
+  let i = lines.length - 1;
+  while (i > 0) {
+    const prev = lines[i - 1].trim();
+    const header = /^(?:if|for|while)\s*\(/.exec(prev);
+    const open = header && close(prev, header[0].length - 1) === prev.length - 1; // `if (x)` alone, not `if (x) foo()`
+    if (prev && !/(?:[-+*/%&|^!=<>?:,(.]|=>)$/.test(prev) && !open && !/^(?:else|do)$|\belse$/.test(prev)) break;
+    i--;
+  }
+  return lines.slice(i).join('\n');
 }
 
 /** Names and paths given a new value in `text` (`const ctx = other`, `this.ctx = other`), as { on, at }. */

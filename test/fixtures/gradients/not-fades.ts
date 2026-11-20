@@ -314,3 +314,10 @@ export function preLoopStyleOnATypedOrDestructuredRename(ctx: CanvasRenderingCon
   { const ctx: CanvasRenderingContext2D = other; for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4); }
   { const { ctx } = o; for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4); }
 }
+
+export function preLoopStylesOnTwoContextsInOneStatement(ctx: CanvasRenderingContext2D, other: CanvasRenderingContext2D, dim: boolean): void {
+  ctx.globalAlpha = 0.1; other.globalAlpha = 1, ctx.globalAlpha = 1; // the last set on ctx is opaque
+  if (dim)
+    ctx.fillStyle = 'rgba(0,0,0,0.1)'                           // on a condition, without a semicolon before it
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
