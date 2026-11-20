@@ -231,3 +231,13 @@ export function preLoopStyleResetByAnUpdatedSize(ctx: CanvasRenderingContext2D):
   ctx.globalAlpha = 0.1; ctx.canvas.width += 0;                 // any write to the size resets alpha to 1
   for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
 }
+
+export function preLoopStyleResetByAPrefixUpdate(ctx: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 0.1; ++ctx.canvas.width;                    // a prefix update of the size resets alpha too
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
+
+export function preLoopStylePrefixUpdated(ctx: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 0; ++ctx.globalAlpha;                       // 1 after the update
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}

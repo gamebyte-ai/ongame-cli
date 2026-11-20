@@ -482,6 +482,9 @@ function styleVoids(text) {
   add(/\.\s*(?:restore|reset)\s*\(/g, (m) => m.index + m[0].length - 1);
   add(new RegExp(String.raw`\.\s*canvas\s*\.\s*(?:width|height)\s*(?:=(?!=)|${UPDATE})`, 'g'), (m) => m.index + m[0].indexOf('canvas') + 6);
   add(new RegExp(String.raw`\.\s*(fillStyle|globalAlpha)\s*${UPDATE}`, 'g'), (m) => m.index + m[0].indexOf(m[1]) + m[1].length);
+  // The same written as a prefix update: `++ctx.canvas.width`, `--ctx.globalAlpha`.
+  add(/(?:\+\+|--)\s*[\w$.\s]*?\.\s*(canvas\s*\.\s*(?:width|height)|fillStyle|globalAlpha)\b/g,
+    (m) => m.index + m[0].indexOf(m[1]) + (m[1].startsWith('canvas') ? 6 : m[1].length));
   return out;
 }
 
