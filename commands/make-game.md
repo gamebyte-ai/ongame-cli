@@ -59,6 +59,30 @@ result is different: follow the documented fallback and explain the actual limit
 Do not reconstruct a withheld paid recipe. `upgrade`, `billing_status`, `usage_status` and `set_spend_cap` remain
 available for account questions. Do not expose credentials or private service details.
 
+## A new game starts with a concept review
+
+A new game (`entry: "new"`) uses `path: "concept-to-game"` unless the maker clearly asked for another mode. YOU judge
+that from their words; no phrase list decides it. A clear ask for a quick prototype, a full game, a playable ad or
+docs only keeps `prototype`, `production`, `playable-ad` or `concept-only`. A one-line idea such as "a cozy farming
+game" is no such signal. Say the choice in one sentence; the maker can redirect it.
+
+`concept-to-game` registers `plan.phases: ["research", "concept", "assets", "docs"]`, in that order:
+1. `research`: research the genre and write `docs/RESEARCH.md`.
+2. `concept`: make the concept screens, a main menu and 2-3 in-game moments in one visual language.
+3. `assets`: cut those screens into game-ready assets. Read `knowledge_get({ key: 'pattern:concept-cut' })` for how,
+   then write the cut assets to the game with `assets_materialize` and use their returned paths.
+4. `docs`: write the game's docs from the concept screens and the assets.
+
+Then close the build and stop for the maker's review before any code. Show the screens, the assets and the docs, and
+ask whether to build, change something or stop. This one stop is the mode's point. It is not a phase approval gate.
+This build has no game to play yet, so call `play_gate` with `skip: {reason}` before `build.done`. Write no game
+code before the maker answers. When they say to build, register the code work as a continuation of this game: same
+`gameId`, `entry: "continue"`, the `intent` you judge, `continues` set to this `buildId`, and `path: "concept-to-game"`.
+A maker who said not to stop for reviews asked for another mode; judge which.
+
+A continuation keeps its game's `path`. The exception is a derived artifact, such as a playable ad cut from the game:
+it takes that artifact's path with `intent: "derive"`. Never switch an existing game to `concept-to-game`.
+
 ## Keep the game's identity and record its phases
 
 Before the first request-derived account write, including registration, show the notice once: "ℹ️ Build details
