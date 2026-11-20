@@ -166,7 +166,6 @@ export function hasOptOut(srcDir) {
     const code = withoutComments(readFileSync(f, 'utf8'));
     const callers = [];
     for (const m of code.matchAll(new RegExp(String.raw`\bimport\s+(?:type\s+)?(${CLAUSE})\s*` + TELEMETRY_FROM, 'g'))) {
-      if (!pointsAtShim(m[2], f, srcDir)) continue;
       const braces = m[1].match(/\{([^}]*)\}/);
       for (const part of braces ? braces[1].split(',') : []) {
         const [name, alias] = part.trim().split(/\s+as\s+/).map((x) => x.trim());
