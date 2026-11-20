@@ -103,6 +103,17 @@ test('a game that imports a name v2 does not export is refused, with nothing wri
   assert.deepEqual(snapshot(dir), before);
 });
 
+test('a helper module named telemetry is checked too: only src/telemetry.ts is the shim', () => {
+  const dir = game();
+  fs.mkdirSync(path.join(dir, 'src', 'utils'));
+  fs.writeFileSync(path.join(dir, 'src', 'utils', 'telemetry.ts'), "import { trackLevelQuit } from '../telemetry';\nexport const quit = () => trackLevelQuit(1);\n");
+  const before = snapshot(dir);
+  const r = run(dir, '--shim', v2File(), '--audience', 'general');
+  assert.equal(r.status, 2, r.stdout);
+  assert.match(r.stdout, /src\/utils\/telemetry\.ts imports trackLevelQuit/);
+  assert.deepEqual(snapshot(dir), before);
+});
+
 test('a v1 shim gets exit 4, keeps its file, and still saves a children answer and the page', () => {
   const dir = game();
   const old = path.join(tmp('analytics-shim-'), 'telemetry.ts');
