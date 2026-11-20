@@ -28,7 +28,7 @@ test('the --no-concept flag turns the default off and leaves the flag out of the
 });
 
 test('concept-to-game registers target production with its phases', () => {
-  // A live run without this line sent target: concept.
+  // The text names the target, so the agent does not judge one for this mode.
   const block = section();
   assert.ok(block.includes('`concept-to-game` registers `plan.target: "production"` and\n`plan.phases: ["research", "concept", "assets", "docs"]`'));
 });

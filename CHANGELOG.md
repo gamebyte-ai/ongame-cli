@@ -3,7 +3,7 @@
 ## 1.7.86 — 2026-11-20
 
 - `/make-game` takes the flag `--no-concept`. It turns off the concept review default for a new game, and the agent judges the mode from the rest of the request. The flag stays out of the game's concept.
-- `concept-to-game` now registers `plan.target: "production"`. A live run without that line sent `target: "concept"`.
+- `concept-to-game` now names its target: it registers `plan.target: "production"` with its phases.
 - `test/concept-to-game-text.test.mjs` checks both lines and this version.
 
 ## 1.7.84 — 2026-11-20
