@@ -177,6 +177,10 @@ test('the page promises an opt-out only when the game calls setConsent', () => {
   assert.ok(!page().includes('turn analytics off'));
   fs.writeFileSync(path.join(dir, 'src/views/Settings.ts'), "import { setConsent } from '../telemetry';\nexport const off = () => setConsent(false);\n");
   assert.equal(run('--check', dir).status, 1, 'the page is out of date once the switch exists');
+  // A commented-out call is no switch; an aliased one is.
+  fs.writeFileSync(path.join(dir, 'src/views/Settings.ts'), "import { setConsent } from '../telemetry';\n// setConsent(false);\n");
+  assert.equal(summary(run(dir)).privacy, 'unchanged');
+  fs.writeFileSync(path.join(dir, 'src/views/Settings.ts'), "import { setConsent as consent } from '../telemetry';\nexport const off = () => consent(false);\n");
   const r = run(dir);
   assert.equal(summary(r).privacy, 'updated');
   assert.ok(page().includes("You can turn analytics off in the game's settings."));
@@ -190,6 +194,11 @@ test('a children\'s game loses the telemetry block, and --check fails while any 
   const r = run(dir, '--audience', 'children');
   assert.equal(r.status, 0, r.stdout);
   const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
+  // A game script between the two telemetry tags is never taken out with them.
+  const split = game({ shim: SHIM_V2 });
+  fs.writeFileSync(path.join(split, 'index.html'), `<html><head>${block.replace('</script>\n<script type="module"', '</script>\n<script>boot()</script>\n<script type="module"')}</head></html>`);
+  assert.equal(run(split, '--audience', 'children').status, 5);
+  assert.ok(fs.readFileSync(path.join(split, 'index.html'), 'utf8').includes('<script>boot()</script>'));
   assert.ok(!html.includes('__ONGAME_TELEMETRY__') && !html.includes('sdk.js'));
   assert.equal(run('--check', dir).status, 0);
   assert.equal(summary(run(dir)).changed, false);

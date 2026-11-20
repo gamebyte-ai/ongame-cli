@@ -71,6 +71,8 @@ function sourceFiles(dir, out = []) {
 // Any specifier whose last part is `telemetry`: relative paths and aliases such as '@/telemetry' alike.
 const TELEMETRY_FROM = String.raw`from\s*['"](?:[^'"\n]*/)?telemetry(?:\.[jt]s)?['"]`;
 
+const withoutComments = (code) => code.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"`\\])\/\/[^\n]*/g, '$1');
+
 function gameSources(srcDir) {
   return sourceFiles(srcDir).filter((f) => basename(f).replace(/\.\w+$/, '') !== 'telemetry');
 }
@@ -83,7 +85,7 @@ export function importedNames(srcDir) {
   const used = new Map();
   const add = (name, file) => { if (!used.has(name)) used.set(name, file); };
   for (const file of gameSources(srcDir)) {
-    const code = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"`\\])\/\/[^\n]*/g, '$1');
+    const code = withoutComments(readFileSync(file, 'utf8'));
     // import('./telemetry') and require('./telemetry') hide which names they use: refuse rather than guess.
     if (new RegExp(String.raw`\b(?:import|require)\s*\(\s*['"](?:[^'"\n]*/)?telemetry(?:\.[jt]s)?['"]`).test(code)) add('(a dynamic import or require)', file);
     for (const m of code.matchAll(new RegExp(String.raw`\b(import|export)\s+(?:type\s+)?([^;'"]*?)\s*` + TELEMETRY_FROM, 'g'))) {
@@ -113,13 +115,26 @@ export function importedNames(srcDir) {
 }
 
 /** The block telemetry_inject writes: its marker, the config script and the sdk.js tag. */
-const TELEMETRY_BLOCK = /[ \t]*<!-- ongame-telemetry -->\s*<script>window\.__ONGAME_TELEMETRY__=[\s\S]*?<\/script>\s*<script type="module" src="[^"]*\/sdk\.js"><\/script>\n?/g;
+const TELEMETRY_BLOCK = /[ \t]*<!-- ongame-telemetry -->\s*<script>window\.__ONGAME_TELEMETRY__=[^<]*<\/script>\s*<script type="module" src="[^"]*\/sdk\.js"><\/script>\n?/g;
 /** Any telemetry left in a page: a config script or an sdk.js tag. */
 export const hasTelemetry = (html) => html.includes('__ONGAME_TELEMETRY__') || /<script\b[^>]*\bsrc\s*=\s*["']?[^"'\s>]*sdk\.js(?:[?#][^"'\s>]*)?["']?/i.test(html);
 
-/** The game has its own analytics switch when its code (not the shim) calls setConsent. */
+/** The game has its own analytics switch when its code (not the shim) calls the shim's setConsent, under any name. */
 export function hasOptOut(srcDir) {
-  return gameSources(srcDir).some((f) => /\bsetConsent\s*\(/.test(readFileSync(f, 'utf8')));
+  return gameSources(srcDir).some((f) => {
+    const code = withoutComments(readFileSync(f, 'utf8'));
+    const callers = [];
+    for (const m of code.matchAll(new RegExp(String.raw`\bimport\s+(?:type\s+)?([^;'"]*?)\s*` + TELEMETRY_FROM, 'g'))) {
+      const braces = m[1].match(/\{([^}]*)\}/);
+      for (const part of braces ? braces[1].split(',') : []) {
+        const [name, alias] = part.trim().split(/\s+as\s+/).map((x) => x.trim());
+        if (name === 'setConsent') callers.push(alias || name);
+      }
+      const ns = m[1].match(/\*\s*as\s+([A-Za-z_$][\w$]*)/);
+      if (ns) callers.push(`${ns[1]}\\s*\\.\\s*setConsent`);
+    }
+    return callers.some((c) => new RegExp(String.raw`(?<![\w$])${c}\s*\(`).test(code));
+  });
 }
 
 export function renderPrivacy(title, audience, optOut) {
