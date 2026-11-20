@@ -101,3 +101,8 @@ export function widerRings(g: Graphics): void {
 export function widerRingsV7(g: Graphics): void {
   for (let i = 0; i < 10; i++) { g.lineStyle(1 + i, 0xffffff, 1); g.drawCircle(0, 0, 10 + i * 10); } // v7: width comes first
 }
+
+export function twoCanvases(a: CanvasRenderingContext2D, b: CanvasRenderingContext2D): void {
+  // a's see-through fillStyle does not paint b's rects; b keeps its own opaque fill
+  for (let i = 0; i < 20; i++) { a.fillStyle = 'rgba(255,255,255,0.05)'; b.fillRect(0, 0, 100 - i * 4, 100 - i * 4); }
+}
