@@ -40,3 +40,15 @@ export function oneDeclaration(g, positions) {
 export function rampCall(g, a, b, n, lerpColor) {
   for (let i = 0; i < n; i++) g.rect(0, i * 8, 300, 8).fill({ color: lerpColor(a, b, i / n) });
 }
+
+export function canvasGlow(ctx) {
+  for (let i = 0; i < 20; i++) { ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.beginPath(); ctx.arc(0, 0, 100 - i * 4, 0, Math.PI * 2); ctx.fill(); }
+}
+
+export function splitDeclaration(g) {
+  for (let i = 0; i < 20; i++) {
+    const t =
+      i / 20;
+    g.rect(0, i * 10, 100, 10).fill({ color: 0xffffff, alpha: t });
+  }
+}

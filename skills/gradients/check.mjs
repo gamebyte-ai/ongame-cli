@@ -176,7 +176,7 @@ function styleSets(body, rawBody) {
     const name = m[1] === 'strokeStyle' ? 'stroke' : 'fill';
     const value = m[1] === 'globalAlpha' ? `{ alpha: ${m[2]} }` : m[2];
     const raw = m[1] === 'globalAlpha' ? `{ alpha: ${rawBody.slice(from, from + m[2].length)} }` : rawBody.slice(from, from + m[2].length);
-    out.push({ name, args: [value], raw: [raw], at: m.index + 1 + m[1].length + (m[0].indexOf(m[1]) - 1) });
+    out.push({ name, prop: m[1], args: [value], raw: [raw], at: m.index + 1 + m[1].length + (m[0].indexOf(m[1]) - 1) });
   }
   return out;
 }
@@ -279,11 +279,25 @@ function loopDependent(loop) {
   return { all, ramp };
 }
 
-/** Every `const|let|var name = value` in `body` as [name, value], one per declarator (`const a = x, b = y`). */
+/**
+ * Every `const|let|var name = value` in `body` as [name, value], one per declarator (`const a = x, b = y`). A
+ * declaration runs to its `;`, or to a line end where it is complete: not inside brackets, not after `=` or an
+ * operator, and not followed by a line that starts with one (`const t =\n  i / 20;` is one declaration).
+ */
 function declarations(body) {
   const out = [];
-  for (const m of body.matchAll(/(?:const|let|var)\s+([^;\n]*)/g)) {
-    for (const part of splitArgs(m[1])) {
+  for (const m of body.matchAll(/(?:^|[^\w$.])(?:const|let|var)\s+/g)) {
+    const from = m.index + m[0].length;
+    let k = from, d = 0;
+    for (; k < body.length; k++) {
+      const ch = body[k];
+      if ('([{'.includes(ch)) d++;
+      else if (')]}'.includes(ch)) { if (--d < 0) break; }
+      else if (ch === ';' && d === 0) break;
+      else if (ch === '\n' && d === 0 && !/(?:(?<!\+)\+|(?<!-)-|[=*/%&|^!<>?:,~]|^)\s*$/.test(body.slice(from, k))
+        && !/^\s*(?:[.?:*/%+\-,=<>&|^]|$)/.test(body.slice(k + 1).split('\n')[0])) break;
+    }
+    for (const part of splitArgs(body.slice(from, k))) {
       const d = /^\s*([A-Za-z_$][\w$]*)\s*(?::[^=]*)?=\s*([\s\S]*)$/.exec(part);
       if (d) out.push([d[1], d[2]]);
     }
@@ -329,6 +343,21 @@ function translucent(name, raw) {
   if (css) return css[1] !== undefined ? !opaque(css[1].split(',')[3] ?? '1') : !opaque(css[2]);
   const hex = /#[0-9a-f]{6}([0-9a-f]{2})\b|0x[0-9a-f]{6}([0-9a-f]{2})\b/i.exec(style);
   return hex ? (hex[1] ?? hex[2]).toLowerCase() !== 'ff' : false
+}
+
+/**
+ * True when fill `f` is see-through. A Canvas `ctx.fill()` carries no style: it paints with the `fillStyle` and
+ * `globalAlpha` set last before it in the loop. A bare Pixi `fill()` is assumed to use the last `setFillStyle` the
+ * same way (a guess, not checked against PixiJS).
+ */
+function seeThrough(f, fills) {
+  const bare = f.name === 'fill' && !f.prop && f.raw.every((a) => /^\s*(?:(['"])(?:nonzero|evenodd)\1)?\s*$/.test(a));
+  if (!bare) return translucent(f.name, f.raw);
+  const before = fills.filter((x) => x.at < f.at).sort((a, b) => b.at - a.at);
+  const last = (pick) => before.find(pick);
+  const style = last((x) => x.prop === 'fillStyle' || x.name === 'setFillStyle');
+  const alpha = last((x) => x.prop === 'globalAlpha');
+  return [style, alpha].some((x) => x && translucent(x.name, x.raw));
 }
 
 /** Findings for one source text: [{ line, fillLine, why }]. */
@@ -381,7 +410,7 @@ export function scan(src) {
         // Pixi v8 fills after the shape; v7's beginFill (and Canvas' fillStyle) is set before it.
         const own = fills.filter((f) => f.at > sh.at && f.at < next).sort((a, b) => a.at - b.at)[0]
           ?? fills.filter((f) => f.at < sh.at && f.at > prev && f.name !== 'stroke').sort((a, b) => b.at - a.at)[0];
-        if (own && FILL_ONLY.has(own.name) && translucent(own.name, own.raw)) {
+        if (own && FILL_ONLY.has(own.name) && seeThrough(own, fills)) {
           why = 'it stacks translucent shapes of growing size on one centre'; at = sh.at; break;
         }
       }

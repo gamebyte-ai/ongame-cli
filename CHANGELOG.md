@@ -2,6 +2,9 @@
 
 ## 1.7.80 — 2026-11-20
 
+- `skills/gradients/check.mjs` now finds two fades it missed. A Canvas glow that sets a see-through `fillStyle` and then calls a bare `ctx.fill()` on growing arcs is reported. A fade whose alpha is declared over two lines (`const t =` then `i / 20;`) is reported too.
+- `test/fixtures/gradients/strips.js` holds both as reported cases.
+- Works with every ongame-cli release: the change is one script with no dependency.
 - Anything in a game that fades (a glow, light rays, a sky, a vignette, shading) is drawn as one shape with one gradient fill. The rule now has its own skill, `gradients`, which loads whenever a game draws one, in a new game or a change to a finished one. It gives the PixiJS v8 `FillGradient` code.
 - `skills/gradients/check.mjs` finds fades faked with stacked rings, bands, strips or discs in a game's source and prints each as file:line. `/make-game` and the polish review run it before a game is called done. A colour picked per item (`palette[i]`, `colorOf(i)`, page dots, a segmented bar) and a new shape per pass are not fades and are not reported.
 - `test/gradients-rule.test.mjs` checks it: stacked-ring rays fail, the same rays with one `FillGradient` pass.
