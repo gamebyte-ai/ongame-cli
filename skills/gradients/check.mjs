@@ -428,8 +428,8 @@ function seeThrough(f, fills, at = f.at, pre = []) {
  * order, with the object they are set on (`on`, its whole path as `target()` gives it). An entry is `sure` only when
  * it always runs and stays: a plain statement in the blocks that hold the loop. A set in an earlier block (an `if`, a
  * callback, a bare `{}`), behind an unbraced `if`/`else`/`&&`/`?`, or in an arrow's expression body is not sure, and
- * a `restore()` or `reset()` on the object, a resize of its canvas, an update (`*=`) or a comma-joined set adds an
- * unsure entry for both styles. seeThrough() judges by the last entry, so any
+ * a `restore()` or `reset()` on the object, a resize of its canvas, an update (`*=`), a comma-joined set or a new
+ * value of its name adds an unsure entry for both styles. seeThrough() judges by the last entry, so any
  * doubt after a sure set means no judgement.
  */
 function preLoopStyles(s, src, at) {
@@ -453,12 +453,15 @@ function preLoopStyles(s, src, at) {
   };
   const region = s.slice(0, at);
   const out = [];
-  const unknown = (on, i) => { for (const prop of ['fillStyle', 'globalAlpha']) out.push({ name: 'fill', prop, on, at: i, sure: false, args: [], raw: [] }); };
+  const unknown = (on, i, binding = false) => {
+    for (const prop of ['fillStyle', 'globalAlpha']) out.push({ name: 'fill', prop, on, binding, at: i, sure: false, args: [], raw: [] });
+  };
   for (const m of region.matchAll(/\.\s*(fillStyle|globalAlpha)\s*=(?!=)\s*([^;\n]*)/g)) {
     if (m.index <= k) continue;
     const end = m.index + m[0].indexOf(m[1]) + m[1].length;
     const from = m.index + m[0].length - m[2].length;
-    const raw = src.slice(from, from + m[2].length);
+    // The source text of the value, without a comment after it (`= 1 // opaque`) or inside it.
+    const raw = src.slice(from, from + m[2].trimEnd().length).replace(/\/\*[\s\S]*?\*\/|\/\/.*$/g, '').trim();
     const entry = { name: 'fill', prop: m[1], on: target(region, end), at: m.index, sure: sure(m.index) };
     // `a = x, b = y` in one statement: this regex reads it as one value, so neither style is known after it.
     if (splitArgs(m[2]).length > 1) { unknown(entry.on, m.index); continue; }
@@ -467,6 +470,11 @@ function preLoopStyles(s, src, at) {
       : { ...entry, args: [m[2]], raw: [raw] });
   }
   for (const v of styleVoids(region)) if (v.at > k) unknown(v.on, v.at);
+  // A name declared or assigned again (`const ctx = other`, `this.ctx = other`) may be another context: every path
+  // that starts with it loses its styles.
+  for (const m of region.matchAll(/(?:\b(?:const|let|var)\s+|(?:^|[;{}(,]|\n)\s*)([A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*)\s*=(?![=>])/g)) {
+    if (m.index > k) unknown(m[1].replace(/\s+/g, ''), m.index, true);
+  }
   return out.sort((x, y) => x.at - y.at);
 }
 
@@ -582,7 +590,7 @@ export function scan(src) {
           ?? mine.filter((f) => f.at < sh.at && f.at > prev && f.name !== 'stroke').sort((a, b) => b.at - a.at)[0];
         // A Canvas fillRect with no style of its own in the loop paints with the one set before the loop.
         const paint = own ?? (sh.name === 'fillRect' ? { name: 'fill', args: [], raw: [], at: sh.at } : undefined);
-        if (paint && FILL_ONLY.has(paint.name) && seeThrough(paint, mine, sh.at, undone.has(shapeTarget(sh)) ? [] : pre.filter((x) => x.on === shapeTarget(sh)))) {
+        if (paint && FILL_ONLY.has(paint.name) && seeThrough(paint, mine, sh.at, undone.has(shapeTarget(sh)) ? [] : pre.filter((x) => x.on === shapeTarget(sh) || (x.binding && shapeTarget(sh).startsWith(`${x.on}.`))))) {
           why = 'it stacks translucent shapes of growing size on one centre'; at = sh.at; break;
         }
       }

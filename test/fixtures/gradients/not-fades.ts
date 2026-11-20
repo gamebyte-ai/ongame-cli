@@ -241,3 +241,16 @@ export function preLoopStylePrefixUpdated(ctx: CanvasRenderingContext2D): void {
   ctx.globalAlpha = 0; ++ctx.globalAlpha;                       // 1 after the update
   for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
 }
+
+export function preLoopOpaqueAlphaWithAComment(ctx: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 1 // opaque: the comment is not part of the value
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
+
+export function preLoopStyleOnARenamedContext(ctx: CanvasRenderingContext2D, other: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 0.1;
+  {
+    const ctx = other;                                          // another context under the same name
+    for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+  }
+}
