@@ -64,3 +64,15 @@ export function canvasAlphaGlow(ctx) {
 export function canvasAlphaRings(ctx) {
   for (let i = 0; i < 20; i++) { ctx.globalAlpha = i / 20; ctx.beginPath(); ctx.arc(0, 0, 10 + i * 4, 0, Math.PI * 2); ctx.stroke(); }
 }
+
+export function preLoopGlow(ctx) {
+  ctx.fillStyle = 'rgba(255,255,255,0.05)';
+  for (let i = 0; i < 20; i++) { ctx.beginPath(); ctx.arc(0, 0, 100 - i * 4, 0, Math.PI * 2); ctx.fill(); }
+}
+
+export function preLoopAlphaRects(ctx) {
+  ctx.globalAlpha = 0.05;
+  if (ctx) {
+    for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+  }
+}

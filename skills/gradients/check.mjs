@@ -408,14 +408,50 @@ function translucent(name, raw) {
  * `globalAlpha = 1` after a see-through `fillStyle` still paints see-through. A bare Pixi `fill()` is assumed to use
  * the last `setFillStyle` the same way (a guess, not checked against PixiJS).
  */
-function seeThrough(f, fills, at = f.at) {
+function seeThrough(f, fills, at = f.at, pre = []) {
   const bare = f.name === 'fill' && !f.prop && f.raw.every((a) => /^\s*(?:(['"])(?:nonzero|evenodd)\1)?\s*$/.test(a));
   if (!bare && !f.prop) return translucent(f.name, f.raw);
   const before = fills.filter((x) => x.at <= Math.max(at, f.at)).sort((a, b) => b.at - a.at);
-  const last = (pick) => before.find(pick);
-  const style = last((x) => x.prop === 'fillStyle' || x.name === 'setFillStyle');
-  const alpha = last((x) => x.prop === 'globalAlpha');
-  return [style, alpha].some((x) => x && translucent(x.name, x.raw));
+  const isStyle = (x) => x.prop === 'fillStyle' || x.name === 'setFillStyle', isAlpha = (x) => x.prop === 'globalAlpha';
+  // A style the loop never sets keeps the value set last before the loop (`pre`, already in order) on every pass.
+  const last = (pick) => before.find(pick) ?? (fills.some(pick) ? undefined : pre.findLast(pick));
+  return [last(isStyle), last(isAlpha)].some((x) => x && translucent(x.name, x.raw));
+}
+
+/**
+ * The Canvas `fillStyle` and `globalAlpha` sets before the loop at `at`, in source order, as fill entries with the
+ * object they are set on (`on`). Only sets in the blocks that hold the loop count, up to its function's body: a set
+ * in an earlier `if` or callback may not run, and one in an outer function is not followed here.
+ */
+function preLoopStyles(s, src, at) {
+  const keep = s.slice(0, at).split('');
+  let d = 0, k = at - 1;
+  for (; k >= 0; k--) {
+    if (s[k] === '}') d++;
+    else if (s[k] === '{' && d > 0) { if (--d === 0) keep.fill(' ', k, close(s, k) + 1); }
+    else if (s[k] === '{' && functionBody(s, k)) break;
+  }
+  const text = keep.join('').replace(/[^\n]/g, (ch, i) => (i <= k ? ' ' : ch));
+  const out = [];
+  for (const m of text.matchAll(/\.\s*(fillStyle|globalAlpha)\s*=(?!=)\s*([^;\n]*)/g)) {
+    const end = m.index + m[0].indexOf(m[1]) + m[1].length;
+    const from = m.index + m[0].length - m[2].length;
+    const raw = src.slice(from, from + m[2].length);
+    out.push(m[1] === 'globalAlpha'
+      ? { name: 'fill', prop: m[1], args: [`{ alpha: ${m[2]} }`], raw: [`{ alpha: ${raw} }`], on: receiver(text, end) }
+      : { name: 'fill', prop: m[1], args: [m[2]], raw: [raw], on: receiver(text, end) });
+  }
+  return out;
+}
+
+/** True when the `{` at `k` opens a function body: after `=>`, or after `(...)` that is not an if/for/while head. */
+function functionBody(s, k) {
+  const before = s.slice(0, k).trimEnd();
+  if (before.endsWith('=>')) return true;
+  if (!before.endsWith(')')) return false;
+  let d = 0, j = before.length - 1;
+  for (; j >= 0; j--) { if (before[j] === ')') d++; else if (before[j] === '(' && --d === 0) break; }
+  return !/(?:^|[^\w$.])(?:if|for|while|switch|catch|with)\s*$/.test(before.slice(0, j));
 }
 
 // Style keys that set what a fill or stroke looks like in colour; `width`, `alignment`, `cap` and the rest do not.
@@ -460,7 +496,8 @@ export function scan(src) {
     const pixel = (c) => /rect$/i.test(c.name) && [2, 3].some((k) => /^\s*1\s*$/.test(c.args[k] ?? ''));
     const shapes = calls(loop.body, (x) => Object.hasOwn(SHAPES, x), raw).filter((c) => same(c) && !pixel(c));
     const fills = [...calls(loop.body, (x) => FILLS.has(x), raw), ...styleSets(loop.body, raw)].filter(same);
-    if (!shapes.length || !fills.length) continue;
+    const pre = preLoopStyles(s, src, loop.at);
+    if (!shapes.length || (!fills.length && !pre.length)) continue;
     let why = null, at = 0;
     // Concentric: a shape whose size ramps with the loop while its position stays put (rings, discs, a vignette).
     const concentric = shapes.filter((sh) => {
@@ -493,7 +530,9 @@ export function scan(src) {
         // Pixi v8 fills after the shape; v7's beginFill (and Canvas' fillStyle) is set before it.
         const own = mine.filter((f) => f.at > sh.at && f.at < next).sort((a, b) => a.at - b.at)[0]
           ?? mine.filter((f) => f.at < sh.at && f.at > prev && f.name !== 'stroke').sort((a, b) => b.at - a.at)[0];
-        if (own && FILL_ONLY.has(own.name) && seeThrough(own, mine, sh.at)) {
+        // A Canvas fillRect with no style of its own in the loop paints with the one set before the loop.
+        const paint = own ?? (sh.name === 'fillRect' ? { name: 'fill', args: [], raw: [], at: sh.at } : undefined);
+        if (paint && FILL_ONLY.has(paint.name) && seeThrough(paint, mine, sh.at, pre.filter((x) => x.on === on))) {
           why = 'it stacks translucent shapes of growing size on one centre'; at = sh.at; break;
         }
       }

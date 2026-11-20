@@ -135,3 +135,20 @@ export function canvasTaperedStrokeBesideAnotherCanvas(ctx: CanvasRenderingConte
     other.fillRect(0, 0, 10, 10);
   }
 }
+
+export function preLoopOpaqueDiscs(ctx: CanvasRenderingContext2D, other: CanvasRenderingContext2D): void {
+  // set before the loop: ctx is opaque; the see-through styles are on another context or in a callback run after it
+  other.fillStyle = 'rgba(255,255,255,0.05)';
+  const later = () => { ctx.fillStyle = 'rgba(255,255,255,0.05)'; };
+  ctx.fillStyle = '#ffffff';
+  for (let i = 0; i < 20; i++) { ctx.beginPath(); ctx.arc(0, 0, 100 - i * 4, 0, Math.PI * 2); ctx.fill(); }
+  later();
+}
+
+export function preLoopStyleInAnotherFunction(ctx: CanvasRenderingContext2D): void {
+  ctx.fillStyle = 'rgba(255,255,255,0.05)';
+  const draw = (ctx: CanvasRenderingContext2D) => {             // another ctx: the style above is set outside this function
+    for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+  };
+  draw(ctx);
+}
