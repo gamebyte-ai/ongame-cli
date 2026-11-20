@@ -1,0 +1,36 @@
+# merge-policy - when the fleet's merge gate lets a passed PR merge without a re-test.
+#
+# Can, 2026-11-20 (request 521406): conflict-free PRs merge without a test run. Tests only for
+# big conflicts or mission-critical work: board, vault, gateway, payments, store.
+#
+# The gate (gamebyte-ai/fleet lib/review_gate.py, policy_untested) reads this file from the base
+# branch's head. With `mode clean-untested`, a reviewed PR with green CI on an older base merges
+# with no re-test when it does not conflict with the base, changes no path below, and the base
+# branch's own CI is green. Main's CI after each merge is the backstop.
+#
+# One rule per line: `<kind> <value>`.
+#   mode      clean-untested turns the policy on. Delete that line to go back to the strict rule.
+#   critical  a path prefix (plain string start; end it in / for a folder). A PR that changes a
+#             file under one keeps the re-test on the current base.
+# The fleet keeps a copy in gamebyte-ai/fleet config/merge-policies/<repo> (i_83ot570q).
+
+mode clean-untested
+
+# CI: how every test runs
+critical .github/
+# payments
+critical skills/credit/
+critical commands/account.md
+# store
+critical skills/store-prep/
+critical commands/publish.md
+# store privacy answers: what a game declares to the App Store and Google Play
+critical skills/analytics/store-labels.md
+critical skills/analytics/privacy.html
+# what every user installs
+critical install.sh
+critical install.ps1
+critical docs/install.sh
+critical docs/install.ps1
+critical bin/
+critical .claude-plugin/
