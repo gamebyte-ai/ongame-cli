@@ -30,10 +30,10 @@ test('the same rays drawn with one FillGradient pass the check', () => {
   assert.match(out, /ok, no stacked-shape fade in 1 file/);
 });
 
-test('strip skies, ring vignettes, stacked ellipses, Canvas glows, a two-line ramp and Canvas globalAlpha glows and rings fail the check, also with a space before the bracket', () => {
+test('strip skies, ring vignettes, stacked ellipses, Canvas glows, a two-line ramp, Canvas globalAlpha glows and rings and Canvas styles set before the loop fail the check, also with a space before the bracket', () => {
   const { code, out } = check(fixture('strips.js'));
   assert.equal(code, 1, out);
-  for (const line of [4, 8, 12, 16, 20, 24, 28, 33, 37, 41, 45, 49, 57, 61, 65, 69, 73]) assert.match(out, new RegExp(`strips\\.js:${line}: `));
+  for (const line of [4, 8, 12, 16, 20, 24, 28, 33, 37, 41, 45, 49, 57, 61, 65, 69, 73, 78, 84, 91]) assert.match(out, new RegExp(`strips\\.js:${line}: `));
 });
 
 test('particles, palette tiles, paint dabs, page dots, bars, per-object loops, line layers, outlines, tapered Canvas strokes and waived loops pass', () => {
@@ -74,7 +74,7 @@ test('a style changed after its declaration still reports a fade', () => {
 test('a folder is scanned recursively and nothing to check is an error, not a pass', () => {
   const all = check('test/fixtures/gradients');
   assert.equal(all.code, 1, all.out);
-  assert.match(all.out, /19 stacked-shape fades in 2 files \(4 checked\)/);
+  assert.match(all.out, /22 stacked-shape fades in 2 files \(4 checked\)/);
   const none = check('commands');
   assert.equal(none.code, 2, none.out);
   assert.match(none.out, /nothing was checked/);
@@ -131,4 +131,25 @@ test('another target cannot interrupt a translucent shape and its fill', () => {
   const findings = scan(source);
   assert.equal(findings.length, 1);
   assert.match(findings[0].why, /stacks translucent shapes/);
+});
+
+test('a comment after or inside an in-loop Canvas style is not part of its value', () => {
+  const loop = (set) => `for (let i = 0; i < 20; i++) {\n  ${set}\n  ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);\n}`;
+  for (const set of ['ctx.globalAlpha = 1 // opaque', 'ctx.globalAlpha = /* full */ 1;', "ctx.fillStyle = '#ffffff' // solid"]) {
+    assert.equal(scan(loop(set)).length, 0, set);
+  }
+  for (const set of ['ctx.globalAlpha = 0.1 // 1', 'ctx.globalAlpha = 0.1 /* 1 */;', "ctx.fillStyle = 'rgba(255,255,255,0.05)' // #ffffff"]) {
+    assert.equal(scan(loop(set)).length, 1, set);
+  }
+});
+
+test('a see-through fade whose style is a local object is still reported, and an opaque one is not', () => {
+  const loop = (style) => scan(`for (let i = 0; i < 20; i++) {
+    const style = ${style};
+    g.circle(0, 0, 100 - i * 4).fill(style);
+  }`).length;
+  assert.equal(loop('{ color: 0xffffff, alpha: 0.05, width: i + 1 }'), 1);
+  assert.equal(loop("{ color: 'rgba(255, 255, 255, 0.05)', width: i + 1 }"), 1);
+  assert.equal(loop('{ color: 0xffffff, alpha: 1, width: i + 1 }'), 0);
+  assert.equal(loop("{ color: '#ffffff', width: i + 1 }"), 0);
 });

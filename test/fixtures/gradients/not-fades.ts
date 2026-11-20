@@ -176,6 +176,156 @@ export function opaqueDiscsBesideTranslucentLabels(layer: { discs: CanvasRenderi
   }
 }
 
+export function preLoopOpaqueDiscs(ctx: CanvasRenderingContext2D, other: CanvasRenderingContext2D): void {
+  // set before the loop: ctx is opaque; the see-through styles are on another context or in a callback run after it
+  other.fillStyle = 'rgba(255,255,255,0.05)';
+  const later = () => { ctx.fillStyle = 'rgba(255,255,255,0.05)'; };
+  ctx.fillStyle = '#ffffff';
+  for (let i = 0; i < 20; i++) { ctx.beginPath(); ctx.arc(0, 0, 100 - i * 4, 0, Math.PI * 2); ctx.fill(); }
+  later();
+}
+
+export function preLoopStyleInAnotherFunction(ctx: CanvasRenderingContext2D): void {
+  ctx.fillStyle = 'rgba(255,255,255,0.05)';
+  const draw = (ctx: CanvasRenderingContext2D) => {             // another ctx: the style above is set outside this function
+    for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+  };
+  draw(ctx);
+}
+
+export function preLoopStyleOnAnotherContextOfOneOwner(a: { one: CanvasRenderingContext2D; two: CanvasRenderingContext2D }): void {
+  a.one.globalAlpha = 0.05;                                     // a.one's alpha does not paint a.two's rects
+  for (let i = 0; i < 20; i++) a.two.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
+
+export function preLoopStyleOutsideATypedFunction(ctx: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 0.05;
+  function draw(ctx: CanvasRenderingContext2D): void {          // another ctx: the alpha above is set outside this function
+    for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+  }
+  draw(ctx);
+}
+
+export function preLoopStyleOnACondition(ctx: CanvasRenderingContext2D, dim: boolean): void {
+  if (dim) ctx.globalAlpha = 0.05;                              // may not run: the loop is not judged by it
+  dim && (ctx.fillStyle = 'rgba(0,0,0,0.1)');
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
+
+export function preLoopStyleMayHaveChanged(ctx: CanvasRenderingContext2D, dim: boolean): void {
+  // each see-through set below is undone, or may be, before the loop: the loop's alpha is not known, so it is not judged
+  ctx.globalAlpha = 0.05; if (dim) ctx.globalAlpha = 1;
+  ctx.fillStyle = 'rgba(0,0,0,0.1)'; { ctx.fillStyle = '#000000'; }
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
+
+export function preLoopStyleRestoredOrInACallback(ctx: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 1;
+  ctx.save(); ctx.globalAlpha = 0.1; ctx.restore();             // restore() puts alpha 1 back
+  const later = () => ctx.fillStyle = 'rgba(0,0,0,0.1)';        // never called before the loop
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+  later();
+}
+
+export function preLoopStyleInALoopThatMayNotRun(ctx: CanvasRenderingContext2D): void {
+  for (let j = 0; j < 0; j++) ctx.globalAlpha = 0.1;           // may run zero times
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
+
+export function preLoopStyleReset(ctx: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 0.1; ctx.reset();                           // reset() puts alpha 1 back
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
+
+export function preLoopStyleRestoredInTheLoop(ctx: CanvasRenderingContext2D): void {
+  ctx.save(); ctx.fillStyle = 'rgba(0,0,0,0.1)';
+  for (let i = 0; i < 20; i++) { ctx.restore(); ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4); } // restore() undoes it
+}
+
+export function preLoopStyleResetByAResize(ctx: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 0.1; ctx.canvas.width = 400;                // a resize puts alpha 1 back
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
+
+export function preLoopStylesJoinedByAComma(ctx: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 0.1, ctx.globalAlpha = 1;                   // the second set wins
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
+
+export function preLoopStyleResizedInTheLoop(ctx: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 0.1;
+  for (let i = 0; i < 20; i++) { ctx.canvas.width = 400; ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4); } // each resize resets alpha
+}
+
+export function preLoopStyleUpdated(ctx: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 0.1; ctx.globalAlpha *= 10;                 // 1 after the update
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
+
+export function preLoopStyleUpdatedInTheLoop(ctx: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 0.1;
+  for (let i = 0; i < 20; i++) { ctx.globalAlpha *= 10; ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4); } // 1 from the first pass
+}
+
+export function preLoopStyleResetByAnUpdatedSize(ctx: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 0.1; ctx.canvas.width += 0;                 // any write to the size resets alpha to 1
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
+
+export function preLoopStyleResetByAPrefixUpdate(ctx: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 0.1; ++ctx.canvas.width;                    // a prefix update of the size resets alpha too
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
+
+export function preLoopStylePrefixUpdated(ctx: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 0; ++ctx.globalAlpha;                       // 1 after the update
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
+
+export function preLoopOpaqueAlphaWithAComment(ctx: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 1 // opaque: the comment is not part of the value
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
+
+export function preLoopStyleOnARenamedContext(ctx: CanvasRenderingContext2D, other: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 0.1;
+  {
+    const ctx = other;                                          // another context under the same name
+    for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+  }
+}
+
+export function preLoopStyleOnAContextRenamedInTheLoop(ctx: CanvasRenderingContext2D, other: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 0.1;
+  for (let i = 0; i < 20; i++) { ctx = other; ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4); } // another context each pass
+}
+
+export function preLoopStyleInAnotherSwitchCase(ctx: CanvasRenderingContext2D, mode: number): void {
+  switch (mode) {
+    case 0: ctx.globalAlpha = 0.1; break;                       // not on the way to case 1's loop
+    case 1: for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+  }
+}
+
+export function preLoopStyleOnAContextRenamedOnACondition(ctx: CanvasRenderingContext2D, other: CanvasRenderingContext2D, dim: boolean): void {
+  ctx.globalAlpha = 0.1;
+  if (dim) ctx = other;                                         // may be another context
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
+
+export function preLoopStyleOnATypedOrDestructuredRename(ctx: CanvasRenderingContext2D, other: CanvasRenderingContext2D, o: { ctx: CanvasRenderingContext2D }): void {
+  ctx.globalAlpha = 0.1;
+  { const ctx: CanvasRenderingContext2D = other; for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4); }
+  { const { ctx } = o; for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4); }
+}
+
+export function preLoopStylesOnTwoContextsInOneStatement(ctx: CanvasRenderingContext2D, other: CanvasRenderingContext2D, dim: boolean): void {
+  ctx.globalAlpha = 0.1; other.globalAlpha = 1, ctx.globalAlpha = 1; // the last set on ctx is opaque
+  if (dim)
+    ctx.fillStyle = 'rgba(0,0,0,0.1)'                           // on a condition, without a semicolon before it
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
+
 export function outlineBesideLocalNamedAlpha(g: Graphics): void {
   for (let i = 0; i < 20; i++) {                               // `alpha` and `color` are style keys here, not the local
     const alpha = i;
@@ -184,5 +334,13 @@ export function outlineBesideLocalNamedAlpha(g: Graphics): void {
   for (let i = 0; i < 20; i++) {
     const color = i;
     g.circle(0, 0, 10 + i).stroke({ width: 2, color: 0xffffff, alpha: 1 });
+  }
+}
+
+export function opaqueRectsWithCommentedAlpha(ctx: CanvasRenderingContext2D): void {
+  for (let i = 0; i < 20; i++) {
+    ctx.globalAlpha = 1 // opaque
+    ctx.fillStyle = '#ffffff' /* solid */;
+    ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
   }
 }
