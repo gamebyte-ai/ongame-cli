@@ -115,3 +115,11 @@ export function ringsBesideFadingLineOnOneOwner(layer: { rings: Graphics; path: 
     layer.path.moveTo(i * 20, 0).lineTo(i * 20, 50).stroke({ color: 0xffffff, alpha: i / 20 });
   }
 }
+
+export function ringsBesideFadingLabels(rings: Graphics, ctx: CanvasRenderingContext2D): void {
+  for (let i = 0; i < 20; i++) {                               // the rings and the fading text are two objects
+    rings.circle(0, 0, 10 + i * 4).stroke({ color: 0xffffff, width: 1 });
+    ctx.globalAlpha = i / 20;
+    ctx.fillText('label', i * 20, 0);
+  }
+}

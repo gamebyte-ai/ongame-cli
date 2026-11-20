@@ -7,7 +7,7 @@
  *
  *   node check.mjs <gameDir | file>...     # exit 0 = none found, 1 = found (each printed as file:line), 2 = bad input
  *
- * A loop is reported when it draws a shape and fills it, and either
+ * A loop is reported when it draws a shape and fills that same object, and either
  *   - the fill changes with the loop (an alpha or colour computed from the loop counter); for a stroke, only when the
  *     shapes are concentric (rings of one centre), or
  *   - the shape's size changes with the loop, its position does not, and the fill is translucent (stacked discs).
@@ -455,8 +455,10 @@ export function scan(src) {
       if (![...read].some((x) => ramp.has(x))) continue;
       if (impure(colour, dep) || [...read].some((x) => dep.has(x) && !ramp.has(x))) continue; // mixed with per-item data
       // A stroke is a ring fade only when it strokes rings on its own object; rings on another object beside a
-      // tapered line along a path do not make that line a fade.
-      if (!FILL_ONLY.has(f.name) && !concentric.some((sh) => target(loop.body, sh.at) === target(loop.body, f.at))) continue;
+      // tapered line along a path do not make that line a fade. A fill ramps a fade only when a shape in the loop
+      // is drawn on its own object; rings on another object beside fading text do not make that text a fade.
+      const on = (sh) => target(loop.body, sh.at) === target(loop.body, f.at);
+      if (!(FILL_ONLY.has(f.name) ? shapes : concentric).some(on)) continue;
       why = 'its fill changes with each pass of the loop'; at = f.at; break;
     }
     if (!why) {

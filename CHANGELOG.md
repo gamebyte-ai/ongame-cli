@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.83 — 2026-11-20
+
+- `skills/gradients/check.mjs` no longer reports a fill whose alpha changes just because shapes are drawn beside it on another object. A fill now counts as a fade only when a shape in the loop is drawn on the same object. Rings on one Graphics beside fading Canvas text pass.
+- `test/fixtures/gradients/not-fades.ts` holds that case as a passing one.
+- Works with every ongame-cli release: the change is one script with no dependency.
+
 ## 1.7.82 — 2026-11-20
 
 - `skills/gradients/check.mjs` no longer reports a line whose alpha changes just because rings are drawn beside it on another object. A stroke now counts as a ring fade only when it strokes growing rings on its own object. Two Graphics kept on one owner (`layer.rings`, `layer.path`) count as two objects.
