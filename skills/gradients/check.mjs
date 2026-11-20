@@ -384,13 +384,15 @@ function translucent(name, raw) {
 
 /**
  * True when fill `f` is see-through. A Canvas `ctx.fill()` carries no style: it paints with the `fillStyle` and
- * `globalAlpha` set last before it in the loop. A bare Pixi `fill()` is assumed to use the last `setFillStyle` the
- * same way (a guess, not checked against PixiJS).
+ * `globalAlpha` set last before it in the loop. A Canvas style set (`ctx.fillStyle = ...`, `ctx.globalAlpha = ...`)
+ * is judged the same way, together with the other one, at `at` (the shape it paints, when that comes later):
+ * `globalAlpha = 1` after a see-through `fillStyle` still paints see-through. A bare Pixi `fill()` is assumed to use
+ * the last `setFillStyle` the same way (a guess, not checked against PixiJS).
  */
-function seeThrough(f, fills) {
+function seeThrough(f, fills, at = f.at) {
   const bare = f.name === 'fill' && !f.prop && f.raw.every((a) => /^\s*(?:(['"])(?:nonzero|evenodd)\1)?\s*$/.test(a));
-  if (!bare) return translucent(f.name, f.raw);
-  const before = fills.filter((x) => x.at < f.at).sort((a, b) => b.at - a.at);
+  if (!bare && !f.prop) return translucent(f.name, f.raw);
+  const before = fills.filter((x) => x.at <= Math.max(at, f.at)).sort((a, b) => b.at - a.at);
   const last = (pick) => before.find(pick);
   const style = last((x) => x.prop === 'fillStyle' || x.name === 'setFillStyle');
   const alpha = last((x) => x.prop === 'globalAlpha');
@@ -468,7 +470,7 @@ export function scan(src) {
         // Pixi v8 fills after the shape; v7's beginFill (and Canvas' fillStyle) is set before it.
         const own = fills.filter((f) => f.at > sh.at && f.at < next).sort((a, b) => a.at - b.at)[0]
           ?? fills.filter((f) => f.at < sh.at && f.at > prev && f.name !== 'stroke').sort((a, b) => b.at - a.at)[0];
-        if (own && FILL_ONLY.has(own.name) && seeThrough(own, fills)) {
+        if (own && FILL_ONLY.has(own.name) && seeThrough(own, fills, sh.at)) {
           why = 'it stacks translucent shapes of growing size on one centre'; at = sh.at; break;
         }
       }

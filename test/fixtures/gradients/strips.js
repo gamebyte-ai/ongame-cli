@@ -52,3 +52,7 @@ export function splitDeclaration(g) {
     g.rect(0, i * 10, 100, 10).fill({ color: 0xffffff, alpha: t });
   }
 }
+
+export function resetAlphaGlow(ctx) {
+  for (let i = 0; i < 20; i++) { ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.globalAlpha = 1; ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4); }
+}
