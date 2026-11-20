@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.7.79 — 2026-11-20
+
+- New games report how they are played: `/make-game` and the code phase write analytics shim v2 calls (`screen()`, `levelStart()` / `levelEnd()`, `economy()`, a `label` on every interactive object). The polish phase checks them, as it checks level events.
+- `/analytics add` upgrades an existing web game to shim v2. Every call the game already makes keeps working, and telemetry is wired into `index.html` again. A second run changes nothing.
+- `skills/analytics/upgrade.mjs` does the file work: it swaps the shim (the old one is kept in `.ongame/archive/`), refuses when the game imports a name v2 lacks, and writes `public/privacy.html`.
+- The maker is asked once whether the game is aimed at children. A children's game gets no analytics tag and no id; its privacy page says nothing is collected.
+- The privacy page and `skills/analytics/store-labels.md` list exactly the 17 events in `skills/analytics/events.json`, with the App Store and Google Play answers.
+- `/publish` writes the privacy page before it builds.
+- Shim v2 itself comes from the bundled game template. With an older onGame CLI, `/analytics add` says to update it and changes nothing.
+- `test/analytics-upgrade.test.mjs` checks these steps and this version line.
+
 ## 1.7.78 — 2026-11-20
 
 - `/make-game` applies six game-design rules by default, to every new game and every change to a game's rules, levels, layout or economy: a capacity for every container, when a piece waits or is blocked, caps on what is in play, an odds model before the levels, phone sizes and readability, and a rival study of looks, sizes and economy that changes the game.
