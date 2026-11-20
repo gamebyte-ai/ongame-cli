@@ -17,6 +17,8 @@
 - `test/fixtures/gradients/strips.js` holds it as a reported case.
 - `skills/gradients/check.mjs` no longer blames one canvas for another canvas's colour. A growing shape is now judged only by the fills and Canvas style sets on its own object. Before, a see-through `a.fillStyle` made `b.fillRect` on another context count as a stacked fade.
 - `test/fixtures/gradients/not-fades.ts` holds it as a passing case.
+- `skills/gradients/check.mjs` no longer reports a Canvas line drawn in a loop with a changing `ctx.globalAlpha` and only `ctx.stroke()`. A tapered stroke along a path is line art. `globalAlpha` now counts as the fill or the stroke that the next paint call makes, so a stroke-only loop is a fade only when it strokes growing rings. Only paint calls on the same context count: a fill on another canvas beside the line does not make it a fill.
+- `test/fixtures/gradients/not-fades.ts` holds the tapered stroke, alone and beside a fill on another context, as passing cases. `test/fixtures/gradients/strips.js` holds a `globalAlpha` glow on growing filled arcs and `globalAlpha` rings as reported cases.
 
 ## 1.7.81 — 2026-11-20
 

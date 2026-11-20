@@ -120,3 +120,18 @@ export function twoCanvases(a: CanvasRenderingContext2D, b: CanvasRenderingConte
   // a's see-through fillStyle does not paint b's rects; b keeps its own opaque fill
   for (let i = 0; i < 20; i++) { a.fillStyle = 'rgba(255,255,255,0.05)'; b.fillRect(0, 0, 100 - i * 4, 100 - i * 4); }
 }
+
+export function canvasTaperedStroke(ctx: CanvasRenderingContext2D): void {
+  for (let i = 0; i < 20; i++) {                               // globalAlpha here is the stroke's: a tapered line, line art
+    ctx.globalAlpha = i / 20;
+    ctx.beginPath(); ctx.moveTo(i * 20, 0); ctx.lineTo(i * 20 + 20, 0); ctx.stroke();
+  }
+}
+
+export function canvasTaperedStrokeBesideAnotherCanvas(ctx: CanvasRenderingContext2D, other: CanvasRenderingContext2D): void {
+  for (let i = 0; i < 20; i++) {                               // the fill is on another context: ctx's alpha is still a stroke's
+    ctx.globalAlpha = i / 20;
+    ctx.beginPath(); ctx.moveTo(i * 20, 0); ctx.lineTo(i * 20 + 20, 0); ctx.stroke();
+    other.fillRect(0, 0, 10, 10);
+  }
+}

@@ -56,3 +56,11 @@ export function splitDeclaration(g) {
 export function resetAlphaGlow(ctx) {
   for (let i = 0; i < 20; i++) { ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.globalAlpha = 1; ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4); }
 }
+
+export function canvasAlphaGlow(ctx) {
+  for (let i = 0; i < 20; i++) { ctx.globalAlpha = 0.02 + i / 40; ctx.beginPath(); ctx.arc(0, 0, 100 - i * 4, 0, Math.PI * 2); ctx.fill(); }
+}
+
+export function canvasAlphaRings(ctx) {
+  for (let i = 0; i < 20; i++) { ctx.globalAlpha = i / 20; ctx.beginPath(); ctx.arc(0, 0, 10 + i * 4, 0, Math.PI * 2); ctx.stroke(); }
+}
