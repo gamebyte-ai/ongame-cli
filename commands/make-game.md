@@ -66,7 +66,11 @@ that from their words; no phrase list decides it. A clear ask for a quick protot
 docs only keeps `prototype`, `production`, `playable-ad` or `concept-only`. A one-line idea such as "a cozy farming
 game" is no such signal. Say the choice in one sentence; the maker can redirect it.
 
-`concept-to-game` registers `plan.phases: ["research", "concept", "assets", "docs"]`, in that order:
+The flag `--no-concept` in the request turns this default off. Drop the flag from the concept, then judge `path`
+from the request alone, without this section's default.
+
+`concept-to-game` registers `plan.target: "production"` and
+`plan.phases: ["research", "concept", "assets", "docs"]`, in that order:
 1. `research`: research the genre and write `docs/RESEARCH.md`.
 2. `concept`: make the concept screens, a main menu and 2-3 in-game moments in one visual language.
 3. `assets`: cut those screens into game-ready assets. Read `knowledge_get({ key: 'pattern:concept-cut' })` for how,

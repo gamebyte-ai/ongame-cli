@@ -20,6 +20,28 @@ test('a new game with no clear mode signal uses concept-to-game', () => {
   assert.ok(block.includes('"a cozy farming\ngame" is no such signal'));
 });
 
+test('the --no-concept flag turns the default off and leaves the flag out of the concept', () => {
+  const block = section();
+  const line = 'The flag `--no-concept` in the request turns this default off. Drop the flag from the concept, then judge `path`\nfrom the request alone, without this section\'s default.';
+  assert.ok(block.includes(line));
+  assert.ok(block.indexOf('`--no-concept`') < block.indexOf('`concept-to-game` registers'), 'the opt-out comes before the plan it skips');
+});
+
+test('concept-to-game registers target production with its phases', () => {
+  // A live run without this line sent target: concept.
+  const block = section();
+  assert.ok(block.includes('`concept-to-game` registers `plan.target: "production"` and\n`plan.phases: ["research", "concept", "assets", "docs"]`'));
+});
+
+test('the plugin version and the changelog name the release that adds --no-concept', () => {
+  const version = JSON.parse(read('.claude-plugin/plugin.json')).version;
+  assert.ok(version.localeCompare('1.7.86', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.86 or later`);
+  const log = read('CHANGELOG.md');
+  const i = log.indexOf('## 1.7.86');
+  assert.ok(i > -1, 'CHANGELOG has a 1.7.86 section');
+  assert.ok(log.slice(i, log.indexOf('\n## ', i + 1)).includes('`--no-concept`'));
+});
+
 test('a clear ask for another mode keeps that mode', () => {
   const block = section();
   for (const mode of ['`prototype`', '`production`', '`playable-ad`', '`concept-only`']) assert.ok(block.includes(mode), mode);
