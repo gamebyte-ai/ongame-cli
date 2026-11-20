@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.78 — 2026-11-20
+
+- `/make-game` applies six game-design rules by default, to every new game and every change to a game's rules, levels, layout or economy: a capacity for every container, when a piece waits or is blocked, caps on what is in play, an odds model before the levels, phone sizes and readability, and a rival study of looks, sizes and economy that changes the game.
+- The new `skills/game-design/SKILL.md` gives each rule's steps and defaults. The answers go to `docs/GAME_DESIGN.md` before the first level or game-rule code.
+- `test/game-design-rules.test.mjs` checks these lines and this version line.
+- Works with every ongame-cli release: the change is skill text only.
+
 ## 1.7.76 — 2026-11-19
 
 - Light rays behind the end card now fade from bright at the centre to transparent at the edge. The polish phase's Sub-phase 8 gives the radial gradient code; `/make-game` points to it.
