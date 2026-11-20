@@ -211,3 +211,13 @@ export function preLoopStylesJoinedByAComma(ctx: CanvasRenderingContext2D): void
   ctx.globalAlpha = 0.1, ctx.globalAlpha = 1;                   // the second set wins
   for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
 }
+
+export function preLoopStyleResizedInTheLoop(ctx: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 0.1;
+  for (let i = 0; i < 20; i++) { ctx.canvas.width = 400; ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4); } // each resize resets alpha
+}
+
+export function preLoopStyleUpdated(ctx: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 0.1; ctx.globalAlpha *= 10;                 // 1 after the update
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}

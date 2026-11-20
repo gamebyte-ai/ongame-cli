@@ -428,8 +428,8 @@ function seeThrough(f, fills, at = f.at, pre = []) {
  * order, with the object they are set on (`on`, its whole path as `target()` gives it). An entry is `sure` only when
  * it always runs and stays: a plain statement in the blocks that hold the loop. A set in an earlier block (an `if`, a
  * callback, a bare `{}`), behind an unbraced `if`/`else`/`&&`/`?`, or in an arrow's expression body is not sure, and
- * a `restore()` or `reset()` on the object, a resize of its canvas or a comma-joined set adds an unsure entry for
- * both styles. seeThrough() judges by the last entry, so any
+ * a `restore()` or `reset()` on the object, a resize of its canvas, an update (`*=`) or a comma-joined set adds an
+ * unsure entry for both styles. seeThrough() judges by the last entry, so any
  * doubt after a sure set means no judgement.
  */
 function preLoopStyles(s, src, at) {
@@ -468,6 +468,10 @@ function preLoopStyles(s, src, at) {
   }
   for (const m of region.matchAll(/\.\s*(?:restore|reset)\s*\(/g)) {
     if (m.index > k) unknown(target(region, m.index + m[0].length - 1), m.index);
+  }
+  // An update (`ctx.globalAlpha *= 2`) gives a value this check does not work out.
+  for (const m of region.matchAll(/\.\s*(fillStyle|globalAlpha)\s*(?:\*\*|<<|>>>?|&&|\|\||\?\?|[-+*/%&|^])=/g)) {
+    if (m.index > k) unknown(target(region, m.index + m[0].indexOf(m[1]) + m[1].length), m.index);
   }
   // Setting `ctx.canvas.width` or `.height` resets every style of ctx.
   for (const m of region.matchAll(/\.\s*canvas\s*\.\s*(?:width|height)\s*=(?!=)/g)) {
@@ -554,7 +558,11 @@ export function scan(src) {
     }
     const shapeTarget = (c) => target(loop.body, c.at); // the whole path (`a.two`), before `target` is shadowed below
     // A restore() or reset() in the loop may undo a style set before it: that style is then not known.
-    const undone = new Set([...loop.body.matchAll(/\.\s*(?:restore|reset)\s*\(/g)].map((m) => target(loop.body, m.index + m[0].length - 1)));
+    // So does a resize of its canvas (`ctx.canvas.width = ...`).
+    const undone = new Set([
+      ...[...loop.body.matchAll(/\.\s*(?:restore|reset)\s*\(/g)].map((m) => target(loop.body, m.index + m[0].length - 1)),
+      ...[...loop.body.matchAll(/\.\s*canvas\s*\.\s*(?:width|height)\s*=(?!=)/g)].map((m) => target(loop.body, m.index + m[0].indexOf('canvas') + 'canvas'.length)),
+    ]);
     if (!why) {
       // Each concentric shape is judged by the fill that follows it, before the next shape: its own fill. Only shapes
       // and fills on the shape's own object count: `a.fillStyle` does not paint what `b.fillRect` draws.
