@@ -132,3 +132,14 @@ test('another target cannot interrupt a translucent shape and its fill', () => {
   assert.equal(findings.length, 1);
   assert.match(findings[0].why, /stacks translucent shapes/);
 });
+
+test('a see-through fade whose style is a local object is still reported, and an opaque one is not', () => {
+  const loop = (style) => scan(`for (let i = 0; i < 20; i++) {
+    const style = ${style};
+    g.circle(0, 0, 100 - i * 4).fill(style);
+  }`).length;
+  assert.equal(loop('{ color: 0xffffff, alpha: 0.05, width: i + 1 }'), 1);
+  assert.equal(loop("{ color: 'rgba(255, 255, 255, 0.05)', width: i + 1 }"), 1);
+  assert.equal(loop('{ color: 0xffffff, alpha: 1, width: i + 1 }'), 0);
+  assert.equal(loop("{ color: '#ffffff', width: i + 1 }"), 0);
+});
