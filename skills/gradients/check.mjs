@@ -194,7 +194,10 @@ function styleSets(body, rawBody) {
     const on = target(body, m.index + m[0].indexOf(m[1]) + m[1].length); // the context it is set on
     const name = m[1] === 'strokeStyle' ? 'stroke' : m[1] === 'globalAlpha' ? paintedBy(m.index, on) : 'fill';
     const value = m[1] === 'globalAlpha' ? `{ alpha: ${m[2]} }` : m[2];
-    const raw = m[1] === 'globalAlpha' ? `{ alpha: ${rawBody.slice(from, from + m[2].length)} }` : rawBody.slice(from, from + m[2].length);
+    // The source text of the value, without a comment after it (`= 1 // opaque`) or inside it. A block comment the
+    // line cuts off (`/* goes on` to the next line) is dropped to the end of the line.
+    const text = rawBody.slice(from, from + m[2].length).replace(/\/\*[\s\S]*?(?:\*\/|$)|\/\/.*$/g, '').trim();
+    const raw = m[1] === 'globalAlpha' ? `{ alpha: ${text} }` : text;
     out.push({ name, prop: m[1], args: [value], raw: [raw], at: m.index + 1 + m[1].length + (m[0].indexOf(m[1]) - 1) });
   }
   return out;
@@ -669,8 +672,8 @@ export function scan(src) {
         const own = mine.filter((f) => f.at > sh.at && f.at < next).sort((a, b) => a.at - b.at)[0]
           ?? mine.filter((f) => f.at < sh.at && f.at > prev && f.name !== 'stroke').sort((a, b) => b.at - a.at)[0];
         // A Canvas fillRect with no style of its own in the loop paints with the one set before the loop.
-        const paint = own ?? (sh.name === 'fillRect' ? { name: 'fill', args: [], raw: [], at: sh.at } : undefined);
-        if (paint && FILL_ONLY.has(paint.name) && seeThrough(resolved(paint), mine, sh.at, unknownHere(shapeTarget(sh)) ? [] : pre.filter((x) => x.on === shapeTarget(sh) || (x.binding && shapeTarget(sh).startsWith(`${x.on}.`))))) {
+        const paint = own ? resolved(own) : (sh.name === 'fillRect' ? { name: 'fill', args: [], raw: [], at: sh.at } : undefined);
+        if (paint && FILL_ONLY.has(paint.name) && seeThrough(paint, mine, sh.at, unknownHere(shapeTarget(sh)) ? [] : pre.filter((x) => x.on === shapeTarget(sh) || (x.binding && shapeTarget(sh).startsWith(`${x.on}.`))))) {
           why = 'it stacks translucent shapes of growing size on one centre'; at = sh.at; break;
         }
       }

@@ -176,17 +176,6 @@ export function opaqueDiscsBesideTranslucentLabels(layer: { discs: CanvasRenderi
   }
 }
 
-export function outlineBesideLocalNamedAlpha(g: Graphics): void {
-  for (let i = 0; i < 20; i++) {                               // `alpha` and `color` are style keys here, not the local
-    const alpha = i;
-    g.circle(0, 0, 10 + i).stroke({ alpha: 1, color: 0xffffff, width: 2 });
-  }
-  for (let i = 0; i < 20; i++) {
-    const color = i;
-    g.circle(0, 0, 10 + i).stroke({ width: 2, color: 0xffffff, alpha: 1 });
-  }
-}
-
 export function preLoopOpaqueDiscs(ctx: CanvasRenderingContext2D, other: CanvasRenderingContext2D): void {
   // set before the loop: ctx is opaque; the see-through styles are on another context or in a callback run after it
   other.fillStyle = 'rgba(255,255,255,0.05)';
@@ -352,4 +341,23 @@ export function preLoopStyleSetWithBrackets(ctx: CanvasRenderingContext2D, key: 
 export function preLoopStyleBracketResizedInTheLoop(ctx: CanvasRenderingContext2D): void {
   ctx.globalAlpha = 0.1;
   for (let i = 0; i < 20; i++) { ctx['canvas']['width'] = 400; ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4); } // each resize resets alpha
+}
+
+export function outlineBesideLocalNamedAlpha(g: Graphics): void {
+  for (let i = 0; i < 20; i++) {                               // `alpha` and `color` are style keys here, not the local
+    const alpha = i;
+    g.circle(0, 0, 10 + i).stroke({ alpha: 1, color: 0xffffff, width: 2 });
+  }
+  for (let i = 0; i < 20; i++) {
+    const color = i;
+    g.circle(0, 0, 10 + i).stroke({ width: 2, color: 0xffffff, alpha: 1 });
+  }
+}
+
+export function opaqueRectsWithCommentedAlpha(ctx: CanvasRenderingContext2D): void {
+  for (let i = 0; i < 20; i++) {
+    ctx.globalAlpha = 1 // opaque
+    ctx.fillStyle = '#ffffff' /* solid */;
+    ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+  }
 }
