@@ -36,7 +36,7 @@ export const V2_EXPORTS = [
 ];
 
 /** Consent default per audience. A children's game gets no analytics tag at all, so no id is ever made. */
-const CONSENT_DEFAULT = { general: 'region', children: 'off' };
+const CONSENT_DEFAULT = { general: 'on', children: 'off' };
 
 const sha8 = (s) => createHash('sha256').update(s).digest('hex').slice(0, 8);
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -106,11 +106,8 @@ export function renderPrivacy(title, audience) {
       ...rows,
       '</table>',
       '<h2>Your choice</h2>',
-      '<p>Where the law asks for it, the game asks before it records anything. Everywhere, you can turn analytics off',
-      "in the game's settings. Turning it off deletes the records still waiting on your device and stops all sending.",
-      "You can also reset the random id from the game's settings.</p>",
-      '<h2>How long it is kept</h2>',
-      '<p>Single events are kept for 90 days. Daily totals made from them are kept for 13 months.</p>',
+      "<p>You can turn analytics off in the game's settings. Turning it off deletes the records still waiting on your",
+      'device and stops all sending.</p>',
     ].join('\n');
   }
   const never = REGISTRY.never.map((n) => `  <li>${esc(n)}</li>`).join('\n');
@@ -163,7 +160,10 @@ export function run(argv, log = console.log) {
   if (!existsSync(join(gameDir, 'src'))) { log(`refused: ${gameDir} has no src/ folder; this command upgrades web games`); return 2; }
 
   const settingsPath = join(gameDir, '.ongame', 'analytics.json');
-  let settings = existsSync(settingsPath) ? JSON.parse(readFileSync(settingsPath, 'utf8')) : null;
+  let settings = null;
+  if (existsSync(settingsPath)) {
+    try { settings = JSON.parse(readFileSync(settingsPath, 'utf8')); } catch { log('refused: .ongame/analytics.json is not valid JSON; fix or delete it'); return 2; }
+  }
   const shimPath = join(gameDir, 'src', 'telemetry.ts');
   const privacyPath = join(gameDir, 'public', 'privacy.html');
 

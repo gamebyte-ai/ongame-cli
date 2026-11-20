@@ -48,7 +48,7 @@ currency and tutorial steps. The published page's `sdk.js` does the sending; the
 
 | audience | consentDefault | telemetry |
 |---|---|---|
-| `general` | `region` | inject the `sdk.js` tag. The SDK asks first where the law needs it, and is on elsewhere. |
+| `general` | `on` | inject the `sdk.js` tag. Analytics is on until the player turns it off in settings. |
 | `children` | `off` | inject nothing. Remove any `__ONGAME_TELEMETRY__` config and `sdk.js` tag. No id is ever made. |
 
 A `general` game's settings screen gets an **Analytics** on/off switch that calls `setConsent(on)`.

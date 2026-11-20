@@ -76,7 +76,7 @@ test('upgrades v1 to v2, keeps the old file, writes the privacy page, and a seco
   const shim = v2File();
   const first = run(dir, '--shim', shim, '--audience', 'general');
   assert.equal(first.status, 0, first.stdout);
-  assert.deepEqual(summary(first), { audience: 'general', consentDefault: 'region', shim: 'upgraded', privacy: 'added', changed: true });
+  assert.deepEqual(summary(first), { audience: 'general', consentDefault: 'on', shim: 'upgraded', privacy: 'added', changed: true });
   assert.equal(fs.readFileSync(path.join(dir, 'src/telemetry.ts'), 'utf8'), SHIM_V2);
   const archived = fs.readdirSync(path.join(dir, '.ongame/archive'));
   assert.equal(archived.length, 1);
@@ -88,7 +88,7 @@ test('upgrades v1 to v2, keeps the old file, writes the privacy page, and a seco
   // The audience is remembered: the second run needs no --audience and asks nothing.
   const second = run(dir, '--shim', shim);
   assert.equal(second.status, 0, second.stdout);
-  assert.deepEqual(summary(second), { audience: 'general', consentDefault: 'region', shim: 'unchanged', privacy: 'unchanged', changed: false });
+  assert.deepEqual(summary(second), { audience: 'general', consentDefault: 'on', shim: 'unchanged', privacy: 'unchanged', changed: false });
   assert.deepEqual(snapshot(dir), once);
   assert.equal(run('--check', dir).status, 0);
 });
