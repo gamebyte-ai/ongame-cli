@@ -194,7 +194,10 @@ function styleSets(body, rawBody) {
     const on = target(body, m.index + m[0].indexOf(m[1]) + m[1].length); // the context it is set on
     const name = m[1] === 'strokeStyle' ? 'stroke' : m[1] === 'globalAlpha' ? paintedBy(m.index, on) : 'fill';
     const value = m[1] === 'globalAlpha' ? `{ alpha: ${m[2]} }` : m[2];
-    const raw = m[1] === 'globalAlpha' ? `{ alpha: ${rawBody.slice(from, from + m[2].length)} }` : rawBody.slice(from, from + m[2].length);
+    // The source text of the value, without a comment after it (`= 1 // opaque`) or inside it. A block comment the
+    // line cuts off (`/* goes on` to the next line) is dropped to the end of the line.
+    const text = rawBody.slice(from, from + m[2].length).replace(/\/\*[\s\S]*?(?:\*\/|$)|\/\/.*$/g, '').trim();
+    const raw = m[1] === 'globalAlpha' ? `{ alpha: ${text} }` : text;
     out.push({ name, prop: m[1], args: [value], raw: [raw], at: m.index + 1 + m[1].length + (m[0].indexOf(m[1]) - 1) });
   }
   return out;

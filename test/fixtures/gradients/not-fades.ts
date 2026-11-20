@@ -186,3 +186,11 @@ export function outlineBesideLocalNamedAlpha(g: Graphics): void {
     g.circle(0, 0, 10 + i).stroke({ width: 2, color: 0xffffff, alpha: 1 });
   }
 }
+
+export function opaqueRectsWithCommentedAlpha(ctx: CanvasRenderingContext2D): void {
+  for (let i = 0; i < 20; i++) {
+    ctx.globalAlpha = 1 // opaque
+    ctx.fillStyle = '#ffffff' /* solid */;
+    ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+  }
+}

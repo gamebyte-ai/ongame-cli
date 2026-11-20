@@ -133,6 +133,16 @@ test('another target cannot interrupt a translucent shape and its fill', () => {
   assert.match(findings[0].why, /stacks translucent shapes/);
 });
 
+test('a comment after or inside an in-loop Canvas style is not part of its value', () => {
+  const loop = (set) => `for (let i = 0; i < 20; i++) {\n  ${set}\n  ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);\n}`;
+  for (const set of ['ctx.globalAlpha = 1 // opaque', 'ctx.globalAlpha = /* full */ 1;', "ctx.fillStyle = '#ffffff' // solid"]) {
+    assert.equal(scan(loop(set)).length, 0, set);
+  }
+  for (const set of ['ctx.globalAlpha = 0.1 // 1', 'ctx.globalAlpha = 0.1 /* 1 */;', "ctx.fillStyle = 'rgba(255,255,255,0.05)' // #ffffff"]) {
+    assert.equal(scan(loop(set)).length, 1, set);
+  }
+});
+
 test('a see-through fade whose style is a local object is still reported, and an opaque one is not', () => {
   const loop = (style) => scan(`for (let i = 0; i < 20; i++) {
     const style = ${style};
