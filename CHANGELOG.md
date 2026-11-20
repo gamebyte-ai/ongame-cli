@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.83 — 2026-11-20
+
+- `skills/gradients/check.mjs` no longer reports a fill whose alpha changes just because shapes are drawn beside it on another object. A fill now counts as a fade only when a shape in the loop is drawn on the same object. Rings on one Graphics beside fading Canvas text pass.
+- `test/fixtures/gradients/not-fades.ts` holds that case as a passing one.
+- Works with every ongame-cli release: the change is one script with no dependency.
+
 ## 1.7.82 — 2026-11-20
 
 - `/make-game` reads a strategy layer before designing a game: lessons on what made successful games work, by genre and by studio. Each lesson is applied, adapted or marked not used, and the decisions go to `docs/STRATEGY.md` before `docs/GAME_DESIGN.md`.
