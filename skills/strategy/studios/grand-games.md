@@ -21,9 +21,10 @@ about how it chooses, builds and runs games. Genre lessons are in the genre file
 on ad revenue. Its demand is proven and its ads are cheap; the open question is only how to earn more per
 player. *Check:* the game's concept names the proven rivals and their download scale.
 
-**grand-games/2 — Speed of iteration is the edge.** The studio shipped its version about a year after the
-genre began to scale, with levels and progression already tuned, while larger rivals had not entered.
-*Check:* the plan has a date for the first playable, the first tuned 50 levels and the first ad test.
+**grand-games/2 — Speed of iteration is the edge.** *Estimated by the source:* the studio's version began to
+scale about a year after the genre did, with levels and progression already tuned, while larger rivals had not
+entered. *Our inference:* the first 50 tuned levels are a useful milestone. *Check:* the plan has a date for
+the first playable, the first tuned levels and the first ad test.
 
 **grand-games/3 — Many shots, a stacked portfolio.** The studio keeps several games live, each profitable and
 stable, and adds new ones as genres trend. It does not need one big hit. Follow-up games for the next trend
@@ -46,8 +47,9 @@ genre and what is improved, and the improved part is where the effort goes.
 
 ## Money
 
-**grand-games/7 — Purchases lead.** Its games earn mostly from in-app purchases, with ads staged in late.
-*Estimated by the source:* about 30 to 40% purchase revenue even on a genre that is usually ad-led. See
+**grand-games/7 — Earn from purchases, not only ads.** The studio adds purchases to genres that earn mostly
+from ads, and stages its ads in late. *Estimated by the source:* about 30 to 40% purchase revenue for the
+reviewed game, more than the studio's other games; the reviewers did not agree on the studio's usual share. See
 `arrow-escape/11` and `arrow-escape/12`. *Check:* the economy table sets a purchase target as a share of
 revenue, not only an ad target.
 

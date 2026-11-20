@@ -162,13 +162,56 @@ test('the arrow escape lessons carry what made the reviewed game work', () => {
     '**arrow-escape/1 — Give the game a way to lose.**',
     'a time limit per level, and a set of lives. *Observed:* 5 lives, each\nrefilled after 30 minutes.',
     '**arrow-escape/4 — Reveal the board in sections.**',
-    '**arrow-escape/7 — Add a new mechanic about every 20 levels.**',
+    '**arrow-escape/7 — Add new mechanics on a steady schedule.**',
     'about 15 mechanics by level 300 to 500',
-    'no interstitial ad before about\nlevel 26',
+    'interstitial ads start well after level 26',
     'about 30 to 40% of its revenue from purchases',
     '**arrow-escape/17 — Defend your name in store search.**',
   ]) {
-    assert.ok(genre.includes(needle), needle);
+    assert.ok(genre.replace(/\s+/g, ' ').includes(needle), needle);
+  }
+});
+
+// A number in a lesson is either seen in the reviewed game, estimated or advised by the source, or chosen by us.
+// Agents copy the label into the game's docs, so a threshold we chose must never read as the source's fact.
+const LABELS = ['*Observed:*', '*Estimated by the source:*', '*Our inference:*'];
+
+test('the strategy skill keeps observed, estimated and inferred numbers apart', () => {
+  const skill = read('skills/strategy/SKILL.md');
+  for (const label of LABELS) assert.ok(skill.includes(`- ${label}`), `SKILL.md defines ${label}`);
+  for (const needle of [
+    'A number with no label is our inference.',
+    'Every *Check:* line is our test, not the source\'s.',
+    'into `docs/STRATEGY.md` and `docs/GAME_DESIGN.md`, next to the number.',
+    'Never turn our\ninference into a source fact, and never turn an estimate into an observation.',
+  ]) {
+    assert.ok(skill.includes(needle), needle);
+  }
+  assert.ok(!skill.includes('are what the source observed or estimated'), 'SKILL.md no longer credits every number to the source');
+});
+
+test('every lesson that gives a number labels where it came from', () => {
+  for (const f of lessonFiles().filter((x) => x.folder !== 'principles')) {
+    for (const lesson of f.lessons) {
+      // Lesson ids such as `arrow-escape/11` and rule numbers such as "rule 2" are references, not numbers.
+      const prose = lesson.body.replace(/\*\*[^*]+\*\*/, '').replace(/`[^`]*`/g, '').replace(/rule \d+/g, '');
+      if (!/\d/.test(prose)) continue;
+      assert.ok(LABELS.some((label) => prose.includes(label)), `${f.rel}: ${lesson.prefix}/${lesson.n} gives a number with no label`);
+    }
+  }
+});
+
+test('the thresholds the source does not give are labelled as our inference', () => {
+  const genre = read('skills/strategy/genres/arrow-escape.md');
+  const studio = read('skills/strategy/studios/grand-games.md');
+  for (const [text, needle] of [
+    [genre, '*Our inference:* open a level in sections once it has more than about 20 pieces.'],
+    [genre, '*Our inference:* about one new mechanic every 20 levels'],
+    [genre, '*Our inference:* no stretch of more than about 30 levels'],
+    [genre, '*Our inference:* events, collections and challenges'],
+    [studio, '*Our inference:* the first 50 tuned levels'],
+  ]) {
+    assert.ok(text.replace(/\s+/g, ' ').includes(needle), needle);
   }
 });
 
