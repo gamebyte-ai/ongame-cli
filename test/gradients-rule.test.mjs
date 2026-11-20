@@ -32,7 +32,7 @@ test('the same rays drawn with one FillGradient pass the check', () => {
 test('strip skies, ring vignettes and stacked ellipses fail the check', () => {
   const { code, out } = check(fixture('strips.js'));
   assert.equal(code, 1, out);
-  for (const line of [4, 8, 12, 16, 20]) assert.match(out, new RegExp(`strips\\.js:${line}: `));
+  for (const line of [4, 8, 12, 16, 20, 24, 28]) assert.match(out, new RegExp(`strips\\.js:${line}: `));
 });
 
 test('particles, palette tiles, opaque rings, per-object loops, line layers, outlines and waived loops pass', () => {
@@ -43,7 +43,7 @@ test('particles, palette tiles, opaque rings, per-object loops, line layers, out
 test('a folder is scanned recursively and nothing to check is an error, not a pass', () => {
   const all = check('test/fixtures/gradients');
   assert.equal(all.code, 1, all.out);
-  assert.match(all.out, /7 stacked-shape fades in 4 files/);
+  assert.match(all.out, /9 stacked-shape fades in 4 files/);
   const none = check('commands');
   assert.equal(none.code, 2, none.out);
   assert.match(none.out, /nothing was checked/);

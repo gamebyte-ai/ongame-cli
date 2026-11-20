@@ -19,3 +19,11 @@ export function cssGlow(g) {
 export function fractionalStep(g) {
   for (let i = 0; i < 1; i += 0.01) g.rect(0, i * 400, 400, 4).fill({ color: 0xffffff, alpha: i });
 }
+
+export function canvasSky(ctx) {
+  for (let i = 0; i < 40; i++) { ctx.fillStyle = `rgba(0, 0, 0, ${i / 40})`; ctx.fillRect(0, i * 10, 400, 10); }
+}
+
+export function aliasGlow(owner) {
+  for (let i = 0; i < 40; i++) { const g = owner.glow; g.circle(0, 0, 100 - i * 2).fill({ color: 0xffffff, alpha: 0.05 }); }
+}

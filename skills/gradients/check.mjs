@@ -13,7 +13,8 @@
  *   - the shape's size changes with the loop, its position does not, and the fill is translucent (stacked discs).
  * Not reported: a colour looked up from a list (`palette[i]`) or mixed with per-item data (a particle's age, a
  * random number, `%`), a tapered stroke along a path, a loop of fewer than 6 passes with literal bounds (a
- * glow layer under a line), shapes drawn on a new object each pass (one Graphics per particle or per button), and
+ * glow layer under a line), rects 1 px wide or tall (a texture painted pixel by pixel), shapes drawn on a new
+ * object each pass (one Graphics per particle or per button), and
  * stacked outlines (strokes of growing size are line art).
  *
  * A loop that really needs stepped fills (a trail of separate dots, a stepped pixel-art sky) is waived with a
@@ -167,6 +168,19 @@ function calls(body, names, rawBody = body) {
   return out;
 }
 
+/** Canvas 2D style assignments (`ctx.fillStyle = ...`, `ctx.globalAlpha = ...`) as fill entries, like calls(). */
+function styleSets(body, rawBody) {
+  const out = [];
+  for (const m of body.matchAll(/\.\s*(fillStyle|globalAlpha|strokeStyle)\s*=(?!=)\s*([^;\n]*)/g)) {
+    const from = m.index + m[0].length - m[2].length;
+    const name = m[1] === 'strokeStyle' ? 'stroke' : 'fill';
+    const value = m[1] === 'globalAlpha' ? `{ alpha: ${m[2]} }` : m[2];
+    const raw = m[1] === 'globalAlpha' ? `{ alpha: ${rawBody.slice(from, from + m[2].length)} }` : rawBody.slice(from, from + m[2].length);
+    out.push({ name, args: [value], raw: [raw], at: m.index + 1 + m[1].length + (m[0].indexOf(m[1]) - 1) });
+  }
+  return out;
+}
+
 /** How many passes a loop head makes when its bounds are literals, else Infinity. */
 function steps(kind, head) {
   if (kind !== 'for') return Infinity;
@@ -302,11 +316,16 @@ export function scan(src) {
     const { all: dep, ramp } = loopDependent(loop);
     // Shapes drawn on a new object each pass (`const s = new Graphics()`, `b.bg` of each button) are separate
     // objects, not a stack: only a target that stays the same through the loop can build a fade.
-    const own = new Set([...loop.body.matchAll(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)/g)].map((m) => m[1]));
+    // A local counts as a new object only when it is created (`new ...`, a call) or picked per pass; a local that
+    // aliases one object (`const g = this.glow`) is still the same target.
+    const own = new Set([...loop.body.matchAll(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*([^;\n]*)/g)]
+      .filter((m) => /^\s*new\b|\)\s*$/.test(m[2]) || depends(m[2], dep)).map((m) => m[1]));
     const same = (c) => { const r = receiver(loop.body, c.at); return !(dep.has(r) || own.has(r)); };
     const raw = src.slice(loop.bodyAt, loop.bodyAt + loop.body.length);
-    const shapes = calls(loop.body, (x) => Object.hasOwn(SHAPES, x), raw).filter(same);
-    const fills = calls(loop.body, (x) => FILLS.has(x), raw).filter(same);
+    // A rect 1 px wide or tall paints a texture pixel by pixel: no band can show.
+    const pixel = (c) => /rect$/i.test(c.name) && [2, 3].some((k) => /^\s*1\s*$/.test(c.args[k] ?? ''));
+    const shapes = calls(loop.body, (x) => Object.hasOwn(SHAPES, x), raw).filter((c) => same(c) && !pixel(c));
+    const fills = [...calls(loop.body, (x) => FILLS.has(x), raw), ...styleSets(loop.body, raw)].filter(same);
     if (!shapes.length || !fills.length) continue;
     let why = null, at = 0;
     // Concentric: a shape whose size ramps with the loop while its position stays put (rings, discs, a vignette).

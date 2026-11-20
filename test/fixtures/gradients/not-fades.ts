@@ -53,3 +53,11 @@ export function opaqueCss(g: Graphics): void {
   for (let i = 0; i < 10; i++) g.circle(0, 0, 100 - i * 5).fill('#ffffffff');
   for (let i = 0; i < 10; i++) g.circle(0, 0, 100 - i * 5).fill('rgb(255 255 255 / 1)');
 }
+
+export function canvasTiles(ctx: CanvasRenderingContext2D, palette: string[]): void {
+  for (let i = 0; i < 20; i++) { ctx.fillStyle = palette[i % palette.length]; ctx.fillRect(i * 40, 0, 36, 36); }
+}
+
+export function pixelColumns(ctx: CanvasRenderingContext2D, W: number, H: number): void {
+  for (let i = 0; i < W; i++) { ctx.fillStyle = `rgb(${(i / W) * 255 | 0}, 0, 0)`; ctx.fillRect(i, 0, 1, H); }
+}
