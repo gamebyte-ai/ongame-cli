@@ -2,8 +2,8 @@
 
 ## 1.7.82 — 2026-11-20
 
-- `skills/gradients/check.mjs` no longer reports a line whose alpha changes just because rings are drawn beside it on another object. A stroke now counts as a ring fade only when it strokes growing rings on its own object.
-- `test/fixtures/gradients/not-fades.ts` holds that case as a passing one.
+- `skills/gradients/check.mjs` no longer reports a line whose alpha changes just because rings are drawn beside it on another object. A stroke now counts as a ring fade only when it strokes growing rings on its own object. Two Graphics kept on one owner (`layer.rings`, `layer.path`) count as two objects.
+- `test/fixtures/gradients/not-fades.ts` holds both cases as passing ones.
 - Works with every ongame-cli release: the change is one script with no dependency.
 
 ## 1.7.81 — 2026-11-20

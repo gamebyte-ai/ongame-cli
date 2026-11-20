@@ -108,3 +108,10 @@ export function ringsBesideFadingLine(rings: Graphics, path: Graphics): void {
     path.moveTo(i * 20, 0).lineTo(i * 20, 50).stroke({ color: 0xffffff, alpha: i / 20 });
   }
 }
+
+export function ringsBesideFadingLineOnOneOwner(layer: { rings: Graphics; path: Graphics }): void {
+  for (let i = 0; i < 20; i++) {                               // two Graphics kept on one owner are still two objects
+    layer.rings.circle(0, 0, 10 + i * 4).stroke({ color: 0xffffff, width: 1 });
+    layer.path.moveTo(i * 20, 0).lineTo(i * 20, 50).stroke({ color: 0xffffff, alpha: i / 20 });
+  }
+}

@@ -227,6 +227,43 @@ function receiver(s, open) {
   }
 }
 
+/**
+ * The object a drawing call at `open` (its `(`) draws on, as its whole property path: `layer.rings.circle(` ->
+ * `layer.rings`, `g.circle(...).stroke(` -> `g`. Two Graphics kept on one owner (`layer.rings`, `layer.path`) are
+ * two objects, which `receiver()` (the root name only) cannot tell apart. A chain that starts with `new` gives `new`.
+ */
+function target(s, open) {
+  let k = open - 1;
+  const ident = () => { const e = k + 1; while (k >= 0 && /[\w$]/.test(s[k])) k--; return s.slice(k + 1, e); };
+  const ws = () => { while (k >= 0 && /\s/.test(s[k])) k--; };
+  const path = []; // innermost first: [{ name, called }]
+  ident(); // the method name
+  for (;;) {
+    ws();
+    if (s[k] === '?' && s[k + 1] === '.') k--;
+    if (s[k] !== '.') {
+      if (/(?:^|[^\w$.])new$/.test(s.slice(Math.max(0, k - 3), k + 1))) return 'new';
+      break;
+    }
+    k--; ws();
+    let called = false;
+    while (s[k] === ')' || s[k] === ']') { // a call or lookup in the chain: step over it
+      if (s[k] === ')') called = true;
+      const o = s[k] === ')' ? '(' : '[', c = s[k];
+      let d = 0;
+      for (; k >= 0; k--) { if (s[k] === c) d++; else if (s[k] === o && --d === 0) break; }
+      k--; ws();
+    }
+    const name = ident();
+    if (!name) break;
+    path.push({ name, called });
+  }
+  // From the root, the names up to the first call: `g.circle(...)` in `g.circle(...).stroke(` is a drawing call on g.
+  const out = [];
+  for (const seg of path.reverse()) { out.push(seg.name); if (seg.called) { if (out.length > 1) out.pop(); break; } }
+  return out.join('.');
+}
+
 /** The loops in blanked source: { at, vars, body, bodyAt, steps }. */
 function loops(s) {
   const out = [];
@@ -419,7 +456,7 @@ export function scan(src) {
       if (impure(colour, dep) || [...read].some((x) => dep.has(x) && !ramp.has(x))) continue; // mixed with per-item data
       // A stroke is a ring fade only when it strokes rings on its own object; rings on another object beside a
       // tapered line along a path do not make that line a fade.
-      if (!FILL_ONLY.has(f.name) && !concentric.some((sh) => receiver(loop.body, sh.at) === receiver(loop.body, f.at))) continue;
+      if (!FILL_ONLY.has(f.name) && !concentric.some((sh) => target(loop.body, sh.at) === target(loop.body, f.at))) continue;
       why = 'its fill changes with each pass of the loop'; at = f.at; break;
     }
     if (!why) {
