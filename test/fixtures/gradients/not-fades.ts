@@ -171,3 +171,18 @@ export function preLoopStyleOnACondition(ctx: CanvasRenderingContext2D, dim: boo
   dim && (ctx.fillStyle = 'rgba(0,0,0,0.1)');
   for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
 }
+
+export function preLoopStyleMayHaveChanged(ctx: CanvasRenderingContext2D, dim: boolean): void {
+  // each see-through set below is undone, or may be, before the loop: the loop's alpha is not known, so it is not judged
+  ctx.globalAlpha = 0.05; if (dim) ctx.globalAlpha = 1;
+  ctx.fillStyle = 'rgba(0,0,0,0.1)'; { ctx.fillStyle = '#000000'; }
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
+
+export function preLoopStyleRestoredOrInACallback(ctx: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 1;
+  ctx.save(); ctx.globalAlpha = 0.1; ctx.restore();             // restore() puts alpha 1 back
+  const later = () => ctx.fillStyle = 'rgba(0,0,0,0.1)';        // never called before the loop
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+  later();
+}

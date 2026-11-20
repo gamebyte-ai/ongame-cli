@@ -413,41 +413,60 @@ function seeThrough(f, fills, at = f.at, pre = []) {
   if (!bare && !f.prop) return translucent(f.name, f.raw);
   const before = fills.filter((x) => x.at <= Math.max(at, f.at)).sort((a, b) => b.at - a.at);
   const isStyle = (x) => x.prop === 'fillStyle' || x.name === 'setFillStyle', isAlpha = (x) => x.prop === 'globalAlpha';
-  // A style the loop never sets keeps the value set last before the loop (`pre`, already in order) on every pass.
-  const last = (pick) => before.find(pick) ?? (fills.some(pick) ? undefined : pre.findLast(pick));
+  // A style the loop never sets keeps the value set last before the loop (`pre`, in order) on every pass, when that
+  // set surely ran and nothing after it may have changed it.
+  const last = (pick) => {
+    if (fills.some(pick)) return before.find(pick);
+    const x = pre.findLast(pick);
+    return x?.sure ? x : undefined;
+  };
   return [last(isStyle), last(isAlpha)].some((x) => x && translucent(x.name, x.raw));
 }
 
 /**
- * The Canvas `fillStyle` and `globalAlpha` sets before the loop at `at`, in source order, as fill entries with the
- * object they are set on (`on`, its whole path as `target()` gives it). Only sets in the blocks that hold the loop
- * count, up to its function's body: a set in an earlier block, behind an unbraced `if`/`else`/`&&`/`?`, or in a
- * callback may not run, and one in an outer function is not followed here.
+ * What may set a Canvas `fillStyle` or `globalAlpha` before the loop at `at`, in its function: fill entries in source
+ * order, with the object they are set on (`on`, its whole path as `target()` gives it). An entry is `sure` only when
+ * it always runs and stays: a plain statement in the blocks that hold the loop. A set in an earlier block (an `if`, a
+ * callback, a bare `{}`), behind an unbraced `if`/`else`/`&&`/`?`, or in an arrow's expression body is not sure, and
+ * a `restore()` on the object adds an unsure entry for both styles. seeThrough() judges by the last entry, so any
+ * doubt after a sure set means no judgement.
  */
 function preLoopStyles(s, src, at) {
   const keep = s.slice(0, at).split('');
+  const dropped = []; // [open, close] of each earlier block
   let d = 0, k = at - 1;
   for (; k >= 0; k--) {
     if (s[k] === '}') d++;
     else if (s[k] === '{' && d > 0) {
       // An earlier block is dropped; its end still ends the statement that holds it (`if (a) { ... }`).
-      if (--d === 0) { const e = close(s, k); keep.fill(' ', k, e + 1); keep[e] = ';'; }
+      if (--d === 0) { const e = close(s, k); keep.fill(' ', k, e + 1); keep[e] = ';'; dropped.push([k, e]); }
     }
     else if (s[k] === '{' && functionBody(s, k)) break;
   }
-  const text = keep.join('').replace(/[^\n]/g, (ch, i) => (i <= k ? ' ' : ch));
+  const text = keep.join(''); // the loop's own blocks, earlier blocks blanked
+  const sure = (i) => {
+    if (dropped.some(([o, e]) => i > o && i < e)) return false;
+    const head = text.slice(Math.max(k, text.lastIndexOf(';', i), text.lastIndexOf('{', i), text.lastIndexOf('}', i)) + 1, i);
+    return !/^\s*(?:(?:if|else|for|while|do)\b|\))|&&|\|\||\?(?!\.)|=>/.test(head); // a condition or a callback
+  };
+  const region = s.slice(0, at);
   const out = [];
-  for (const m of text.matchAll(/\.\s*(fillStyle|globalAlpha)\s*=(?!=)\s*([^;\n]*)/g)) {
-    const head = text.slice(Math.max(text.lastIndexOf(';', m.index), text.lastIndexOf('{', m.index), text.lastIndexOf('}', m.index)) + 1, m.index);
-    if (/^\s*(?:(?:if|else|for|while|do)\b|\))|&&|\|\||\?(?!\.)/.test(head)) continue; // runs only on a condition
+  for (const m of region.matchAll(/\.\s*(fillStyle|globalAlpha)\s*=(?!=)\s*([^;\n]*)/g)) {
+    if (m.index <= k) continue;
     const end = m.index + m[0].indexOf(m[1]) + m[1].length;
     const from = m.index + m[0].length - m[2].length;
     const raw = src.slice(from, from + m[2].length);
+    const entry = { name: 'fill', prop: m[1], on: target(region, end), at: m.index, sure: sure(m.index) };
     out.push(m[1] === 'globalAlpha'
-      ? { name: 'fill', prop: m[1], args: [`{ alpha: ${m[2]} }`], raw: [`{ alpha: ${raw} }`], on: target(text, end) }
-      : { name: 'fill', prop: m[1], args: [m[2]], raw: [raw], on: target(text, end) });
+      ? { ...entry, args: [`{ alpha: ${m[2]} }`], raw: [`{ alpha: ${raw} }`] }
+      : { ...entry, args: [m[2]], raw: [raw] });
   }
-  return out;
+  for (const m of region.matchAll(/\.\s*restore\s*\(/g)) {
+    if (m.index <= k) continue;
+    const on = target(region, m.index + m[0].length - 1);
+    for (const prop of ['fillStyle', 'globalAlpha']) out.push({ name: 'fill', prop, on, at: m.index, sure: false, args: [], raw: [] });
+  }
+  return out.sort((x, y) => x.at - y.at);
 }
 
 /**
