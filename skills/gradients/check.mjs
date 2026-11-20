@@ -346,8 +346,9 @@ function translucent(name, raw) {
 }
 
 /**
- * True when fill `f` is see-through. A Canvas `ctx.fill()` (or Pixi's bare `fill()`) carries no style: it paints
- * with the style set last before it in the loop, a `fillStyle`, `globalAlpha` or `setFillStyle`.
+ * True when fill `f` is see-through. A Canvas `ctx.fill()` carries no style: it paints with the `fillStyle` and
+ * `globalAlpha` set last before it in the loop. A bare Pixi `fill()` is assumed to use the last `setFillStyle` the
+ * same way (a guess, not checked against PixiJS).
  */
 function seeThrough(f, fills) {
   const bare = f.name === 'fill' && !f.prop && f.raw.every((a) => /^\s*(?:(['"])(?:nonzero|evenodd)\1)?\s*$/.test(a));
