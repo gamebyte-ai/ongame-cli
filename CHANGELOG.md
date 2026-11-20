@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.7.82 — 2026-11-20
+
+- `/make-game` reads a strategy layer before designing a game: lessons on what made successful games work, by genre and by studio. Each lesson is applied, adapted or marked not used, and the decisions go to `docs/STRATEGY.md` before `docs/GAME_DESIGN.md`.
+- The new `skills/strategy/SKILL.md` says how to pick the matching files, decide each lesson, check an existing game against them, and add a new source as lessons in our own words.
+- First lessons: `genres/arrow-escape.md` (17 lessons on arrow escape puzzles: a fail state, sectioned levels, a schedule of new mechanics, late interstitials, purchases and launch ads), `studios/grand-games.md` (8 lessons) and `principles.md` (5 lessons for every genre). `TEMPLATE.md` is the shape for the next genre or studio.
+- Every lesson number says where it came from: *Observed:* in the reviewed game, *Estimated by the source:*, or *Our inference:* when we chose it. Agents copy that label into `docs/STRATEGY.md` and `docs/GAME_DESIGN.md`, so our own thresholds never read as the source's facts.
+- `test/strategy-layer.test.mjs` checks every strategy file's shape, ids and wording, the `/make-game` section and this version line.
+- Works with every ongame-cli release: the change is skill text only.
+
 ## 1.7.81 — 2026-11-20
 
 - New games report how they are played: `/make-game` and the code phase write analytics shim v2 calls (`screen()`, `levelStart()` / `levelEnd()`, `economy()`, a `label` on every interactive object). The polish phase checks them, as it checks level events.
