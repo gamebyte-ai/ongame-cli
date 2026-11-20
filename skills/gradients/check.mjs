@@ -428,7 +428,7 @@ function seeThrough(f, fills, at = f.at, pre = []) {
  * order, with the object they are set on (`on`, its whole path as `target()` gives it). An entry is `sure` only when
  * it always runs and stays: a plain statement in the blocks that hold the loop. A set in an earlier block (an `if`, a
  * callback, a bare `{}`), behind an unbraced `if`/`else`/`&&`/`?`, or in an arrow's expression body is not sure, and
- * a `restore()` on the object adds an unsure entry for both styles. seeThrough() judges by the last entry, so any
+ * a `restore()` or `reset()` on the object adds an unsure entry for both styles. seeThrough() judges by the last entry, so any
  * doubt after a sure set means no judgement.
  */
 function preLoopStyles(s, src, at) {
@@ -447,7 +447,8 @@ function preLoopStyles(s, src, at) {
   const sure = (i) => {
     if (dropped.some(([o, e]) => i > o && i < e)) return false;
     const head = text.slice(Math.max(k, text.lastIndexOf(';', i), text.lastIndexOf('{', i), text.lastIndexOf('}', i)) + 1, i);
-    return !/^\s*(?:(?:if|else|for|while|do)\b|\))|&&|\|\||\?(?!\.)|=>/.test(head); // a condition or a callback
+    // A condition or a callback; `) x` also catches a head cut at a `for (;;)` header's own `;`.
+    return !/^\s*(?:(?:if|else|for|while|do)\b|\))|\)\s*[\w$]|&&|\|\||\?(?!\.)|=>/.test(head);
   };
   const region = s.slice(0, at);
   const out = [];
@@ -461,7 +462,7 @@ function preLoopStyles(s, src, at) {
       ? { ...entry, args: [`{ alpha: ${m[2]} }`], raw: [`{ alpha: ${raw} }`] }
       : { ...entry, args: [m[2]], raw: [raw] });
   }
-  for (const m of region.matchAll(/\.\s*restore\s*\(/g)) {
+  for (const m of region.matchAll(/\.\s*(?:restore|reset)\s*\(/g)) {
     if (m.index <= k) continue;
     const on = target(region, m.index + m[0].length - 1);
     for (const prop of ['fillStyle', 'globalAlpha']) out.push({ name: 'fill', prop, on, at: m.index, sure: false, args: [], raw: [] });
@@ -546,6 +547,8 @@ export function scan(src) {
       why = 'its fill changes with each pass of the loop'; at = f.at; break;
     }
     const shapeTarget = (c) => target(loop.body, c.at); // the whole path (`a.two`), before `target` is shadowed below
+    // A restore() or reset() in the loop may undo a style set before it: that style is then not known.
+    const undone = new Set([...loop.body.matchAll(/\.\s*(?:restore|reset)\s*\(/g)].map((m) => target(loop.body, m.index + m[0].length - 1)));
     if (!why) {
       // Each concentric shape is judged by the fill that follows it, before the next shape: its own fill. Only shapes
       // and fills on the shape's own object count: `a.fillStyle` does not paint what `b.fillRect` draws.
@@ -561,7 +564,7 @@ export function scan(src) {
           ?? mine.filter((f) => f.at < sh.at && f.at > prev && f.name !== 'stroke').sort((a, b) => b.at - a.at)[0];
         // A Canvas fillRect with no style of its own in the loop paints with the one set before the loop.
         const paint = own ?? (sh.name === 'fillRect' ? { name: 'fill', args: [], raw: [], at: sh.at } : undefined);
-        if (paint && FILL_ONLY.has(paint.name) && seeThrough(paint, mine, sh.at, pre.filter((x) => x.on === shapeTarget(sh)))) {
+        if (paint && FILL_ONLY.has(paint.name) && seeThrough(paint, mine, sh.at, undone.has(shapeTarget(sh)) ? [] : pre.filter((x) => x.on === shapeTarget(sh)))) {
           why = 'it stacks translucent shapes of growing size on one centre'; at = sh.at; break;
         }
       }

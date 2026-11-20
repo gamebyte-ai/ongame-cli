@@ -186,3 +186,18 @@ export function preLoopStyleRestoredOrInACallback(ctx: CanvasRenderingContext2D)
   for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
   later();
 }
+
+export function preLoopStyleInALoopThatMayNotRun(ctx: CanvasRenderingContext2D): void {
+  for (let j = 0; j < 0; j++) ctx.globalAlpha = 0.1;           // may run zero times
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
+
+export function preLoopStyleReset(ctx: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 0.1; ctx.reset();                           // reset() puts alpha 1 back
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
+
+export function preLoopStyleRestoredInTheLoop(ctx: CanvasRenderingContext2D): void {
+  ctx.save(); ctx.fillStyle = 'rgba(0,0,0,0.1)';
+  for (let i = 0; i < 20; i++) { ctx.restore(); ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4); } // restore() undoes it
+}
