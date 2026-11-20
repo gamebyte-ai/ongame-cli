@@ -31,7 +31,7 @@ currency and tutorial steps. The published page's `sdk.js` does the sending; the
 
 ## upgrade.mjs
 
-`node <pluginRoot>/skills/analytics/upgrade.mjs <gameDir> [--shim <file>] [--audience general|children] [--title <t>]`
+`node <pluginRoot>/skills/analytics/upgrade.mjs <gameDir> [--shim <file>] [--audience general|children] [--title <t>] [--opt-out yes|no]`
 
 - Exit 3: the audience is not recorded. Ask the maker once, with `ask_user`: **"Is this game aimed at children?"**
   with the options **No, general audience** and **Yes, aimed at children**. Run again with `--audience`.
@@ -57,7 +57,9 @@ children's game has no telemetry left in `index.html`. For a children's game the
 | `children` | `off` | inject nothing. Remove any `__ONGAME_TELEMETRY__` config and `sdk.js` tag. No id is ever made. |
 
 A `general` game's settings screen gets an **Analytics** on/off switch that calls `setConsent(on)`. The privacy page
-promises the switch only once the game's code calls `setConsent`, so run `upgrade.mjs` again after adding it.
+promises the switch only when you say the player has one: after adding it, run `upgrade.mjs` again with `--opt-out yes`.
+A `setConsent` call alone is no switch (a game may call `setConsent(true)` at start). Without a switch, pass
+`--opt-out no`. The answer is kept in `.ongame/analytics.json`, and `--check` reads the page against it.
 
 ## Privacy page and store labels
 

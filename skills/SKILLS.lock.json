@@ -1,11 +1,11 @@
 {
-  "pluginVersion": "1.7.81",
+  "pluginVersion": "1.7.82",
   "generatedAt": "2026-11-20",
   "skills": {
     "analytics": {
-      "sha256": "ba12d6939afcf49470860846d4e90cf4cb027a0c0337b388bbf4d2d1fe8d1764",
-      "bytes": 4037,
-      "lines": 66
+      "sha256": "a9664cf8a16c4e7b555d3ba1c1d4e9b790e3866c8af447e2537ef5b7f4a14270",
+      "bytes": 4281,
+      "lines": 68
     },
     "art-direction": {
       "sha256": "4fb82004119bfc33672560fdea3da9ad11d71d2eb9a535574f0a8ac522beb1c0",

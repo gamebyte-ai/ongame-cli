@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.82 — 2026-11-20
+
+- The privacy page promises "you can turn analytics off in the game's settings" only when the maker says the player has that switch: `upgrade.mjs --opt-out yes`. The answer is kept in `.ongame/analytics.json`, and `--check` reads the page against it.
+- A `setConsent` call in the game's code no longer counts as a switch. A game that calls `setConsent(true)` at start gets no such promise. When the code calls `setConsent` and no answer is on file, the run prints the `--opt-out` question.
+- `test/analytics-upgrade.test.mjs` checks both cases and this version line.
+
 ## 1.7.81 — 2026-11-20
 
 - New games report how they are played: `/make-game` and the code phase write analytics shim v2 calls (`screen()`, `levelStart()` / `levelEnd()`, `economy()`, a `label` on every interactive object). The polish phase checks them, as it checks level events.
