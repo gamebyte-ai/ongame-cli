@@ -18,7 +18,9 @@ mode clean-untested
 
 # CI: how every test runs
 critical .github/
+critical scripts/build-skills-lock.mjs
 # payments
+critical skills/game-code/SKILL.md
 critical skills/credit/
 critical commands/account.md
 # store
