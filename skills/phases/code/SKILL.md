@@ -123,15 +123,7 @@ zombie report. This lock guards WRITES only — reading/analysis needs no lock.
 
 ## 3. Routing (agentic — list FIRST, then match; NOT keyword-if)
 1. Read `GAME_DESIGN.md`.
-2. **Call `mcp__ongame__knowledge_list()`** → get the canonical list of available keys.
-   **Never pass a key that is NOT in this list to `knowledge_get`** (nonexistent key → 404).
-3. Always fetch `knowledge_get(key="framework")`.
-4. Match the type of the design against the `genre:*` keys in the list. **If there is an exact match**, fetch
-   that `genre:<x>`.
-5. **Genre miss (e.g. design is "snake" but `genre:snake` is not in the list):** do NOT CALL a nonexistent genre
-   key. Instead, fall back to `framework` + the appropriate `pattern:*`s in the list
-   (app-setup + game-loop + input + whatever else the design requires), and in the output document
-   **note** "no genre knowledge existed, composed from framework + patterns".
+2–5. **Load the knowledge, the genre's first:** follow `skills/game-code/SKILL.md`, "Load the genre's knowledge".
 6. Fetch the matched/selected `pattern:*`s (at minimum: app-setup, game-loop, input). Also fetch
    `pattern:code-craft`, and run its four checks before you hand the code over.
 7. **Call `brain_recall`** (the DYNAMIC sibling of knowledge — compose static knowledge + LEARNED lessons):
@@ -223,52 +215,10 @@ When composing gamelabs.js Lego, do NOT MIX the layers. Every game keeps these u
 Rule: state does not leak into the View, render does not leak into the Board. If a unit does two jobs, split it.
 
 ## 5. State machine — clean, single transition path
-- `type GameState = 'menu' | 'play' | 'gameover'` + a small state machine. Transitions happen **only**
-  through `transition(to)`; do not set `current` by hand.
-- `transition` is idempotent + listened to from a single point (`onChange`). Side effects on transition (startGame /
-  showGameOver) live in the listener.
-- **Gameover → restart wait period:** so an accidental tap does not start a new game (timing: `pattern:game-loop`).
-- **If the game has levels, mark the two moments WHILE you write them** — `trackLevelStart(n)` where the level
-  actually begins for the player (after any intro/countdown, not at load) and `trackLevelComplete(n, {...})` on a
-  genuine WIN only, plus `trackLevelFail(n)` on a loss. They come from `src/telemetry.ts` in the scaffold, they are no-ops until the finished game is
-  deployed, and they cannot throw into gameplay. `n` must be a NUMBER — a named level passes its index and carries
-  the name in the extras, because a non-numeric level is dropped downstream with nothing reported. Counting a fail
-  or a quit as a completion is worse than not measuring: the funnel is starts-vs-completes, so it would hide the
-  exact difficulty spike it exists to find. Two lines, written next to the transitions they belong to — retrofitted
-  later they are a separate pass over code that already works, and that pass is the one that does not happen.
-
-- **Check the existing helpers before adding imports.** These instructions can arrive before a CLI update or apply to an older game.
-  Never import a helper that its `src/ads.ts` or `src/purchases.ts` does not export. If `watchRewardedReady` is absent
-  but `rewardedReady` exists, check readiness immediately and every 250 ms while the screen is open.
-  Update button visibility only; clear the timer on close or destruction and restart it on reopening.
-  If the ads or purchases helpers are missing, update the CLI for new scaffolds; never re-scaffold an existing game.
-  Report the missing helpers before wiring those features.
-- **Ads, if the concept has them, go in the same pass:** `showInterstitial('level_end')` from the "Next" tap and,
-  for a reward, `showRewarded(placement)` from a "Watch an ad" button. On screen open, call
-  `const stop = watchRewardedReady(ready => { watchButton.visible = ready; })`; call `stop()` on close or destruction.
-  A single `rewardedReady()` check misses offers that arrive later. The watcher only updates visibility; the player
-  must still tap to show the ad. These helpers come from `src/ads.ts`. Ad calls do nothing until the game has an ad id,
-  and must be awaited with the game paused; grant a reward
-  only on `true`. The settings screen gets a "Privacy choices" button, shown only while `privacyOptionsRequired()`,
-  that calls `showPrivacyOptions()`.
-- **Real-money items, if the concept sells any, come from `src/purchases.ts`:** the shop shows them only while
-  `purchasesReady()`, with the `title` and `price` that `products()` returns (never a price typed into the game).
-  `buy(id)` runs from the item's tap, with the game paused; grant a consumable only on `'bought'` (on `'pending'`
-  tell the player the store finishes it later, and grant nothing). At start-up register `onPurchaseCompleted(id =>
-  …)` and grant there too: it is called once for each pending purchase that went through later. An unlock such as
-  "no ads" is `owns('<entitlement>')`, asked each time, never a saved flag. Settings gets "Restore purchases"
-  (`restorePurchases()`). Without a RevenueCat key the shop shows no real-money items, and the game must still work.
-
+Follow `skills/game-code/SKILL.md`, "State machine": one transition path, level tracking, ads and real-money items.
 
 ## 6. 60fps mobile-first performance (NO alloc on the hot path)
-- Target **60 fps mobile**. In every-frame `mainLoop`/`update`, do NOT `new` up new objects, create
-  array/object literals, or do closure alloc → GC pauses = jank. Reuse scratch
-  variables for vector/range computations.
-- **Object pool:** keep a pool for frequently spawned/dying entities (bullets, particles, falling tiles) —
-  `acquire()`/`release()`, don't dispose on death, hide + return to the pool. Aim for
-  zero allocation within a frame.
-- Create Pixi objects once, reuse them via `visible`/transform; do not rebuild the scene
-  tree every frame with addChild/removeChild.
+Follow `skills/game-code/SKILL.md`, "60fps".
 
 ## 6.5 Game feel — juice IS in the code (mandatory)
 **Feel is architecture, not final paint.** Wire a multi-sensory feedback loop into EVERY significant player action
@@ -284,13 +234,8 @@ hidden, the core mechanic must still feel good to perform.*
 - **Recipes and code:** before wiring a response, `knowledge_get({ key: 'pattern:game-feel' })` — it names the
   `feel:<id>` recipe for the moment and the code to start from (`template:feel-core` and the recipe and probe templates it lists).
 
-## 7. Input lock (during cascade / animation)
-- **Goal:** input arriving while the game is resolving or animating is rejected, from every input source.
-
-## 8. Restart cleanup (no dangling state/listener/timer remains)
-- **Goal:** one restart path, and nothing from the previous run (timer, listener, tween, pooled entity) survives it.
-- Call `knowledge_get({ key: 'pattern:code-state-hygiene' })` for the input lock and the restart cleanup. If it
-  returns empty, continue with your own judgment.
+## 7–8. Input lock and restart cleanup
+Follow `skills/game-code/SKILL.md`, "Input lock" and "Restart cleanup".
 
 ## 9. window.__game test-global (for Playwright verification)
 - After the app is set up in `main.ts`, expose **`window.__game`**; containing at least:

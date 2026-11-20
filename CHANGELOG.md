@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.7.79 — 2026-11-20
+
+- `/make-game` now reaches the game-making rules that lived only inside phase skills it does not open. They moved,
+  word for word, into five skills Claude Code loads by their description, and `commands/make-game.md` points to each:
+  `game-concept`, `game-code`, `difficulty-curve`, `asset-anchor` and `phone-layout`. The phase skills point to the
+  same files, so a phase run reads the same text.
+- `test/phase-rules-reachable.test.mjs` lists those 19 rules and checks that each is in a skill with a description
+  that `/make-game` names.
+- Works with every ongame-cli release: the change is skill text only.
+
 ## 1.7.77 — 2026-11-20
 
 - Anything in a game that fades (a glow, light rays, a sky, a vignette, shading) is drawn as one shape with one gradient fill. The rule now has its own skill, `gradients`, which loads whenever a game draws one, in a new game or a change to a finished one. It gives the PixiJS v8 `FillGradient` code.
