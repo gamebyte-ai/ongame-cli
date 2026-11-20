@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.7.79 — 2026-11-20
+## 1.7.80 — 2026-11-20
 
 - New games report how they are played: `/make-game` and the code phase write analytics shim v2 calls (`screen()`, `levelStart()` / `levelEnd()`, `economy()`, a `label` on every interactive object). The polish phase checks them, as it checks level events.
 - `/analytics add` upgrades an existing web game to shim v2. Every call the game already makes keeps working, and telemetry is wired into `index.html` again. A second run changes nothing.
@@ -10,6 +10,13 @@
 - `/publish` writes the privacy page before it builds.
 - Shim v2 itself comes from the bundled game template. With an older onGame CLI, `/analytics add` says to update it and leaves the shim as it was.
 - `test/analytics-upgrade.test.mjs` checks these steps and this version line.
+
+## 1.7.79 — 2026-11-20
+
+- The audio phase adds a `music` row only when the game's design has a music slot, such as background music or an ambient track. A game without one gets no music.
+- The music row calls `sound_request({ text, music: true, durationSeconds?, gameId? })`: one background track per game, 3–60 s. `text` names the mood, instruments and tempo.
+- `test/music-row-rule.test.mjs` checks these lines and this version line.
+- Needs ongame core with `music: true` on `sound_request`. Production core has it since 2026-11-20.
 
 ## 1.7.78 — 2026-11-20
 
