@@ -145,8 +145,11 @@ function withoutLookups(expr) {
 
 const depends = (expr, dep) => [...reads(expr)].some((x) => dep.has(x));
 
-/** Every call `.<name>(args)` or `<name>(args)` in `body`: { name, args: [text], at: offset }. */
-function calls(body, names) {
+/**
+ * Every call `.<name>(args)` or `<name>(args)` in blanked `body`: { name, args, raw, at }. `raw` holds the same
+ * arguments from the unblanked source text `rawBody` (same offsets), so string colours such as 'rgba(...)' survive.
+ */
+function calls(body, names, rawBody = body) {
   const out = [];
   const re = /(?:^|[^\w$])([A-Za-z_$][\w$]*)\s*\(/g;
   let m;
@@ -156,7 +159,10 @@ function calls(body, names) {
     const open = m.index + m[0].length - 1;
     const end = close(body, open);
     if (end < 0) continue;
-    out.push({ name, args: splitArgs(body.slice(open + 1, end)), at: open });
+    const args = splitArgs(body.slice(open + 1, end));
+    let from = open + 1;
+    const raw = args.map((a) => { const r = rawBody.slice(from, from + a.length); from += a.length + 1; return r; });
+    out.push({ name, args, raw, at: open });
   }
   return out;
 }
@@ -264,8 +270,14 @@ function impure(expr, dep) {
 }
 
 const lineOf = (s, at) => s.slice(0, at).split('\n').length;
-const translucent = (style) => /\balpha\s*:/.test(style) || /rgba\s*\(|hsla\s*\(/.test(style) || /#[0-9a-f]{8}\b/i.test(style)
-  || /^\s*[^,]+,\s*[^,]+$/.test(style) /* beginFill(color, alpha) */;
+/** True when a fill style (its raw argument text) is see-through: an alpha below 1 or a colour with alpha. */
+function translucent(name, raw) {
+  const style = raw.join(',');
+  const alpha = /\balpha\s*:\s*([^,}]+)/.exec(style)?.[1] ?? (name === 'beginFill' ? raw[1] : undefined);
+  if (alpha !== undefined) return !/^\s*1(\.0*)?\s*$/.test(alpha);
+  return /rgba\s*\(|hsla\s*\(/i.test(style) || /#[0-9a-f]{8}\b|0x[0-9a-f]{8}\b/i.test(style)
+    || /\b(rgb|hsl)\s*\([^)]*\/[^)]*\)/i.test(style);
+}
 
 /** Findings for one source text: [{ line, fillLine, why }]. */
 export function scan(src) {
@@ -283,8 +295,9 @@ export function scan(src) {
     // objects, not a stack: only a target that stays the same through the loop can build a fade.
     const own = new Set([...loop.body.matchAll(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)/g)].map((m) => m[1]));
     const same = (c) => { const r = receiver(loop.body, c.at); return !(dep.has(r) || own.has(r)); };
-    const shapes = calls(loop.body, (x) => x in SHAPES).filter(same);
-    const fills = calls(loop.body, (x) => FILLS.has(x)).filter(same);
+    const raw = src.slice(loop.bodyAt, loop.bodyAt + loop.body.length);
+    const shapes = calls(loop.body, (x) => Object.hasOwn(SHAPES, x), raw).filter(same);
+    const fills = calls(loop.body, (x) => FILLS.has(x), raw).filter(same);
     if (!shapes.length || !fills.length) continue;
     let why = null, at = 0;
     // Concentric: a shape whose size ramps with the loop while its position stays put (rings, discs, a vignette).
@@ -302,7 +315,7 @@ export function scan(src) {
       if (!FILL_ONLY.has(f.name) && !concentric.length) continue; // a tapered stroke along a path: line art
       why = 'its fill changes with each pass of the loop'; at = f.at; break;
     }
-    if (!why && concentric.length && fills.some((f) => FILL_ONLY.has(f.name) && translucent(f.args.join(',')))) {
+    if (!why && concentric.length && fills.some((f) => FILL_ONLY.has(f.name) && translucent(f.name, f.raw))) {
       why = 'it stacks translucent shapes of growing size on one centre'; at = concentric[0].at;
     }
     if (!why) continue;

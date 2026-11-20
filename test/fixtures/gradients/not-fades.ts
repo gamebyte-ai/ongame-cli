@@ -42,3 +42,8 @@ export function waived(g: Graphics): void {
   // gradient-check: ok pixel-art sky, the art direction asks for hard bands
   for (let i = 0; i < 6; i++) g.rect(0, i * 40, 400, 40).fill({ color: 0x3060a0, alpha: 1 - i / 6 });
 }
+
+export function opaqueRings(g: Graphics, palette: number[], options: Record<number, boolean>): void {
+  for (let i = 0; i < 10; i++) g.circle(0, 0, 100 - i * 5).fill({ color: palette[i], alpha: 1 }); // opaque target rings
+  for (let i = 0; i < 10; i++) { if (options.hasOwnProperty(i)) g.rect(i * 20, 0, 16, 16).fill(0xffffff); }
+}

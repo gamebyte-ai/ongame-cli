@@ -11,3 +11,7 @@ export function vignette(g, cx, cy, r, dark) {
 export function softEllipse(ctx, n) {
   for (let i = 0; i < n; i++) ctx.beginFill(0xffffff, 0.1).drawEllipse(0, 0, 40 + i * 4, 20 + i * 2);
 }
+
+export function cssGlow(g) {
+  for (let i = 0; i < 10; i++) g.circle(0, 0, 100 - i * 5).fill('rgba(255, 255, 255, 0.05)');
+}
