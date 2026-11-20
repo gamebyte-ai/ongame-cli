@@ -420,33 +420,42 @@ function seeThrough(f, fills, at = f.at, pre = []) {
 
 /**
  * The Canvas `fillStyle` and `globalAlpha` sets before the loop at `at`, in source order, as fill entries with the
- * object they are set on (`on`). Only sets in the blocks that hold the loop count, up to its function's body: a set
- * in an earlier `if` or callback may not run, and one in an outer function is not followed here.
+ * object they are set on (`on`, its whole path as `target()` gives it). Only sets in the blocks that hold the loop
+ * count, up to its function's body: a set in an earlier block, behind an unbraced `if`/`else`/`&&`/`?`, or in a
+ * callback may not run, and one in an outer function is not followed here.
  */
 function preLoopStyles(s, src, at) {
   const keep = s.slice(0, at).split('');
   let d = 0, k = at - 1;
   for (; k >= 0; k--) {
     if (s[k] === '}') d++;
-    else if (s[k] === '{' && d > 0) { if (--d === 0) keep.fill(' ', k, close(s, k) + 1); }
+    else if (s[k] === '{' && d > 0) {
+      // An earlier block is dropped; its end still ends the statement that holds it (`if (a) { ... }`).
+      if (--d === 0) { const e = close(s, k); keep.fill(' ', k, e + 1); keep[e] = ';'; }
+    }
     else if (s[k] === '{' && functionBody(s, k)) break;
   }
   const text = keep.join('').replace(/[^\n]/g, (ch, i) => (i <= k ? ' ' : ch));
   const out = [];
   for (const m of text.matchAll(/\.\s*(fillStyle|globalAlpha)\s*=(?!=)\s*([^;\n]*)/g)) {
+    const head = text.slice(Math.max(text.lastIndexOf(';', m.index), text.lastIndexOf('{', m.index), text.lastIndexOf('}', m.index)) + 1, m.index);
+    if (/^\s*(?:(?:if|else|for|while|do)\b|\))|&&|\|\||\?(?!\.)/.test(head)) continue; // runs only on a condition
     const end = m.index + m[0].indexOf(m[1]) + m[1].length;
     const from = m.index + m[0].length - m[2].length;
     const raw = src.slice(from, from + m[2].length);
     out.push(m[1] === 'globalAlpha'
-      ? { name: 'fill', prop: m[1], args: [`{ alpha: ${m[2]} }`], raw: [`{ alpha: ${raw} }`], on: receiver(text, end) }
-      : { name: 'fill', prop: m[1], args: [m[2]], raw: [raw], on: receiver(text, end) });
+      ? { name: 'fill', prop: m[1], args: [`{ alpha: ${m[2]} }`], raw: [`{ alpha: ${raw} }`], on: target(text, end) }
+      : { name: 'fill', prop: m[1], args: [m[2]], raw: [raw], on: target(text, end) });
   }
   return out;
 }
 
-/** True when the `{` at `k` opens a function body: after `=>`, or after `(...)` that is not an if/for/while head. */
+/**
+ * True when the `{` at `k` opens a function body: after `=>`, or after `(...)` that is not an if/for/while head,
+ * with or without a TypeScript return type between them (`draw(ctx): void {`).
+ */
 function functionBody(s, k) {
-  const before = s.slice(0, k).trimEnd();
+  const before = s.slice(0, k).trimEnd().replace(/\)\s*:\s*[\w$.<>[\]|&,'"?\s]+$/, ')');
   if (before.endsWith('=>')) return true;
   if (!before.endsWith(')')) return false;
   let d = 0, j = before.length - 1;
@@ -517,6 +526,7 @@ export function scan(src) {
       if (!FILL_ONLY.has(f.name) && !concentric.some((sh) => target(loop.body, sh.at) === target(loop.body, f.at))) continue;
       why = 'its fill changes with each pass of the loop'; at = f.at; break;
     }
+    const shapeTarget = (c) => target(loop.body, c.at); // the whole path (`a.two`), before `target` is shadowed below
     if (!why) {
       // Each concentric shape is judged by the fill that follows it, before the next shape: its own fill. Only shapes
       // and fills on the shape's own object count: `a.fillStyle` does not paint what `b.fillRect` draws.
@@ -532,7 +542,7 @@ export function scan(src) {
           ?? mine.filter((f) => f.at < sh.at && f.at > prev && f.name !== 'stroke').sort((a, b) => b.at - a.at)[0];
         // A Canvas fillRect with no style of its own in the loop paints with the one set before the loop.
         const paint = own ?? (sh.name === 'fillRect' ? { name: 'fill', args: [], raw: [], at: sh.at } : undefined);
-        if (paint && FILL_ONLY.has(paint.name) && seeThrough(paint, mine, sh.at, pre.filter((x) => x.on === on))) {
+        if (paint && FILL_ONLY.has(paint.name) && seeThrough(paint, mine, sh.at, pre.filter((x) => x.on === shapeTarget(sh)))) {
           why = 'it stacks translucent shapes of growing size on one centre'; at = sh.at; break;
         }
       }

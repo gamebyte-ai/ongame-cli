@@ -152,3 +152,22 @@ export function preLoopStyleInAnotherFunction(ctx: CanvasRenderingContext2D): vo
   };
   draw(ctx);
 }
+
+export function preLoopStyleOnAnotherContextOfOneOwner(a: { one: CanvasRenderingContext2D; two: CanvasRenderingContext2D }): void {
+  a.one.globalAlpha = 0.05;                                     // a.one's alpha does not paint a.two's rects
+  for (let i = 0; i < 20; i++) a.two.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
+
+export function preLoopStyleOutsideATypedFunction(ctx: CanvasRenderingContext2D): void {
+  ctx.globalAlpha = 0.05;
+  function draw(ctx: CanvasRenderingContext2D): void {          // another ctx: the alpha above is set outside this function
+    for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+  }
+  draw(ctx);
+}
+
+export function preLoopStyleOnACondition(ctx: CanvasRenderingContext2D, dim: boolean): void {
+  if (dim) ctx.globalAlpha = 0.05;                              // may not run: the loop is not judged by it
+  dim && (ctx.fillStyle = 'rgba(0,0,0,0.1)');
+  for (let i = 0; i < 20; i++) ctx.fillRect(0, 0, 100 - i * 4, 100 - i * 4);
+}
