@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.85 — 2026-11-20
+
+- `skills/gradients/check.mjs` keeps two canvases on one owner apart, such as `canvases.a` and `canvases.b`. A translucent fill on one no longer makes the other's shapes a fade. `test/fixtures/gradients/not-fades.ts` holds that case as a passing one.
+- `skills/gradients/check.mjs` no longer flags a plain outline when the loop has a local named `alpha` or `color`. In `{ alpha: 1, color: 0xffffff }` both names are read as style keys. `test/fixtures/gradients/not-fades.ts` holds both loops as passing ones.
+
 ## 1.7.84 — 2026-11-20
 
 - `/analytics add` no longer refuses a game that keeps its own helper named `telemetry`, such as `src/utils/telemetry.ts`. A relative import counts as an import from the shim only when it lands on `src/telemetry.ts`. An alias such as `@/telemetry` still counts as the shim.
