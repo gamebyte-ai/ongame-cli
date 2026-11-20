@@ -305,12 +305,12 @@ did not clearly improve, keep its old assets.
      author — a game can provision, inject, build and publish perfectly with zero instrumentation, and every
      signal in this phase still reads green. Measured consequence: months of shipped games reporting healthy
      sessions and retention beside a completely empty funnel.
-     `Bash`: `grep -rl "levelStart\|trackLevelStart\|level_start" {gameDir}/src` → if the game HAS levels and this finds
+     `Bash`: `grep -rl --exclude=telemetry.ts "levelStart\|trackLevelStart\|level_start" {gameDir}/src` → if the game HAS levels and this finds
      nothing, add the calls at the level transitions now (same rules as the code phase: numeric level, and
      `'complete'` on a genuine WIN only — counting a fail or quit as a completion hides the difficulty spike
      the funnel exists to find). If the game genuinely has no levels — an endless runner, a single-board toy —
      that is not a gap: say so plainly rather than inventing a level number.
-  1c. **CHECK screens and taps the same way.** `grep -rn "screen(" {gameDir}/src` finds nothing → add `screen('<id>')`
+  1c. **CHECK screens and taps the same way.** `grep -rn --exclude=telemetry.ts "screen(" {gameDir}/src` finds nothing → add `screen('<id>')`
      where each screen is shown. Every interactive Pixi object (`eventMode` `'static'` or `'dynamic'`) needs a
      `label`; give each unlabelled one a short, stable name. Rules: `skills/analytics/SKILL.md`.
   1d. **Shim v2, audience and privacy page.** `Bash`: `node <pluginRoot>/skills/analytics/upgrade.mjs {gameDir}`.

@@ -213,6 +213,11 @@ test('make-game, /analytics, /publish and the code and polish phases use it', ()
   const polish = read('skills/phases/polish/SKILL.md');
   assert.ok(polish.includes('1c. **CHECK screens and taps the same way.**'));
   assert.ok(polish.includes('1d. **Shim v2, audience and privacy page.**'));
+  // The shim declares these names itself, so a grep that reads it always matches.
+  assert.ok(polish.includes('grep -rn --exclude=telemetry.ts "screen("'));
+  assert.ok(polish.includes('grep -rl --exclude=telemetry.ts "levelStart'));
+  assert.ok(cmd.includes('grep -rn --exclude=telemetry.ts "screen("'));
+  assert.ok(cmd.includes('do the\n  children step of section 3 first'));
 });
 
 test('nothing in the analytics files names an internal tool or person', () => {

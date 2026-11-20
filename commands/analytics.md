@@ -25,7 +25,8 @@ Keep its path; delete the temp folder after step 2.
 
 - Exit 3 → ask the maker once, with `ask_user`: **"Is this game aimed at children?"**, options **No, general
   audience** and **Yes, aimed at children**. Run again with `--audience general` or `--audience children`.
-- Exit 4 → the CLI is older than shim v2. Say so, ask the maker to update the onGame CLI, and stop.
+- Exit 4 → the CLI is older than shim v2. Its JSON line still names the `audience`: for `children`, do the
+  children step of section 3 first. Then say so, ask the maker to update the onGame CLI, and stop.
 - Exit 2 → change each named call to its v2 form, then run again.
 - Exit 0 → go on. Read `audience` from its JSON line.
 
@@ -40,7 +41,7 @@ Keep its path; delete the temp folder after step 2.
 ## 4. New calls (general audience only)
 
 Check first; add only what is missing, so a second run adds nothing:
-- `grep -rn "screen(" {gameDir}/src` → add `screen('<id>')` where each screen is shown, if absent.
+- `grep -rn --exclude=telemetry.ts "screen(" {gameDir}/src` → add `screen('<id>')` where each screen is shown, if absent.
 - Interactive Pixi objects with no `label` → give each a short, stable `label`.
 - `trackLevelStart` / `trackLevelComplete` / `trackLevelFail` keep working. Move them to `levelStart` / `levelEnd`
   only when you touch that code anyway; also send `levelEnd(a, 'quit')` when the player leaves a level to the menu.
