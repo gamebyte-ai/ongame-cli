@@ -51,6 +51,7 @@ export function exportedNames(src) {
       if (name) names.add(name);
     }
   }
+  if (/^\s*export\s+default\b/m.test(src)) names.add('default');
   return names;
 }
 
@@ -65,28 +66,48 @@ function sourceFiles(dir, out = []) {
   return out;
 }
 
-/** Every name the game's code takes from its telemetry module, with the file that takes it. */
+const TELEMETRY_FROM = String.raw`from\s*['"](?:\.{1,2}/)+(?:[\w.-]+/)*telemetry(?:\.[jt]s)?['"]`;
+
+function gameSources(srcDir) {
+  return sourceFiles(srcDir).filter((f) => basename(f).replace(/\.\w+$/, '') !== 'telemetry');
+}
+
+/**
+ * Every name the game's code takes from its telemetry module, with the file that takes it: named, default and
+ * namespace imports, and `export { ... } from` re-exports. `default` stands for a default import.
+ */
 export function importedNames(srcDir) {
   const used = new Map();
   const add = (name, file) => { if (!used.has(name)) used.set(name, file); };
-  for (const file of sourceFiles(srcDir)) {
-    if (basename(file).replace(/\.\w+$/, '') === 'telemetry') continue;
+  for (const file of gameSources(srcDir)) {
     const code = readFileSync(file, 'utf8');
-    const from = String.raw`from\s*['"](?:\.{1,2}/)+(?:[\w.-]+/)*telemetry(?:\.[jt]s)?['"]`;
-    for (const m of code.matchAll(new RegExp(String.raw`import\s*(?:type\s+)?\{([^}]*)\}\s*` + from, 'g'))) {
-      for (const part of m[1].split(',')) {
-        const name = part.trim().replace(/^type\s+/, '').split(/\s+as\s+/)[0].trim();
-        if (name) add(name, file);
+    for (const m of code.matchAll(new RegExp(String.raw`\b(import|export)\s+(?:type\s+)?([^;'"]*?)\s*` + TELEMETRY_FROM, 'g'))) {
+      let clause = m[2].trim();
+      const braces = clause.match(/\{([^}]*)\}/);
+      if (braces) {
+        for (const part of braces[1].split(',')) {
+          const name = part.trim().replace(/^type\s+/, '').split(/\s+as\s+/)[0].trim();
+          if (name) add(name, file);
+        }
+        clause = clause.replace(braces[0], '');
       }
-    }
-    for (const m of code.matchAll(new RegExp(String.raw`import\s*\*\s*as\s+([A-Za-z_$][\w$]*)\s*` + from, 'g'))) {
-      for (const u of code.matchAll(new RegExp(String.raw`\b${m[1]}\.([A-Za-z_$][\w$]*)`, 'g'))) add(u[1], file);
+      const ns = clause.match(/\*\s*as\s+([A-Za-z_$][\w$]*)/);
+      if (ns && m[1] === 'import') {
+        for (const u of code.matchAll(new RegExp(String.raw`\b${ns[1]}\.([A-Za-z_$][\w$]*)`, 'g'))) add(u[1], file);
+        clause = clause.replace(ns[0], '');
+      }
+      if (m[1] === 'import' && /^[A-Za-z_$][\w$]*/.test(clause.replace(/^[\s,]+/, ''))) add('default', file);
     }
   }
   return used;
 }
 
-export function renderPrivacy(title, audience) {
+/** The game has its own analytics switch when its code (not the shim) calls setConsent. */
+export function hasOptOut(srcDir) {
+  return gameSources(srcDir).some((f) => /\bsetConsent\s*\(/.test(readFileSync(f, 'utf8')));
+}
+
+export function renderPrivacy(title, audience, optOut) {
   let collection;
   if (audience === 'children') {
     collection = [
@@ -105,9 +126,11 @@ export function renderPrivacy(title, audience) {
       '<tr><th>Event</th><th>What it records</th></tr>',
       ...rows,
       '</table>',
-      '<h2>Your choice</h2>',
-      "<p>You can turn analytics off in the game's settings. Turning it off deletes the records still waiting on your",
-      'device and stops all sending.</p>',
+      ...(optOut ? [
+        '<h2>Your choice</h2>',
+        "<p>You can turn analytics off in the game's settings. Turning it off deletes the records still waiting on your",
+        'device and stops all sending.</p>',
+      ] : []),
     ].join('\n');
   }
   const never = REGISTRY.never.map((n) => `  <li>${esc(n)}</li>`).join('\n');
@@ -176,7 +199,7 @@ export function run(argv, log = console.log) {
     if (settings) {
       const page = existsSync(privacyPath) ? readFileSync(privacyPath, 'utf8') : '';
       const own = page && !page.includes(PRIVACY_MARKER);
-      if (!own && page !== renderPrivacy(gameTitle(gameDir, settings.title), settings.audience)) problems.push('public/privacy.html is missing or out of date');
+      if (!own && page !== renderPrivacy(gameTitle(gameDir, settings.title), settings.audience, hasOptOut(join(gameDir, 'src')))) problems.push('public/privacy.html is missing or out of date');
     }
     for (const p of problems) log(`check: ${p}`);
     log(problems.length ? 'check: FAIL' : 'check: ok');
@@ -229,7 +252,7 @@ export function run(argv, log = console.log) {
     privacyState = 'kept-own';
     log('note: public/privacy.html was written by hand and is kept. Check that it lists every event the analytics SDK sends (see the analytics skill).');
   } else {
-    privacyState = writeIfChanged(privacyPath, renderPrivacy(title, audience)) ? (existing === null ? 'added' : 'updated') : 'unchanged';
+    privacyState = writeIfChanged(privacyPath, renderPrivacy(title, audience, hasOptOut(join(gameDir, 'src')))) ? (existing === null ? 'added' : 'updated') : 'unchanged';
   }
 
   const changed = settingsChanged || nextShim !== null || privacyState === 'added' || privacyState === 'updated';

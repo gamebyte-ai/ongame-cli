@@ -41,7 +41,7 @@ Every event is linked to a random id the game makes on the device. The id is pse
 - **App activity → App interactions**: collected, **not shared**.
 - Purpose: **Analytics**.
 - Mark it **optional** when the game shows the consent prompt; otherwise **required**.
-- Data is encrypted in transit. The player can turn analytics off in the game's settings.
+- Data is encrypted in transit. Where the game has the Analytics switch, the player can turn it off in settings.
 
 ## Privacy policy link
 

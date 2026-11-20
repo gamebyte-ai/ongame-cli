@@ -52,7 +52,8 @@ currency and tutorial steps. The published page's `sdk.js` does the sending; the
 | `general` | `on` | inject the `sdk.js` tag. Analytics is on until the player turns it off in settings. |
 | `children` | `off` | inject nothing. Remove any `__ONGAME_TELEMETRY__` config and `sdk.js` tag. No id is ever made. |
 
-A `general` game's settings screen gets an **Analytics** on/off switch that calls `setConsent(on)`.
+A `general` game's settings screen gets an **Analytics** on/off switch that calls `setConsent(on)`. The privacy page
+promises the switch only once the game's code calls `setConsent`, so run `upgrade.mjs` again after adding it.
 
 ## Privacy page and store labels
 

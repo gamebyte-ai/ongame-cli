@@ -147,6 +147,30 @@ test('a children\'s game gets consent off and a page that says nothing is collec
   assert.ok(!page.includes('<code>ui_tap</code>'));
 });
 
+test('default imports and re-exports count as names the game needs', () => {
+  const dir = game({ main: "import T from './telemetry';\nexport { trackLevelFail as lost } from './telemetry';\nT;\n" });
+  const r = run(dir, '--shim', v2File(), '--audience', 'general');
+  assert.equal(r.status, 2);
+  assert.match(r.stdout, /imports default,/);
+  const dir2 = game({ main: "export { trackLevelFail as lost } from './telemetry';\n" });
+  assert.equal(run(dir2, '--shim', v2File(), '--audience', 'general').status, 0);
+  const dir3 = game({ main: "export { trackLevelQuit } from './telemetry';\n" });
+  assert.equal(run(dir3, '--shim', v2File(), '--audience', 'general').status, 2);
+});
+
+test('the page promises an opt-out only when the game calls setConsent', () => {
+  const dir = game({ shim: SHIM_V2 });
+  run(dir, '--audience', 'general');
+  const page = () => fs.readFileSync(path.join(dir, 'public/privacy.html'), 'utf8');
+  assert.ok(!page().includes('turn analytics off'));
+  fs.writeFileSync(path.join(dir, 'src/views/Settings.ts'), "import { setConsent } from '../telemetry';\nexport const off = () => setConsent(false);\n");
+  assert.equal(run('--check', dir).status, 1, 'the page is out of date once the switch exists');
+  const r = run(dir);
+  assert.equal(summary(r).privacy, 'updated');
+  assert.ok(page().includes("You can turn analytics off in the game's settings."));
+  assert.equal(run('--check', dir).status, 0);
+});
+
 test('a privacy page the maker wrote is kept', () => {
   const dir = game({ shim: SHIM_V2 });
   fs.mkdirSync(path.join(dir, 'public'));

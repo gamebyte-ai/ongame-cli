@@ -48,7 +48,8 @@ Check first; add only what is missing, so a second run adds nothing:
 
 ## 5. Prove it
 
-`Bash`: `cd {gameDir} && npx tsc --noEmit` must stay clean. Then
+`Bash`: `cd {gameDir} && npx tsc --noEmit` must stay clean. Run `node <pluginRoot>/skills/analytics/upgrade.mjs {gameDir}`
+once more: it adds the opt-out line to the privacy page once the switch exists. Then
 `node <pluginRoot>/skills/analytics/upgrade.mjs --check {gameDir}` must exit 0.
 Tell the maker what changed: the shim version, the privacy page at `/privacy.html` after the next `/publish`, and
 the store answers in `skills/analytics/store-labels.md` if the game ships to the stores.
