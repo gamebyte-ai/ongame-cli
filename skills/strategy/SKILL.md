@@ -9,7 +9,7 @@ phase or an approval gate. Skip it only for a change that touches none of those,
 
 The strategy layer is a set of lesson files next to this one. Each file holds what made successful games
 work, in a genre or at a studio, written as lessons a game can apply. Read them before `skills/game-design`:
-the strategy decides WHAT the game must have (a fail state, a mechanic every 20 levels, late interstitials);
+the strategy decides WHAT the game must have (a fail state, a schedule of new mechanics, late interstitials);
 game design then decides the numbers and rules.
 
 ## 1. Find the files that match the game
@@ -44,9 +44,17 @@ The order of authority, highest first:
 4. The studio file.
 5. `principles.md`.
 
-A lesson's numbers (a level count, a share, a timing) are what the source observed or estimated. Treat them as
-a starting point with a range, and mark them as such in `docs/GAME_DESIGN.md`. Never present them as measured
-for this game.
+A lesson's numbers (a level count, a share, a timing, a size) come from three places, and each one carries a
+label that says which:
+
+- *Observed:* the source saw it in the reviewed game.
+- *Estimated by the source:* the source estimated or advised it, but did not see it in the game.
+- *Our inference:* we derived it while writing the lesson. The source does not give it.
+
+A number with no label is our inference. Every *Check:* line is our test, not the source's. Copy each number's
+label, word for word, into `docs/STRATEGY.md` and `docs/GAME_DESIGN.md`, next to the number. Never turn our
+inference into a source fact, and never turn an estimate into an observation. Treat every lesson number as a
+starting point with a range, never as measured for this game.
 
 ## 3. Write `docs/STRATEGY.md`
 
@@ -55,7 +63,7 @@ holds:
 
 1. **Files read:** each strategy file, and why it matched.
 2. **Decisions:** one table, a row per lesson: lesson id, apply / adapt / not used, and where it lives in this
-   game or the reason.
+   game or the reason. A row that uses a lesson number names it with its label.
 3. **What changes the plan:** the three to five decisions that change the game the most, in plain words. Show
    these to the user with the build summary.
 4. **Open questions:** a lesson that needs the user's call, such as adding a fail state to a game sold as
@@ -81,7 +89,9 @@ A new talk, article, teardown or review becomes lessons, never a copy of the sou
 2. Write each lesson in your own words: what to do, why it works, and how to check a game for it. No quotes,
    no transcript passages, no speaker names.
 3. Give each lesson the next free id in that file. Never renumber or reuse an id: games cite them.
-4. Mark each number with where it came from: "observed", "estimated by the source", or "our inference".
+4. Label each number with where it came from: *Observed:*, *Estimated by the source:* or *Our inference:*
+   (section 2). A threshold or a level you chose yourself is our inference, even when the source's point is
+   behind it.
 5. Keep a lesson that holds for every genre in `principles.md`, not in a genre file.
 6. Leave out anything private: people, private companies' internal data, contact details, unreleased plans.
    Public games and public studios may be named.
