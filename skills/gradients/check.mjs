@@ -417,7 +417,9 @@ export function scan(src) {
       const read = reads(withoutLookups(colour));
       if (![...read].some((x) => ramp.has(x))) continue;
       if (impure(colour, dep) || [...read].some((x) => dep.has(x) && !ramp.has(x))) continue; // mixed with per-item data
-      if (!FILL_ONLY.has(f.name) && !concentric.length) continue; // a tapered stroke along a path: line art
+      // A stroke is a ring fade only when it strokes rings on its own object; rings on another object beside a
+      // tapered line along a path do not make that line a fade.
+      if (!FILL_ONLY.has(f.name) && !concentric.some((sh) => receiver(loop.body, sh.at) === receiver(loop.body, f.at))) continue;
       why = 'its fill changes with each pass of the loop'; at = f.at; break;
     }
     if (!why) {
