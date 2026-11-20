@@ -16,10 +16,10 @@ updated: 2026-11-20
 and the board edge is empty, it slides out; when another piece is in the way, it refuses. Clearing pieces
 opens paths for others. The board is cleared when every piece has left.
 
-**Where the genre stands.** The leading games in this family reach over 100 million downloads each, mostly on
-ad revenue: the play is quick to learn and cheap to advertise. A late entrant earned far more from in-app
-purchases than the genre usually does by changing the rules below, not the core action. Copying the core
-action is the easy part; the lessons here are what made the difference.
+**Where the genre stands.** *Estimated by the source:* the leading games in this family reach over 100 million
+downloads each, mostly on ad revenue, because the play is quick to learn and cheap to advertise. A late entrant
+earned far more from in-app purchases than the genre usually does by changing the rules below, not the core
+action. Copying the core action is the easy part; the lessons here are what made the difference.
 
 ## Mechanics
 
