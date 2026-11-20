@@ -8,6 +8,13 @@
 - `test/strategy-layer.test.mjs` checks every strategy file's shape, ids and wording, the `/make-game` section and this version line.
 - Works with every ongame-cli release: the change is skill text only.
 
+## 1.7.79 — 2026-11-20
+
+- The audio phase adds a `music` row only when the game's design has a music slot, such as background music or an ambient track. A game without one gets no music.
+- The music row calls `sound_request({ text, music: true, durationSeconds?, gameId? })`: one background track per game, 3–60 s. `text` names the mood, instruments and tempo.
+- `test/music-row-rule.test.mjs` checks these lines and this version line.
+- Needs ongame core with `music: true` on `sound_request`. Production core has it since 2026-11-20.
+
 ## 1.7.78 — 2026-11-20
 
 - `/make-game` applies six game-design rules by default, to every new game and every change to a game's rules, levels, layout or economy: a capacity for every container, when a piece waits or is blocked, caps on what is in play, an odds model before the levels, phone sizes and readability, and a rival study of looks, sizes and economy that changes the game.
