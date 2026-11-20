@@ -65,3 +65,11 @@ export function pixelColumns(ctx: CanvasRenderingContext2D, W: number, H: number
 export function whileQueue(g: Graphics, queue: { x: number; y: number; a: number }[]): void {
   while (queue.length) { const p = queue.pop()!; g.circle(p.x, p.y, 4).fill({ color: 0xffffff, alpha: p.a }); }
 }
+
+export function sparksAndOutlines(g: Graphics, sparks: { x: number; y: number; r: number }[]): void {
+  for (let i = 0; i < 20; i++) {
+    const p = sparks[i];
+    g.circle(p.x, p.y, p.r).fill({ color: 0xffffff, alpha: 0.5 });
+    g.circle(0, 0, 100 - i).stroke({ width: 1, color: 0xffffff });
+  }
+}

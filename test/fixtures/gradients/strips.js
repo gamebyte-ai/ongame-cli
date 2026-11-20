@@ -32,3 +32,7 @@ export function whileDiscs(g) {
   let i = 0;
   while (i < 40) { g.circle(0, 0, 100 - i * 2).fill({ color: 0xffffff, alpha: 0.05 }); i++; }
 }
+
+export function oneDeclaration(g, positions) {
+  for (let i = 0; i < 20; i++) { const t = i / 20, x = positions[i]; g.rect(0, i * 10, 100, 10).fill({ color: 0xffffff, alpha: t }); void x; }
+}

@@ -265,8 +265,7 @@ function loops(s) {
  */
 function loopDependent(loop) {
   const all = new Set(loop.vars), ramp = new Set(loop.counter ? loop.vars : []);
-  const defs = [...loop.body.matchAll(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*([^;\n]*)/g),
-    ...loop.body.matchAll(/,\s*([A-Za-z_$][\w$]*)\s*=\s*([^,;\n]*)/g)].map((m) => [m[1], m[2]]);
+  const defs = declarations(loop.body);
   for (let grew = true; grew;) {
     grew = false;
     for (const [name, rhs] of defs) {
@@ -275,6 +274,18 @@ function loopDependent(loop) {
     }
   }
   return { all, ramp };
+}
+
+/** Every `const|let|var name = value` in `body` as [name, value], one per declarator (`const a = x, b = y`). */
+function declarations(body) {
+  const out = [];
+  for (const m of body.matchAll(/(?:const|let|var)\s+([^;\n]*)/g)) {
+    for (const part of splitArgs(m[1])) {
+      const d = /^\s*([A-Za-z_$][\w$]*)\s*(?::[^=]*)?=\s*([\s\S]*)$/.exec(part);
+      if (d) out.push([d[1], d[2]]);
+    }
+  }
+  return out;
 }
 
 /** True when `expr` mixes the loop with per-item data: see loopDependent. */
@@ -323,8 +334,8 @@ export function scan(src) {
     // objects, not a stack: only a target that stays the same through the loop can build a fade.
     // A local counts as a new object only when it is created (`new ...`, a call) or picked per pass; a local that
     // aliases one object (`const g = this.glow`) is still the same target.
-    const own = new Set([...loop.body.matchAll(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*([^;\n]*)/g)]
-      .filter((m) => /^\s*new\b|\)\s*$/.test(m[2]) || depends(m[2], dep)).map((m) => m[1]));
+    const own = new Set(declarations(loop.body)
+      .filter(([, v]) => /^\s*new\b|\)\s*$/.test(v) || depends(v, dep)).map(([n]) => n));
     const same = (c) => { const r = receiver(loop.body, c.at); return !(dep.has(r) || own.has(r)); };
     const raw = src.slice(loop.bodyAt, loop.bodyAt + loop.body.length);
     // A rect 1 px wide or tall paints a texture pixel by pixel: no band can show.
@@ -348,8 +359,19 @@ export function scan(src) {
       if (!FILL_ONLY.has(f.name) && !concentric.length) continue; // a tapered stroke along a path: line art
       why = 'its fill changes with each pass of the loop'; at = f.at; break;
     }
-    if (!why && concentric.length && fills.some((f) => FILL_ONLY.has(f.name) && translucent(f.name, f.raw))) {
-      why = 'it stacks translucent shapes of growing size on one centre'; at = concentric[0].at;
+    if (!why) {
+      // Each concentric shape is judged by the fill that follows it, before the next shape: its own fill.
+      const sorted = [...shapes].sort((a, b) => a.at - b.at);
+      for (const sh of concentric) {
+        const next = sorted.find((x) => x.at > sh.at)?.at ?? Infinity;
+        const prev = [...sorted].reverse().find((x) => x.at < sh.at)?.at ?? -1;
+        // Pixi v8 fills after the shape; v7's beginFill (and Canvas' fillStyle) is set before it.
+        const own = fills.filter((f) => f.at > sh.at && f.at < next).sort((a, b) => a.at - b.at)[0]
+          ?? fills.filter((f) => f.at < sh.at && f.at > prev && f.name !== 'stroke').sort((a, b) => b.at - a.at)[0];
+        if (own && FILL_ONLY.has(own.name) && translucent(own.name, own.raw)) {
+          why = 'it stacks translucent shapes of growing size on one centre'; at = sh.at; break;
+        }
+      }
     }
     if (!why) continue;
     const fillLine = lineOf(s, loop.bodyAt + at);
