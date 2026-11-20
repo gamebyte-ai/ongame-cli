@@ -81,8 +81,10 @@ const withoutComments = (code) => code.replace(/\/\*[\s\S]*?\*\//g, ' ').replace
 // earlier declaration in a module without semicolons.
 const CLAUSE = String.raw`(?:(?!\b(?:import|export)\b)[^;'"=()])*?`;
 
+// Every source file but the shim itself. A helper elsewhere named telemetry is the game's own code and is checked.
 function gameSources(srcDir) {
-  return sourceFiles(srcDir).filter((f) => basename(f).replace(/\.\w+$/, '') !== 'telemetry');
+  const shim = join(srcDir, 'telemetry.ts');
+  return sourceFiles(srcDir).filter((f) => f !== shim);
 }
 
 /**
