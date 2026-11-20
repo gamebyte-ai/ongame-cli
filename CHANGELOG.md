@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.77 — 2026-11-20
+
+- Anything in a game that fades (a glow, light rays, a sky, a vignette, shading) is drawn as one shape with one gradient fill. The rule now has its own skill, `gradients`, which loads whenever a game draws one, in a new game or a change to a finished one. It gives the PixiJS v8 `FillGradient` code.
+- `skills/gradients/check.mjs` finds fades faked with stacked rings, bands, strips or discs in a game's source and prints each as file:line. `/make-game` and the polish review run it before a game is called done.
+- `test/gradients-rule.test.mjs` checks it: stacked-ring rays fail, the same rays with one `FillGradient` pass.
+- Works with every ongame-cli release: the change is skill text and one script with no dependency.
+
 ## 1.7.76 — 2026-11-19
 
 - Light rays behind the end card now fade from bright at the centre to transparent at the edge. The polish phase's Sub-phase 8 gives the radial gradient code; `/make-game` points to it.

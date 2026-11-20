@@ -1,0 +1,44 @@
+// Loops that step a fill but are not fades: gradient-check must pass all of them.
+import { Graphics } from 'pixi.js';
+
+type Puff = { x: number; y: number; r: number; born: number };
+
+export function particles(g: Graphics, puffs: Puff[], t: number): void {
+  for (const p of puffs) {                                     // one shape per item
+    const age = t - p.born;
+    g.circle(p.x, p.y - age * 30, p.r * (1 + age * 2)).fill({ color: 0xfff0d2, alpha: Math.max(0, 0.4 - age) });
+  }
+  for (let i = 0; i < 26; i++) {                               // sparkles: % and the clock make it per-item data
+    const ph = (t * 0.1 + i * 0.137) % 1;
+    g.circle(i * 14, 900 * (1 - ph), 3).fill({ color: 0xfff1a8, alpha: Math.sin(ph * Math.PI) });
+  }
+}
+
+export function tiles(g: Graphics, palette: number[]): void {
+  for (let i = 0; i < 20; i++) g.roundRect(i * 40, 0, 36, 36, 6).fill(palette[i % palette.length]);
+  for (let i = 0; i < 20; i++) g.roundRect(i * 40, 40, 36, 36, 6).fill({ color: palette[i], alpha: 0.8 });
+}
+
+export function buttons(items: { bg: Graphics; on: boolean }[]): void {
+  for (let i = 0; i < items.length; i++) {                     // a new object each pass, not a stack
+    const b = items[i];
+    b.bg.roundRect(-62, -24, 124, 48, 24).fill({ color: 0x264a22, alpha: b.on ? 0.3 : 0.12 });
+  }
+}
+
+export function lineGlow(g: Graphics, pts: { x: number; y: number }[]): void {
+  for (const [color, width, alpha] of [[0xff8a1e, 12, 0.75], [0xfff3c4, 4, 1]] as const) { // two layers
+    g.moveTo(pts[0].x, pts[0].y);
+    for (const q of pts.slice(1)) g.lineTo(q.x, q.y);
+    g.stroke({ color, width, alpha });
+  }
+}
+
+export function treeRings(g: Graphics, s: number): void {
+  for (let i = 1; i <= 8; i++) g.circle(0, 0, s * 0.1 * i).stroke({ width: 1, color: 0x6b3f14 }); // line art
+}
+
+export function waived(g: Graphics): void {
+  // gradient-check: ok pixel-art sky, the art direction asks for hard bands
+  for (let i = 0; i < 6; i++) g.rect(0, i * 40, 400, 40).fill({ color: 0x3060a0, alpha: 1 - i / 6 });
+}
