@@ -35,10 +35,10 @@ test('concept-to-game registers target production with its phases', () => {
 
 test('the plugin version and the changelog name the release that adds --no-concept', () => {
   const version = JSON.parse(read('.claude-plugin/plugin.json')).version;
-  assert.ok(version.localeCompare('1.7.87', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.87 or later`);
+  assert.ok(version.localeCompare('1.7.88', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.88 or later`);
   const log = read('CHANGELOG.md');
-  const i = log.indexOf('## 1.7.87');
-  assert.ok(i > -1, 'CHANGELOG has a 1.7.87 section');
+  const i = log.indexOf('## 1.7.88');
+  assert.ok(i > -1, 'CHANGELOG has a 1.7.88 section');
   assert.ok(log.slice(i, log.indexOf('\n## ', i + 1)).includes('`--no-concept`'));
 });
 
