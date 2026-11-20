@@ -237,9 +237,12 @@ you write the code they belong to: `screen('<id>')` where each screen is shown, 
 level begins play and `levelEnd(a, 'complete' | 'fail' | 'quit')` when it ends, `economy(...)` when currency
 changes, and a short, stable `label` on every interactive Pixi object, whose taps the SDK then reports itself.
 Settings gets an **Analytics** on/off switch calling `setConsent(on)`. The calls and rules: `skills/analytics/SKILL.md`.
+If `src/telemetry.ts` exports no `levelStart` (shim v1, an older scaffold), use `trackLevelStart(n)`,
+`trackLevelComplete(n)` and `trackLevelFail(n)`, add the labels, and skip the other v2 calls.
 Before calling a web game done, run `node <pluginRoot>/skills/analytics/upgrade.mjs {gameDir}`. Exit 3 → ask the
 maker once whether the game is aimed at children, as that skill says, and run it again with `--audience`. Then
-`node <pluginRoot>/skills/analytics/upgrade.mjs --check {gameDir}` must exit 0. Older games: `/analytics add`.
+`node <pluginRoot>/skills/analytics/upgrade.mjs --check {gameDir}` must exit 0. Exit 4 (shim v1) still saved the
+privacy page: skip `--check` and tell the maker an onGame CLI update brings the full analytics. Older games: `/analytics add`.
 
 Verify the behavior the user asked for in the relevant runtime. A preview URL, clean compile or empty console
 alone is not proof that a game works. Inspect actual rendering and interaction in a browser or the engine.

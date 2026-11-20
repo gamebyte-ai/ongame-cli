@@ -154,6 +154,10 @@ test('default imports and re-exports count as names the game needs', () => {
   assert.match(r.stdout, /imports default,/);
   const dir2 = game({ main: "export { trackLevelFail as lost } from './telemetry';\n" });
   assert.equal(run(dir2, '--shim', v2File(), '--audience', 'general').status, 0);
+  const dir4 = game({ main: "import * as T from './telemetry';\nconst { trackLevelQuit } = T; T.trackLevelStart(1);\n" });
+  const r4 = run(dir4, '--shim', v2File(), '--audience', 'general');
+  assert.equal(r4.status, 2);
+  assert.match(r4.stdout, /imports T \(used other than as T\.name\)/);
   const dir3 = game({ main: "export { trackLevelQuit } from './telemetry';\n" });
   assert.equal(run(dir3, '--shim', v2File(), '--audience', 'general').status, 2);
 });
@@ -210,6 +214,8 @@ test('make-game, /analytics, /publish and the code and polish phases use it', ()
   const code = read('skills/phases/code/SKILL.md');
   assert.ok(code.includes('const attempt = levelStart(n)'));
   assert.ok(code.includes("screen('<id>')"));
+  assert.ok(code.includes('**An older scaffold has shim v1:**'));
+  assert.ok(make.includes('If `src/telemetry.ts` exports no `levelStart` (shim v1, an older scaffold)'));
   const polish = read('skills/phases/polish/SKILL.md');
   assert.ok(polish.includes('1c. **CHECK screens and taps the same way.**'));
   assert.ok(polish.includes('1d. **Shim v2, audience and privacy page.**'));

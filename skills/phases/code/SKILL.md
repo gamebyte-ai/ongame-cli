@@ -243,6 +243,8 @@ Rule: state does not leak into the View, render does not leak into the Board. If
   only for a DOM button, a key or a swipe. Currency changes call `economy('earn' | 'spend', currency, amount, source)`;
   tutorial steps call `tutorial(stepId, done)`. Settings gets an **Analytics** on/off switch calling `setConsent(on)`.
   Never pass typed text, a name or a position as meta. The full list: `skills/analytics/SKILL.md`.
+  **An older scaffold has shim v1:** `src/telemetry.ts` exports no `levelStart`. Then use `trackLevelStart(n)`,
+  `trackLevelComplete(n)` and `trackLevelFail(n)`, still add the labels, and skip the other v2 calls.
 
 - **Check the existing helpers before adding imports.** These instructions can arrive before a CLI update or apply to an older game.
   Never import a helper that its `src/ads.ts` or `src/purchases.ts` does not export. If `watchRewardedReady` is absent
