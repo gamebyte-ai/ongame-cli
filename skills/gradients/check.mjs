@@ -450,7 +450,19 @@ export function scan(src) {
     for (const f of fills) {
       const style = f.args.join(',');
       if (/\bnew\s+FillGradient\b/.test(style)) continue;
-      const colour = colourArgs(f).join(','); // a ramp is in colour or alpha only: a growing line width is line art
+      const before = loop.body.slice(0, f.at);
+      const defs = declarations(before);
+      const args = f.args.map((a) => {
+        const name = a.trim();
+        if (!/^[A-Za-z_$][\w$]*$/.test(name)) return a;
+        const escaped = name.replace(/\$/g, '\\$');
+        // Resolve only a declaration with no intervening uses: a write or helper could change the style.
+        if ([...before.matchAll(new RegExp(`(?:^|[^\\w$])${escaped}(?![\\w$])`, 'g'))].length !== 1) return a;
+        const matches = defs.filter(([n]) => n === name);
+        const value = matches.length === 1 ? matches[0][1].trim() : '';
+        return value.startsWith('{') && close(value, 0) === value.length - 1 ? value : a;
+      });
+      const colour = colourArgs({ ...f, args }).join(','); // a ramp is in colour or alpha only: a growing line width is line art
       const read = reads(withoutLookups(colour));
       if (![...read].some((x) => ramp.has(x))) continue;
       if (impure(colour, dep) || [...read].some((x) => dep.has(x) && !ramp.has(x))) continue; // mixed with per-item data

@@ -102,6 +102,13 @@ export function widerRingsV7(g: Graphics): void {
   for (let i = 0; i < 10; i++) { g.lineStyle(1 + i, 0xffffff, 1); g.drawCircle(0, 0, 10 + i * 10); } // v7: width comes first
 }
 
+export function widerRingsLocalStyle(g: Graphics): void {
+  for (let i = 0; i < 20; i++) {
+    const style = { color: 0xffffff, width: i + 1 };
+    g.circle(0, 0, 100 - i * 4).stroke(style);
+  }
+}
+
 export function ringsBesideFadingLine(rings: Graphics, path: Graphics): void {
   for (let i = 0; i < 20; i++) {                               // the rings and the fading line are two objects
     rings.circle(0, 0, 10 + i * 4).stroke({ color: 0xffffff, width: 1 });

@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { scan } from '../skills/gradients/check.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const read = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), 'utf8');
@@ -38,6 +39,36 @@ test('strip skies, ring vignettes, stacked ellipses, a Canvas glow and a two-lin
 test('particles, palette tiles, paint dabs, page dots, bars, per-object loops, line layers, outlines and waived loops pass', () => {
   const { code, out } = check(fixture('not-fades.ts'));
   assert.equal(code, 0, out);
+});
+
+test('local style objects keep colour and alpha ramps, and v7 scalar arguments keep their meaning', () => {
+  for (const style of ['{ color: 0xffffff, alpha: i / 20, width: 1 }', '{ color: i / 20 * 0xffffff, width: 1 }']) {
+    assert.equal(scan(`for (let i = 0; i < 20; i++) {
+      const style = ${style};
+      g.circle(0, 0, 100 - i * 4).stroke(style);
+    }`).length, 1, style);
+  }
+  assert.equal(scan(`for (let i = 0; i < 20; i++) {
+    const width = i + 1, color = 0xffffff, alpha = 1;
+    g.lineStyle(width, color, alpha).drawCircle(0, 0, 100 - i * 4);
+  }`).length, 0);
+  assert.equal(scan(`for (let i = 0; i < 20; i++) {
+    const width = 1, color = 0xffffff, alpha = i / 20;
+    g.lineStyle(width, color, alpha).drawCircle(0, 0, 100 - i * 4);
+  }`).length, 1);
+});
+
+test('a style changed after its declaration still reports a fade', () => {
+  for (const change of [
+    'style.alpha = i / 20', 'style["alpha"] = i / 20',
+    'style = { color: 0xffffff, alpha: i / 20 }', 'Object.assign(style, { alpha: i / 20 })',
+  ]) {
+    assert.equal(scan(`for (let i = 0; i < 20; i++) {
+      let style = { color: 0xffffff, width: i + 1 };
+      ${change};
+      g.circle(0, 0, 100 - i * 4).stroke(style);
+    }`).length, 1, change);
+  }
 });
 
 test('a folder is scanned recursively and nothing to check is an error, not a pass', () => {
