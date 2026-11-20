@@ -206,6 +206,13 @@ test('an import from a game helper named telemetry is not an import from the shi
   fs.writeFileSync(path.join(dir2, 'src', 'utils', 'telemetry.ts'), 'export function quit(): void {}\n');
   const r2 = run(dir2, '--shim', v2File(), '--audience', 'general');
   assert.equal(r2.status, 0, r2.stdout);
+  // A helper that passes on a shim name v2 lacks is still refused: the helper itself is scanned.
+  const dir3 = game({ main: "import { quit } from '../utils/telemetry';\nquit();\n" });
+  fs.mkdirSync(path.join(dir3, 'src', 'utils'));
+  fs.writeFileSync(path.join(dir3, 'src', 'utils', 'telemetry.ts'), "export { quit } from '../telemetry';\n");
+  const r3 = run(dir3, '--shim', v2File(), '--audience', 'general');
+  assert.equal(r3.status, 2, r3.stdout);
+  assert.match(r3.stdout, /src\/utils\/telemetry\.ts imports quit, which the v2 shim does not export/);
 });
 
 test('the page promises an opt-out only when the game calls setConsent', () => {
