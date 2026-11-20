@@ -321,7 +321,8 @@ eye, and reach hard states by seeding the save (`pattern:temporal-capture`, `pat
 
 **A game is done only after it was played on record.** After the last build and before `build.done`, call
 `play_gate({gameDir, buildId, desktop, phone})`. Write both play scripts yourself: the shortest
-keyboard play (desktop) and touch play (phone) from the first screen to the win or goal. The game prints `pass goal`
+keyboard play (desktop) and touch play (phone) from the first screen to the win or goal. A game played by dragging a
+finger (connect letters, draw a line, pull a slingshot) uses a `drag` step through hit-area ids. The game prints `pass goal`
 there (`pattern:gamelabs-self-check`). `state: "blocked"` names the failed checks: fix the game, rebuild and call it
 again. `layout_fits` measures the phone layout at 360x640 and 390x844 (cut-off or covered text, controls under
 44x44 px) from `window.__game.layout()`, which the gamelabs-base template publishes. Waive a check only when it is
