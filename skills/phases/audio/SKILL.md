@@ -48,7 +48,8 @@ Canonical roles — skip if not in the design, add if present (this list is a ba
 - **Gameplay**: map to the design's core verb — `select`, `match`, `cascade`, and
   `win`/`lose` stinger for the win/lose screens. (In a non-match-3 genre, `match`→
   the game's "score/reward" moment, `cascade`→corresponds to the combo; the role name is fixed, the text per genre.)
-- **Ambient/music**: a full `music` piece, **`loop: true`** (`durationSeconds` valid range 0.5–22).
+- **Ambient/music**: add the `music` row only when the design has a music slot (background music, an ambient
+  track). A game without one gets no music row. The `music` row is made with `music: true` (Step 3), 3–60 s.
 - **Every `text` fits the game and feels good.** Name the game's material and mood (glass gems clink, wooden
   blocks knock, jelly squishes). Aim for soft, tactile, satisfying, ASMR-like sounds: pops, taps, slides, chimes.
   No 8-bit: no square-wave beeps or chiptune, unless the game's style is retro or pixel.
@@ -66,6 +67,8 @@ The client has **no `FORGE_URL` and no token** — sound is generated through th
   job). `description?` is an optional short library label (else `text` is used). `gameId?` tags this sound for
   the current game — pass it so it's later findable in one call via `asset_library_list({ gameId })`, same field
   as `forge_request`/`forge_batch` in the assets phase.
+- For the `music` row, call **`sound_request({ text, music: true, durationSeconds?, gameId? })`**: one background
+  track per game, not one per screen. `text` names the game's mood, instruments and tempo.
 - It returns a **small ref manifest plus a `download` slot**: `{ assets:[{ kind, fileRef | bytesBase64, ... }],
   download:{ url, token } }` — ref entries carry a sealed `fileRef` instead of bytes (context stays tiny; the
   URL/key never reaches the client). Pass BOTH (`assets` + `download`) to `assets_materialize` — the download
