@@ -25,6 +25,8 @@ Keep its path; delete the temp folder after step 2.
 
 - Exit 3 → ask the maker once, with `ask_user`: **"Is this game aimed at children?"**, options **No, general
   audience** and **Yes, aimed at children**. Run again with `--audience general` or `--audience children`.
+- Exit 5 → a children's game still holds old telemetry scripts: remove every script that sets
+  `__ONGAME_TELEMETRY__` and the telemetry `sdk.js` tag, then run again.
 - Exit 4 → the CLI is older than shim v2. Its JSON line still names the `audience`: for `children`, do the
   children step of section 3 first. Then say so, ask the maker to update the onGame CLI, and stop.
 - Exit 2 → change each named call to its v2 form, then run again.

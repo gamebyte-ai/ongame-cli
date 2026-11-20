@@ -17,7 +17,8 @@
  *    site root, so it is served at /privacy.html). A privacy.html the maker wrote, with no onGame marker, is kept.
  *
  * Exit codes: 0 done (or --check passed), 1 --check failed, 2 refused (nothing written), 3 audience unknown,
- * 4 the shim is not v2 (the audience and privacy page are still saved; the shim is left as it was).
+ * 4 the shim is not v2 (the audience and privacy page are still saved; the shim is left as it was),
+ * 5 a children's game still holds telemetry this tool did not write (remove it, run again).
  * After exit 0 or 4 the last stdout line is a JSON summary: {audience, consentDefault, shim, privacy, changed}.
  */
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
@@ -83,6 +84,8 @@ export function importedNames(srcDir) {
   const add = (name, file) => { if (!used.has(name)) used.set(name, file); };
   for (const file of gameSources(srcDir)) {
     const code = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"`\\])\/\/[^\n]*/g, '$1');
+    // import('./telemetry') and require('./telemetry') hide which names they use: refuse rather than guess.
+    if (new RegExp(String.raw`\b(?:import|require)\s*\(\s*['"](?:[^'"\n]*/)?telemetry(?:\.[jt]s)?['"]`).test(code)) add('(a dynamic import or require)', file);
     for (const m of code.matchAll(new RegExp(String.raw`\b(import|export)\s+(?:type\s+)?([^;'"]*?)\s*` + TELEMETRY_FROM, 'g'))) {
       let clause = m[2].trim();
       const braces = clause.match(/\{([^}]*)\}/);
@@ -262,12 +265,13 @@ export function run(argv, log = console.log) {
 
   // A children's game sends nothing: take out the block telemetry_inject wrote. --check fails on anything else left.
   let telemetryRemoved = false;
+  let telemetryLeft = false;
   const indexPath = join(gameDir, 'index.html');
   if (audience === 'children' && existsSync(indexPath)) {
     const html = readFileSync(indexPath, 'utf8');
     const stripped = html.replace(TELEMETRY_BLOCK, '');
     if (stripped !== html) { writeFileSync(indexPath, stripped); telemetryRemoved = true; }
-    if (hasTelemetry(stripped)) log('note: index.html still holds a telemetry script this tool did not write; remove every script that sets __ONGAME_TELEMETRY__ and the sdk.js tag.');
+    if (hasTelemetry(stripped)) telemetryLeft = true;
   }
 
   let privacyState;
@@ -281,6 +285,10 @@ export function run(argv, log = console.log) {
 
   const changed = settingsChanged || telemetryRemoved || nextShim !== null || privacyState === 'added' || privacyState === 'updated';
   log(JSON.stringify({ audience, consentDefault: settings.consentDefault, shim: shimState, privacy: privacyState, changed }));
+  if (telemetryLeft) {
+    log('children: index.html still holds a telemetry script this tool did not write. Remove every script that sets __ONGAME_TELEMETRY__ and the sdk.js tag, then run again.');
+    return 5;
+  }
   return notV2 ? 4 : 0;
 }
 

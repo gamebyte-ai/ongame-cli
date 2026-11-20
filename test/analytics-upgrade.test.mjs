@@ -162,6 +162,8 @@ test('default imports and re-exports count as names the game needs', () => {
   assert.match(run(dir6, '--shim', v2File(), '--audience', 'general').stdout, /imports trackLevelQuit/);
   const dir7 = game({ main: "import { trackLevelQuit } from '@/telemetry';\n" });
   assert.equal(run(dir7, '--shim', v2File(), '--audience', 'general').status, 2);
+  const dir8 = game({ main: "export const load = async () => { const { trackLevelQuit } = await import('./telemetry'); return trackLevelQuit; };\n" });
+  assert.match(run(dir8, '--shim', v2File(), '--audience', 'general').stdout, /a dynamic import or require/);
   const dir5 = game({ main: "export * from './telemetry';\n" });
   assert.equal(run(dir5, '--shim', v2File(), '--audience', 'general').status, 2);
   const dir3 = game({ main: "export { trackLevelQuit } from './telemetry';\n" });
@@ -192,6 +194,8 @@ test('a children\'s game loses the telemetry block, and --check fails while any 
   assert.equal(run('--check', dir).status, 0);
   assert.equal(summary(run(dir)).changed, false);
   fs.writeFileSync(path.join(dir, 'index.html'), html.replace('</head>', '<script src="/old/sdk.js"></script></head>'));
+  // A tag the script did not write: exit 5 on a run (v1 or v2 shim alike), and --check fails.
+  assert.equal(run(dir).status, 5);
   const c = run('--check', dir);
   assert.equal(c.status, 1);
   assert.match(c.stdout, /index\.html still holds telemetry/);

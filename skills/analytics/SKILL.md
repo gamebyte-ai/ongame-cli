@@ -40,6 +40,8 @@ currency and tutorial steps. The published page's `sdk.js` does the sending; the
   is left as it was. Update the onGame CLI, then take `src/telemetry.ts` from a fresh scaffold.
 - Exit 2: a file imports a name the v2 shim does not export. The output names the file and the name. Change that
   call to its v2 form, then run again.
+- Exit 5: a children's game still holds a telemetry script the script did not write. Remove every script that
+  sets `__ONGAME_TELEMETRY__` and the `sdk.js` tag, then run again. Never finish or publish on exit 5.
 - Exit 0 (and exit 4): the last line is JSON, `{audience, consentDefault, shim, privacy, changed}`. `changed: false` means the
   game already had all of it.
 

@@ -3,9 +3,9 @@
   "generatedAt": "2026-11-20",
   "skills": {
     "analytics": {
-      "sha256": "834af3e49623a3da421577fe8bfb7ebd593e385944bac2a72793ea5cb27a8e50",
-      "bytes": 3824,
-      "lines": 64
+      "sha256": "ba12d6939afcf49470860846d4e90cf4cb027a0c0337b388bbf4d2d1fe8d1764",
+      "bytes": 4037,
+      "lines": 66
     },
     "art-direction": {
       "sha256": "4fb82004119bfc33672560fdea3da9ad11d71d2eb9a535574f0a8ac522beb1c0",
@@ -68,9 +68,9 @@
       "lines": 100
     },
     "phases/polish": {
-      "sha256": "d13be3f6e11c806936d95e7dfee7acdfa2b5487248e7c43c23edd59078cc110d",
-      "bytes": 50649,
-      "lines": 507
+      "sha256": "54fbd3271f9500129e6b7bfdab24b8ce5880a26ccfe74102620ae9cc46af31e7",
+      "bytes": 50718,
+      "lines": 508
     },
     "phases/research": {
       "sha256": "121ee95275b701a4d80ed7535013c015780c280bd37542608a2a65d24f4bcbe5",

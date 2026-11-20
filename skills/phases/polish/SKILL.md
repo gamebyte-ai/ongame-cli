@@ -316,7 +316,8 @@ did not clearly improve, keep its old assets.
      `label`; give each unlabelled one a short, stable name. Rules: `skills/analytics/SKILL.md`.
   1d. **Shim v2, audience and privacy page.** `Bash`: `node <pluginRoot>/skills/analytics/upgrade.mjs {gameDir}`.
      Exit 3 → ask the maker once whether the game is aimed at children (the question and options are in
-     `skills/analytics/SKILL.md`), then run again with `--audience`. Exit 4 → the game has shim v1: run `/analytics add`
+     `skills/analytics/SKILL.md`), then run again with `--audience`. Exit 5 → remove the telemetry scripts it names, run it
+     again. Exit 4 → the game has shim v1: run `/analytics add`
      steps 1-2; when that upgrade succeeds, do 1c again for the v2 calls. Exit 0 or 4 with `"audience":"children"` → skip step 2 below; remove any `__ONGAME_TELEMETRY__` config and
      telemetry `sdk.js` tag instead, so the game makes no id.
   2. `telemetry_inject(gameDir, indexFile, snippet)` → writes the returned `snippet` into the SOURCE

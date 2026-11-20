@@ -242,7 +242,7 @@ If `src/telemetry.ts` exports no `levelStart` (shim v1, an older scaffold), use 
 Before calling a web game done, run `node <pluginRoot>/skills/analytics/upgrade.mjs {gameDir}`. Exit 3 → ask the
 maker once whether the game is aimed at children, as that skill says, and run it again with `--audience`. Then
 `node <pluginRoot>/skills/analytics/upgrade.mjs --check {gameDir}` must exit 0. For a children's game it also takes the telemetry
-tag out of `index.html`. Exit 4 (shim v1) still saved the privacy page: skip `--check` and tell the maker an onGame CLI update brings the full analytics. Older games: `/analytics add`.
+tag out of `index.html`; exit 5 → remove the telemetry scripts it names and run it again. Exit 4 (shim v1) still saved the privacy page: skip `--check` and tell the maker an onGame CLI update brings the full analytics. Older games: `/analytics add`.
 
 Verify the behavior the user asked for in the relevant runtime. A preview URL, clean compile or empty console
 alone is not proof that a game works. Inspect actual rendering and interaction in a browser or the engine.
