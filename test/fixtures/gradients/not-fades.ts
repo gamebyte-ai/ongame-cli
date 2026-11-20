@@ -61,3 +61,7 @@ export function canvasTiles(ctx: CanvasRenderingContext2D, palette: string[]): v
 export function pixelColumns(ctx: CanvasRenderingContext2D, W: number, H: number): void {
   for (let i = 0; i < W; i++) { ctx.fillStyle = `rgb(${(i / W) * 255 | 0}, 0, 0)`; ctx.fillRect(i, 0, 1, H); }
 }
+
+export function whileQueue(g: Graphics, queue: { x: number; y: number; a: number }[]): void {
+  while (queue.length) { const p = queue.pop()!; g.circle(p.x, p.y, 4).fill({ color: 0xffffff, alpha: p.a }); }
+}

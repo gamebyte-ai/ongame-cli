@@ -27,3 +27,8 @@ export function canvasSky(ctx) {
 export function aliasGlow(owner) {
   for (let i = 0; i < 40; i++) { const g = owner.glow; g.circle(0, 0, 100 - i * 2).fill({ color: 0xffffff, alpha: 0.05 }); }
 }
+
+export function whileDiscs(g) {
+  let i = 0;
+  while (i < 40) { g.circle(0, 0, 100 - i * 2).fill({ color: 0xffffff, alpha: 0.05 }); i++; }
+}

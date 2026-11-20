@@ -247,7 +247,12 @@ function loops(s) {
     let body, bodyAt;
     if (s[k] === '{') { const e = close(s, k); if (e < 0) continue; body = s.slice(k + 1, e); bodyAt = k + 1; }
     else { const e = s.indexOf(';', k); body = s.slice(k, e < 0 ? s.length : e + 1); bodyAt = k; }
-    const counter = m[1] === 'for' && splitTop(head, ';').length === 3;
+    let counter = m[1] === 'for' && splitTop(head, ';').length === 3;
+    if (m[1] === 'while') { // a counter while loop steps a name from its condition: `while (i < n) { ...; i++; }`
+      const stepped = [...vars].filter((v) => new RegExp(`(?:\\b${v.replace(/\$/g, '\\$')}\\s*(?:\\+\\+|--|[+-]=)|(?:\\+\\+|--)\\s*${v.replace(/\$/g, '\\$')}\\b)`).test(body));
+      counter = stepped.length > 0;
+      vars.clear(); for (const v of stepped) vars.add(v);
+    }
     out.push({ at: m.index + m[0].length - m[1].length - 1, vars, body, bodyAt, counter, steps: steps(m[1], head) });
   }
   return out;
