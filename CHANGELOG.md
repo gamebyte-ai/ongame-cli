@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.7.84 — 2026-11-20
+
+- `/analytics add` no longer refuses a game that keeps its own helper named `telemetry`, such as `src/utils/telemetry.ts`. A relative import counts as an import from the shim only when it lands on `src/telemetry.ts`. An alias such as `@/telemetry` still counts as the shim.
+- `test/analytics-upgrade.test.mjs` checks the helper, its re-exports, the alias and a `src/telemetry/` folder.
+- Works with every ongame-cli release: the change is one script with no dependency.
+
+## 1.7.83 — 2026-11-20
+
+- `/make-game` starts a new game in the new `concept-to-game` mode unless the maker clearly asked for a prototype, a full game, a playable ad or docs only. The build researches the genre, makes concept screens, cuts them into game-ready assets and writes the docs. Then it stops for the maker's review before any code. The code work that follows is a continuation that keeps `concept-to-game`.
+- Needs the ongame server that accepts `path: "concept-to-game"` (ongame card i_81m80wlu). Until then `state_init` refuses the new path.
+- In `concept-to-game` the assets phase now cuts the concept screens into assets and wires no code. It runs before the docs and the code, so it builds its list from the concept screens, not `docs/GAME_DESIGN.md`. It records the cut assets in `docs/ASSETS.md`.
+- The first code build after the concept review is a continuation with no game code yet. The build runner and the code phase now tell the agent to scaffold the engine in that case, then wire in the cut assets. A continuation of a game that has code still never scaffolds.
+- First lessons: `genres/arrow-escape.md` (23 lessons on arrow escape puzzles: a fail state, sectioned levels, a schedule of new mechanics, late interstitials, purchases and launch ads), `studios/grand-games.md` (8 lessons) and `principles.md` (5 lessons for every genre). `TEMPLATE.md` is the shape for the next genre or studio.
+- `genres/arrow-escape.md` also carries what our teardown of the Maze Out Android build shows, next to the podcast's lessons. Lessons 1, 2, 6, 7, 8 and 10 gain observed numbers: 5 lives at 30 minutes each, the obstacle levels, the hard-level beat and the timer. Each one keeps its label: *Observed:*, *Estimated by the source:* or *Our inference:*.
+- Six new lessons, `arrow-escape/18` to `arrow-escape/23`: grow the board as the clock shrinks, boosters per fail state, rising continue prices, quick-clear combos, what plays after the last level, and a daily level with its own rules.
+- `test/strategy-layer.test.mjs` checks every strategy file's shape, ids and wording, every lesson number's label, the `/make-game` section, the teardown's lessons and this version line.
+- `skills/gradients/check.mjs` no longer reports a fill whose alpha changes just because shapes are drawn beside it on another object. A fill now counts as a fade only when a shape in the loop is drawn on the same object. Rings on one Graphics beside fading Canvas text pass.
+- `test/fixtures/gradients/not-fades.ts` holds that case as a passing one.
+- `skills/gradients/check.mjs` judges each growing shape only by the fills and Canvas style sets on its own drawing target, by its whole path. Plain rings beside see-through text on another object pass. `test/fixtures/gradients/not-fades.ts` holds that case as a passing one.
+- `skills/gradients/check.mjs` no longer reports rings whose line width grows when their style is declared in a local variable. A style changed between its declaration and the drawing keeps the old handling, so a real fade is still reported.
+- `/analytics add` now checks a game's own helper files named `telemetry`, such as `src/utils/telemetry.ts`. Only the shim itself, `src/telemetry.ts`, is skipped.
+- The privacy page promises "you can turn analytics off in the game's settings" only when the maker says the player has that switch: `upgrade.mjs --opt-out yes`. The answer is kept in `.ongame/analytics.json`, and `--check` reads the page against it.
+- A `setConsent` call in the game's code no longer counts as a switch. A game that calls `setConsent(true)` at start gets no such promise. When the code calls `setConsent` and no answer is on file, the run prints the `--opt-out` question.
+- `test/analytics-upgrade.test.mjs` checks both cases and this version line.
+- `skills/gradients/check.mjs` reads a call's object correctly when its name has a space before the bracket (`.stroke (`, `ctx.fillRect (`). Before, such a call matched no object, and a real fade was missed.
+- `test/fixtures/gradients/strips.js` holds both spaced cases as reported fades.
+- `/make-game` now reaches the game-making rules that lived only inside phase skills it does not open. They moved,
+  word for word, into five skills Claude Code loads by their description, and `commands/make-game.md` points to each:
+  `game-concept`, `game-code`, `difficulty-curve`, `asset-anchor` and `phone-layout`. The phase skills point to the
+  same files, so a phase run reads the same text.
+- `test/phase-rules-reachable.test.mjs` lists those 19 rules and checks that each is in a skill with a description
+  that `/make-game` names.
+- Works with every ongame-cli release: the change is skill text only.
+- Works with every ongame-cli release: the change is one script with no dependency.
+
 ## 1.7.82 — 2026-11-20
 
 - `/make-game` reads a strategy layer before designing a game: lessons on what made successful games work, by genre and by studio. Each lesson is applied, adapted or marked not used, and the decisions go to `docs/STRATEGY.md` before `docs/GAME_DESIGN.md`.

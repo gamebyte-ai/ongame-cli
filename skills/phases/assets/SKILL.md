@@ -1,6 +1,6 @@
 ---
 name: assets
-description: Asset generation phase — full asset manifest from GAME_DESIGN.md, consistent art direction, real asset generation (not gray-box), and integration into game code.
+description: Asset generation phase — full asset manifest from GAME_DESIGN.md (or, in concept-to-game, from the concept screens), consistent art direction, real asset generation (not gray-box), and integration into game code (none in concept-to-game).
 ---
 # Assets Phase (production)
 
@@ -9,52 +9,42 @@ prints ALL the visuals required by GAME_DESIGN.md with **real generated assets**
 game code. Output: a game that renders with real textures instead of gray-box and speaks a
 single language.
 
+**`concept-to-game` is the exception:** there this phase runs before `docs` and `code`, so it cuts the
+concept screens into assets and wires nothing. Read "Concept-to-game" below first.
+
 > You are an **asset-direction** expert. The task is not to print individual visuals one by
 > one; it is to establish a **consistent art-direction**, bring all assets into that language,
 > and wire them in code with real paths.
 
 ## RULE 0 — never generate an asset cold. Anchor it to what already exists.
 
-**Applies to EVERY asset request, at any point in a build** — the first manifest, a set member, and just as much
-the one the user asks for three days later ("add a boss", "one more enemy", "a new icon"). A later request is where
-this is usually dropped, and it is the one where it costs most: a fresh generation with no anchor comes back in a
-different language, and the game visibly stops being one game.
+Follow `skills/asset-anchor/SKILL.md` before ANY `forge_request`/`forge_batch`.
 
-**Before ANY `forge_request`/`forge_batch`, go and find the relevant references. Do not generate first.**
+## Concept-to-game: you run BEFORE `docs` and `code`
 
-1. **What this game already has** — `asset_library_list({ gameId })`. The user already paid for these, and they
-   define the look you must match. Take an anchor from here whenever anything related exists.
-2. **The concept visuals** — `docs/CONCEPT.md` and the files it recorded (§1a); the approved picture of the game.
-3. **`docs/ART_DIRECTION.md`** — the locked palette and atmosphere numbers (concept step 3b).
-4. **Anything the user supplied** — `{gameDir}/assets/reference/`, a pasted screenshot, a link they sent.
+Read the mode first: `state_get(buildId)` → `plan.path`. In `concept-to-game` the order is research, concept,
+assets, docs, then the maker's review, then code in a continuation (`/make-game`, "A new game starts with a concept
+review"). This case applies when the path is `concept-to-game` AND `gameDir` has no game code yet: the build before
+the review. It has no `docs/GAME_DESIGN.md` either. The concept screens are the picture the maker will review, so
+the assets come from them. These replace the matching steps below. After the review the game has code, so an
+assets run in a continuation follows the normal steps, §6 wiring included.
 
-Then request the asset with **`editOf` set to the anchor**, and write the prompt to describe only the
-**difference**. The shared `ART_PREFIX` (§2) still goes in every prompt; the anchor is what makes the result
-belong to *this* game rather than merely to the same style words.
+1. **Source:** cut the assets from the concept screens recorded in `docs/CONCEPT.md`. Read
+   `knowledge_get({ key: 'pattern:concept-cut' })` for how. Do not ask "from the concept or from the design doc"
+   (§1a): there is no design doc, and the mode already chose the concept.
+2. **Manifest:** build it from the concept screens, `docs/CONCEPT.md`, `docs/ART_DIRECTION.md` and
+   `docs/RESEARCH.md`, not from `docs/GAME_DESIGN.md` (§1b). Take `ART_PREFIX` (§2) from `docs/ART_DIRECTION.md`.
+3. **Generate and write:** RULE 0, §3-§5 apply unchanged. Write every asset with `assets_materialize` and use
+   the `paths` it returns.
+4. **No code wiring.** Skip §6. Do not create `src/`, `public/assets/` or `src/assets.ts`, and do not scaffold.
+   Instead write `docs/ASSETS.md`: one row per asset with its manifest `id`, kind, the concept screen it was cut
+   from and its returned path. The code work after the review wires these files in.
+5. **Verify (§7):** skip `npx tsc --noEmit` and `preview_start`; there is no game to run. Open each written file
+   and check it is real (`placeholder: false`) and matches its screen. `assets_ok` is 1 when every manifest row has
+   a real path in `docs/ASSETS.md`; its comment says tsc was not run because no code exists yet.
+6. **Finish (§8):** the phase output names `docs/ASSETS.md` and the concept screens, not `src/assets.ts`.
 
-Generating from a prompt alone is acceptable **only when nothing relevant exists** — a genuinely first asset. If
-you land there, say so in one line rather than letting it pass silently, because it is the case where the result
-is most likely to look foreign and the user is the one who can tell you what it should have matched.
-
-**Most of the time this costs you ONE extra argument, not a workflow.** `editOf` accepts, directly:
-
-- the sealed `meta.assetId` from a generating result — the anchor for a set you are making right now;
-- the stable `a_<hex>` library id from `asset_library_list`/`asset_library_get` — reach for this one when the
-  anchor came from an EARLIER session, since the sealed handle dies in ~24h;
-- a public `http(s)` URL.
-
-**Only a file on the user's DISK needs the upload step**, and only because generation runs remotely and cannot read
-their filesystem: copy it under `assets/reference/`, call `forge_reference` for a slot, hand that to
-`reference_upload` → `assetId`, then use it as `editOf`. If you already hold an id or a URL, skip all of that —
-going through the upload path with an anchor you already have is wasted work, and it is the reason this flow gets
-a reputation for being heavy.
-
-For animated characters, use **sprite clip mode** (§3) and pass the character image as `editOf`.
-Only the legacy **grid mode** is prompt-only; describe the anchored character in its grid prompt.
-A mascot that has to *act* on menus and result cards (cheer, wave, "oops") is a **`video`** asset instead (§3):
-fetch `pattern:mascot-video` before generating it.
-
-> **GRAYBOX-FIRST — you run AFTER `code`.** By the time this phase starts, the `code`
+> **GRAYBOX-FIRST — you run AFTER `code`** (every mode except `concept-to-game`). By the time this phase starts, the `code`
 > phase has produced a fully-PLAYABLE graybox game (placeholder `PIXI.Graphics`/`PIXI.Text`). You are the **"dress"**
 > step: you author `src/assets.ts`, generate the real art in one art-direction, and SWAP the gray-box shapes for real
 > sprites WITHOUT changing the mechanic. The game already plays — you make it look published.
@@ -185,7 +175,8 @@ those anyway; they chose.
 > what you can name on the screen. Call `knowledge_get({ key: 'pattern:concept-cut' })` for how to cut a screen into
 > assets. If it returns empty, continue with your own judgment.
 
-Read `docs/GAME_DESIGN.md`. Write down EVERY visual the game needs. Manifest = a single table;
+Read `docs/GAME_DESIGN.md` (in `concept-to-game`, the concept screens instead: see "Concept-to-game"). Write down
+EVERY visual the game needs. Manifest = a single table;
 each row is an asset. **Do not skip any visual** — screens, HUD, entities, menu.
 
 Scan the categories (drop the ones that do not apply based on the game's genre):

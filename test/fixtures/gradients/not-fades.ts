@@ -102,6 +102,13 @@ export function widerRingsV7(g: Graphics): void {
   for (let i = 0; i < 10; i++) { g.lineStyle(1 + i, 0xffffff, 1); g.drawCircle(0, 0, 10 + i * 10); } // v7: width comes first
 }
 
+export function widerRingsLocalStyle(g: Graphics): void {
+  for (let i = 0; i < 20; i++) {
+    const style = { color: 0xffffff, width: i + 1 };
+    g.circle(0, 0, 100 - i * 4).stroke(style);
+  }
+}
+
 export function ringsBesideFadingLine(rings: Graphics, path: Graphics): void {
   for (let i = 0; i < 20; i++) {                               // the rings and the fading line are two objects
     rings.circle(0, 0, 10 + i * 4).stroke({ color: 0xffffff, width: 1 });
@@ -133,5 +140,34 @@ export function canvasTaperedStrokeBesideAnotherCanvas(ctx: CanvasRenderingConte
     ctx.globalAlpha = i / 20;
     ctx.beginPath(); ctx.moveTo(i * 20, 0); ctx.lineTo(i * 20 + 20, 0); ctx.stroke();
     other.fillRect(0, 0, 10, 10);
+  }
+}
+
+export function ringsBesideFadingLabels(rings: Graphics, ctx: CanvasRenderingContext2D): void {
+  for (let i = 0; i < 20; i++) {                               // the rings and the fading text are two objects
+    rings.circle(0, 0, 10 + i * 4).stroke({ color: 0xffffff, width: 1 });
+    ctx.globalAlpha = i / 20;
+    ctx.fillText('label', i * 20, 0);
+  }
+}
+
+export function ringsBesideTranslucentLabels(rings: Graphics, ctx: CanvasRenderingContext2D): void {
+  for (let i = 0; i < 20; i++) {
+    rings.circle(0, 0, 10 + i * 4);
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    ctx.fillText('label', i * 20, 0);
+    rings.stroke({ color: 0xffffff, width: 1 });
+  }
+}
+
+export function opaqueDiscsBesideTranslucentLabels(layer: { discs: CanvasRenderingContext2D; labels: CanvasRenderingContext2D }): void {
+  for (let i = 0; i < 20; i++) {
+    layer.discs.fillStyle = '#ffffff';
+    layer.discs.globalAlpha = 1;
+    layer.discs.arc(0, 0, 10 + i * 4, 0, Math.PI * 2);
+    layer.labels.fillStyle = 'rgba(255,255,255,0.05)';
+    layer.labels.globalAlpha = 0.1;
+    layer.labels.fillText('label', i * 20, 0);
+    layer.discs.fill();
   }
 }
