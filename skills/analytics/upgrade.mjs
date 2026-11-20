@@ -83,7 +83,8 @@ const RESOLVE_EXT = ['', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.mts', '/index.t
 /**
  * The import names the shim, src/telemetry.ts. An alias or bare specifier ('@/telemetry') counts. A relative one counts
  * unless it lands on another file that exists, such as src/utils/telemetry.ts: that is the game's own helper.
- * A relative one that lands on nothing counts too, so a broken import is refused rather than waved through.
+ * A relative one that reaches the shim's path before any other file counts even when src/telemetry.ts does not exist
+ * yet. A relative one that lands on nothing counts too, so a broken import is refused rather than waved through.
  */
 export function pointsAtShim(spec, file, srcDir) {
   if (!/^\.\.?\//.test(spec)) return true;
@@ -93,7 +94,9 @@ export function pointsAtShim(spec, file, srcDir) {
   for (const b of new Set([base, base.replace(/\.m?js$/, '')])) {
     for (const ext of RESOLVE_EXT) {
       const p = b + ext;
-      if (existsSync(p) && statSync(p).isFile()) return p === shim;
+      // The shim's own path counts before it exists: the upgrade may add src/telemetry.ts, and then it wins.
+      if (p === shim) return true;
+      if (existsSync(p) && statSync(p).isFile()) return false;
     }
   }
   return true;

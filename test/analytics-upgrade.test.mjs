@@ -213,6 +213,14 @@ test('an import from a game helper named telemetry is not an import from the shi
   const r3 = run(dir3, '--shim', v2File(), '--audience', 'general');
   assert.equal(r3.status, 2, r3.stdout);
   assert.match(r3.stdout, /src\/utils\/telemetry\.ts imports quit, which the v2 shim does not export/);
+  // A game with no src/telemetry.ts yet but a src/telemetry/ folder: the shim the upgrade adds takes over '../telemetry'.
+  const dir4 = game({ main: "import { quit } from '../telemetry';\nquit();\n" });
+  fs.rmSync(path.join(dir4, 'src', 'telemetry.ts'));
+  fs.mkdirSync(path.join(dir4, 'src', 'telemetry'));
+  fs.writeFileSync(path.join(dir4, 'src', 'telemetry', 'index.ts'), 'export function quit(): void {}\n');
+  const r4 = run(dir4, '--shim', v2File(), '--audience', 'general');
+  assert.equal(r4.status, 2, r4.stdout);
+  assert.match(r4.stdout, /src\/views\/Main\.ts imports quit/);
 });
 
 test('the page promises an opt-out only when the game calls setConsent', () => {
