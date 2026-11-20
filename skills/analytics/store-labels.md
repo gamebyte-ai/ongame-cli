@@ -39,7 +39,8 @@ Every event is linked to a random id the game makes on the device. The id is pse
 ## Google Play Data safety
 
 - **App activity → App interactions**: collected, **not shared**.
-- Purpose: **Analytics**.
+- **Device or other IDs**: collected, **not shared**. This is the random install id every event carries.
+- Purpose of both: **Analytics**.
 - Mark it **optional** when the game shows the consent prompt; otherwise **required**.
 - Data is encrypted in transit. Where the game has the Analytics switch, the player can turn it off in settings.
 

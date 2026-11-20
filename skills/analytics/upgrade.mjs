@@ -73,6 +73,10 @@ const TELEMETRY_FROM = String.raw`from\s*['"](?:[^'"\n]*/)?telemetry(?:\.[jt]s)?
 
 const withoutComments = (code) => code.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"`\\])\/\/[^\n]*/g, '$1');
 
+// An import or re-export clause: no quote, `=`, parenthesis or other import/export, so a match never starts at an
+// earlier declaration in a module without semicolons.
+const CLAUSE = String.raw`(?:(?!\b(?:import|export)\b)[^;'"=()])*?`;
+
 function gameSources(srcDir) {
   return sourceFiles(srcDir).filter((f) => basename(f).replace(/\.\w+$/, '') !== 'telemetry');
 }
@@ -88,7 +92,7 @@ export function importedNames(srcDir) {
     const code = withoutComments(readFileSync(file, 'utf8'));
     // import('./telemetry') and require('./telemetry') hide which names they use: refuse rather than guess.
     if (new RegExp(String.raw`\b(?:import|require)\s*\(\s*['"](?:[^'"\n]*/)?telemetry(?:\.[jt]s)?['"]`).test(code)) add('(a dynamic import or require)', file);
-    for (const m of code.matchAll(new RegExp(String.raw`\b(import|export)\s+(?:type\s+)?([^;'"]*?)\s*` + TELEMETRY_FROM, 'g'))) {
+    for (const m of code.matchAll(new RegExp(String.raw`\b(import|export)\s+(?:type\s+)?(${CLAUSE})\s*` + TELEMETRY_FROM, 'g'))) {
       let clause = m[2].trim();
       const braces = clause.match(/\{([^}]*)\}/);
       if (braces) {
@@ -128,7 +132,7 @@ export function hasOptOut(srcDir) {
   return gameSources(srcDir).some((f) => {
     const code = withoutComments(readFileSync(f, 'utf8'));
     const callers = [];
-    for (const m of code.matchAll(new RegExp(String.raw`\bimport\s+(?:type\s+)?([^;'"]*?)\s*` + TELEMETRY_FROM, 'g'))) {
+    for (const m of code.matchAll(new RegExp(String.raw`\bimport\s+(?:type\s+)?(${CLAUSE})\s*` + TELEMETRY_FROM, 'g'))) {
       const braces = m[1].match(/\{([^}]*)\}/);
       for (const part of braces ? braces[1].split(',') : []) {
         const [name, alias] = part.trim().split(/\s+as\s+/).map((x) => x.trim());

@@ -164,6 +164,8 @@ test('default imports and re-exports count as names the game needs', () => {
   assert.equal(run(dir7, '--shim', v2File(), '--audience', 'general').status, 2);
   const dir8 = game({ main: "export const load = async () => { const { trackLevelQuit } = await import('./telemetry'); return trackLevelQuit; };\n" });
   assert.match(run(dir8, '--shim', v2File(), '--audience', 'general').stdout, /a dynamic import or require/);
+  const dir9 = game({ main: "export const config = {}\nimport { trackLevelQuit } from './telemetry'\ntrackLevelQuit(1)\n" });
+  assert.match(run(dir9, '--shim', v2File(), '--audience', 'general').stdout, /imports trackLevelQuit/);
   const dir5 = game({ main: "export * from './telemetry';\n" });
   assert.equal(run(dir5, '--shim', v2File(), '--audience', 'general').status, 2);
   const dir3 = game({ main: "export { trackLevelQuit } from './telemetry';\n" });
@@ -247,6 +249,7 @@ test('the privacy page and the store labels list exactly the registered events',
   for (const n of REGISTRY.never) assert.ok(page.includes(n), n);
   assert.match(labels, /Product Interaction/);
   assert.match(labels, /App interactions/);
+  assert.match(labels, /\*\*Device or other IDs\*\*: collected, \*\*not shared\*\*/);
 });
 
 test('make-game, /analytics, /publish and the code and polish phases use it', () => {
