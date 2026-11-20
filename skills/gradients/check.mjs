@@ -406,16 +406,140 @@ function translucent(name, raw) {
  * `globalAlpha` set last on the same target before it in the loop (`fills` holds only that target's fills). A Canvas style set (`ctx.fillStyle = ...`, `ctx.globalAlpha = ...`)
  * is judged the same way, together with the other one, at `at` (the shape it paints, when that comes later):
  * `globalAlpha = 1` after a see-through `fillStyle` still paints see-through. A bare Pixi `fill()` is assumed to use
- * the last `setFillStyle` the same way (a guess, not checked against PixiJS).
+ * the last `setFillStyle` the same way (a guess, not checked against PixiJS). A style the loop never sets on that
+ * target is read from `pre`, what preLoopStyles() found before the loop on it.
  */
-function seeThrough(f, fills, at = f.at) {
+function seeThrough(f, fills, at = f.at, pre = []) {
   const bare = f.name === 'fill' && !f.prop && f.raw.every((a) => /^\s*(?:(['"])(?:nonzero|evenodd)\1)?\s*$/.test(a));
   if (!bare && !f.prop) return translucent(f.name, f.raw);
   const before = fills.filter((x) => x.at <= Math.max(at, f.at)).sort((a, b) => b.at - a.at);
-  const last = (pick) => before.find(pick);
-  const style = last((x) => x.prop === 'fillStyle' || x.name === 'setFillStyle');
-  const alpha = last((x) => x.prop === 'globalAlpha');
-  return [style, alpha].some((x) => x && translucent(x.name, x.raw));
+  const isStyle = (x) => x.prop === 'fillStyle' || x.name === 'setFillStyle', isAlpha = (x) => x.prop === 'globalAlpha';
+  // A style the loop never sets keeps the value set last before the loop (`pre`, in order) on every pass, when that
+  // set surely ran and nothing after it may have changed it.
+  const last = (pick) => {
+    if (fills.some(pick)) return before.find(pick);
+    const x = pre.findLast(pick);
+    return x?.sure ? x : undefined;
+  };
+  return [last(isStyle), last(isAlpha)].some((x) => x && translucent(x.name, x.raw));
+}
+
+/**
+ * What may set a Canvas `fillStyle` or `globalAlpha` before the loop at `at`, in its function: fill entries in source
+ * order, with the object they are set on (`on`, its whole path as `target()` gives it). An entry is `sure` only when
+ * it always runs and stays: a plain statement in the blocks that hold the loop. A set in an earlier block (an `if`, a
+ * callback, a bare `{}`), behind an unbraced `if`/`else`/`&&`/`?`, or in an arrow's expression body is not sure, and
+ * a `restore()` or `reset()` on the object, a resize of its canvas, an update (`*=`), a comma-joined set or a new
+ * value of its name adds an unsure entry for both styles. seeThrough() judges by the last entry, so any
+ * doubt after a sure set means no judgement.
+ */
+function preLoopStyles(s, src, at) {
+  const keep = s.slice(0, at).split('');
+  const dropped = []; // [open, close] of each earlier block
+  let d = 0, k = at - 1;
+  for (; k >= 0; k--) {
+    if (s[k] === '}') d++;
+    else if (s[k] === '{' && d > 0) {
+      // An earlier block is dropped; its end still ends the statement that holds it (`if (a) { ... }`).
+      if (--d === 0) { const e = close(s, k); keep.fill(' ', k, e + 1); keep[e] = ';'; dropped.push([k, e]); }
+    }
+    else if (s[k] === '{' && functionBody(s, k)) break;
+  }
+  const text = keep.join(''); // the loop's own blocks, earlier blocks blanked
+  const sure = (i) => {
+    if (dropped.some(([o, e]) => i > o && i < e)) return false;
+    if (/(?:^|[^\w$.])(?:case\b[^:;]*|default\s*):/.test(text.slice(i, at))) return false; // another switch case
+    const head = statementHead(text.slice(Math.max(k, text.lastIndexOf(';', i), text.lastIndexOf('{', i), text.lastIndexOf('}', i)) + 1, i));
+    // A condition or a callback; `) x` also catches a head cut at a `for (;;)` header's own `;`.
+    return !/^\s*(?:(?:if|else|for|while|do)\b|\))|\)\s*[\w$]|&&|\|\||\?(?!\.)|=>/.test(head);
+  };
+  const region = s.slice(0, at);
+  const out = [];
+  const unknown = (on, i, binding = false) => {
+    for (const prop of ['fillStyle', 'globalAlpha']) out.push({ name: 'fill', prop, on, binding, at: i, sure: false, args: [], raw: [] });
+  };
+  for (const m of region.matchAll(/\.\s*(fillStyle|globalAlpha)\s*=(?!=)\s*([^;\n]*)/g)) {
+    if (m.index <= k) continue;
+    const end = m.index + m[0].indexOf(m[1]) + m[1].length;
+    const from = m.index + m[0].length - m[2].length;
+    // The source text of the value, without a comment after it (`= 1 // opaque`) or inside it.
+    const raw = src.slice(from, from + m[2].trimEnd().length).replace(/\/\*[\s\S]*?\*\/|\/\/.*$/g, '').trim();
+    const entry = { name: 'fill', prop: m[1], on: target(region, end), at: m.index, sure: sure(m.index) };
+    // `a = x, b = y` in one statement: this regex reads it as one value, so no style it sets is known after it.
+    if (splitArgs(m[2]).length > 1) {
+      unknown(entry.on, m.index);
+      for (const x of m[2].matchAll(/\.\s*(fillStyle|globalAlpha)\b/g)) unknown(target(region, from + x.index + x[0].length), m.index);
+      continue;
+    }
+    out.push(m[1] === 'globalAlpha'
+      ? { ...entry, args: [`{ alpha: ${m[2]} }`], raw: [`{ alpha: ${raw} }`] }
+      : { ...entry, args: [m[2]], raw: [raw] });
+  }
+  for (const v of styleVoids(region)) if (v.at > k) unknown(v.on, v.at);
+  // A name declared or assigned again (`const ctx = other`, `this.ctx = other`) may be another context: every path
+  // that starts with it loses its styles.
+  for (const b of rebound(region)) if (b.at > k) unknown(b.on, b.at, true);
+  return out.sort((x, y) => x.at - y.at);
+}
+
+/**
+ * The part of `head` (text from the last `;`, `{` or `}` up to a statement) that is the statement's own: without
+ * semicolons a line break also ends a statement (`ctx.save()` on the line before), unless that line goes on into this
+ * one (it ends with an operator, `(` or `,`, or is an `if (...)`, `for (...)`, `while (...)`, `else` or `do` alone).
+ */
+function statementHead(head) {
+  const lines = head.split('\n');
+  let i = lines.length - 1;
+  while (i > 0) {
+    const prev = lines[i - 1].trim();
+    const header = /^(?:if|for|while)\s*\(/.exec(prev);
+    const open = header && close(prev, header[0].length - 1) === prev.length - 1; // `if (x)` alone, not `if (x) foo()`
+    if (prev && !/(?:[-+*/%&|^!=<>?:,(.]|=>)$/.test(prev) && !open && !/^(?:else|do)$|\belse$/.test(prev)) break;
+    i--;
+  }
+  return lines.slice(i).join('\n');
+}
+
+/** Names and paths given a new value in `text` (`const ctx = other`, `this.ctx = other`), as { on, at }. */
+function rebound(text) {
+  const out = [...text.matchAll(/(?:\belse\s+|(?:^|[;{}(),:]|\n)\s*)([A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*)\s*=(?![=>])/g)]
+    .map((m) => ({ on: m[1].replace(/\s+/g, ''), at: m.index }));
+  // A declaration binds every name before its `=`, typed (`const ctx: T = x`) or destructured (`const { ctx } = x`).
+  for (const m of text.matchAll(/\b(?:const|let|var)\s+([^=;]*)/g)) {
+    for (const name of m[1].match(/[A-Za-z_$][\w$]*/g) ?? []) out.push({ on: name, at: m.index });
+  }
+  return out;
+}
+
+const UPDATE = String.raw`(?:(?:\*\*|<<|>>>?|&&|\|\||\?\?|[-+*/%&|^])=|\+\+|--)`;
+/**
+ * Calls and writes in `text` after which a context's `fillStyle` and `globalAlpha` are not known: `restore()`,
+ * `reset()`, any write to `ctx.canvas.width` or `.height` (a resize resets every style), and an update of a style
+ * (`ctx.globalAlpha *= 2`). Each as { on, at }, `on` being the context's path as `target()` gives it.
+ */
+function styleVoids(text) {
+  const out = [];
+  const add = (re, end) => { for (const m of text.matchAll(re)) out.push({ on: target(text, end(m)), at: m.index }); };
+  add(/\.\s*(?:restore|reset)\s*\(/g, (m) => m.index + m[0].length - 1);
+  add(new RegExp(String.raw`\.\s*canvas\s*\.\s*(?:width|height)\s*(?:=(?!=)|${UPDATE})`, 'g'), (m) => m.index + m[0].indexOf('canvas') + 6);
+  add(new RegExp(String.raw`\.\s*(fillStyle|globalAlpha)\s*${UPDATE}`, 'g'), (m) => m.index + m[0].indexOf(m[1]) + m[1].length);
+  // The same written as a prefix update: `++ctx.canvas.width`, `--ctx.globalAlpha`.
+  add(/(?:\+\+|--)\s*[\w$.\s]*?\.\s*(canvas\s*\.\s*(?:width|height)|fillStyle|globalAlpha)\b/g,
+    (m) => m.index + m[0].indexOf(m[1]) + (m[1].startsWith('canvas') ? 6 : m[1].length));
+  return out;
+}
+
+/**
+ * True when the `{` at `k` opens a function body: after `=>`, or after `(...)` that is not an if/for/while head,
+ * with or without a TypeScript return type between them (`draw(ctx): void {`).
+ */
+function functionBody(s, k) {
+  const before = s.slice(0, k).trimEnd().replace(/\)\s*:\s*[\w$.<>[\]|&,'"?\s]+$/, ')');
+  if (before.endsWith('=>')) return true;
+  if (!before.endsWith(')')) return false;
+  let d = 0, j = before.length - 1;
+  for (; j >= 0; j--) { if (before[j] === ')') d++; else if (before[j] === '(' && --d === 0) break; }
+  return !/(?:^|[^\w$.])(?:if|for|while|switch|catch|with)\s*$/.test(before.slice(0, j));
 }
 
 // Style keys that set what a fill or stroke looks like in colour; `width`, `alignment`, `cap` and the rest do not.
@@ -461,7 +585,8 @@ export function scan(src) {
     const pixel = (c) => /rect$/i.test(c.name) && [2, 3].some((k) => /^\s*1\s*$/.test(c.args[k] ?? ''));
     const shapes = calls(loop.body, (x) => Object.hasOwn(SHAPES, x), raw).filter((c) => same(c) && !pixel(c));
     const fills = [...calls(loop.body, (x) => FILLS.has(x), raw), ...styleSets(loop.body, raw)].filter(same);
-    if (!shapes.length || !fills.length) continue;
+    const pre = preLoopStyles(s, src, loop.at);
+    if (!shapes.length || (!fills.length && !pre.length)) continue;
     let why = null, at = 0;
     // Concentric: a shape whose size ramps with the loop while its position stays put (rings, discs, a vignette).
     const concentric = shapes.filter((sh) => {
@@ -495,6 +620,11 @@ export function scan(src) {
       if (!(FILL_ONLY.has(f.name) ? shapes : concentric).some(on)) continue;
       why = 'its fill changes with each pass of the loop'; at = f.at; break;
     }
+    const shapeTarget = (c) => target(loop.body, c.at); // the whole path (`a.two`), before `target` is shadowed below
+    // A restore(), a reset(), a canvas resize or a style update in the loop may undo a style set before it.
+    // So does a new value of the context's name or of an owner on its path (`ctx = other`).
+    const undone = new Set(styleVoids(loop.body).map((v) => v.on)), renamed = rebound(loop.body).map((b) => b.on);
+    const unknownHere = (on) => undone.has(on) || renamed.some((n) => on === n || on.startsWith(`${n}.`));
     if (!why) {
       // Each concentric shape is judged by the fill that follows it, before the next shape: its own fill. Only shapes
       // and fills on the shape's own object count: `a.fillStyle` does not paint what `b.fillRect` draws.
@@ -508,7 +638,9 @@ export function scan(src) {
         // Pixi v8 fills after the shape; v7's beginFill (and Canvas' fillStyle) is set before it.
         const own = mine.filter((f) => f.at > sh.at && f.at < next).sort((a, b) => a.at - b.at)[0]
           ?? mine.filter((f) => f.at < sh.at && f.at > prev && f.name !== 'stroke').sort((a, b) => b.at - a.at)[0];
-        if (own && FILL_ONLY.has(own.name) && seeThrough(own, mine, sh.at)) {
+        // A Canvas fillRect with no style of its own in the loop paints with the one set before the loop.
+        const paint = own ?? (sh.name === 'fillRect' ? { name: 'fill', args: [], raw: [], at: sh.at } : undefined);
+        if (paint && FILL_ONLY.has(paint.name) && seeThrough(paint, mine, sh.at, unknownHere(shapeTarget(sh)) ? [] : pre.filter((x) => x.on === shapeTarget(sh) || (x.binding && shapeTarget(sh).startsWith(`${x.on}.`))))) {
           why = 'it stacks translucent shapes of growing size on one centre'; at = sh.at; break;
         }
       }
