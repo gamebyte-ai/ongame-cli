@@ -1,5 +1,5 @@
 {
-  "pluginVersion": "1.7.85",
+  "pluginVersion": "1.7.86",
   "generatedAt": "2026-11-20",
   "skills": {
     "analytics": {
@@ -18,9 +18,9 @@
       "lines": 49
     },
     "credit": {
-      "sha256": "63f52d794fb0b851b94c8509dcbe0b88aa168b0cc9b48f9004ebeb6bd9fa4274",
-      "bytes": 2840,
-      "lines": 38
+      "sha256": "5e457743ee449a5bc3a31e02b547cc490b76f4faeb0a57eac677e204ac060014",
+      "bytes": 2902,
+      "lines": 39
     },
     "difficulty-curve": {
       "sha256": "53d93c873fb2334eb8f4f51984746e619f6f1c8291c07b78bc7a1ac839e5bcf6",
@@ -93,8 +93,8 @@
       "lines": 72
     },
     "phases/polish": {
-      "sha256": "8f0eac8db2547618beea7a2b9573a6787b6be7b913ae652712a4adafcff6d4a7",
-      "bytes": 49678,
+      "sha256": "d1633abb91bad81a6796a306ee10ce74db2947b12a998f76315832a06cd6aacc",
+      "bytes": 49670,
       "lines": 497
     },
     "phases/research": {
