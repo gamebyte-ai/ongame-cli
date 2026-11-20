@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.82 — 2026-11-20
+
+- `skills/gradients/check.mjs` now reports a Canvas fade that sets a see-through `fillStyle` and then `globalAlpha = 1` before each growing shape. The check judges the two together, as the canvas paints with both; before, it read only the last one set.
+- `test/fixtures/gradients/strips.js` holds it as a reported case.
+- Works with every ongame-cli release: the change is one script with no dependency.
+
 ## 1.7.81 — 2026-11-20
 
 - `skills/gradients/check.mjs` no longer reports rings whose line width grows while their colour stays the same. That is line art, not a fade. The check now looks only at a fill's colour and alpha for a fade; `width` and other style keys are ignored, and so is the width in a v7 `lineStyle(width, color, alpha)`.
