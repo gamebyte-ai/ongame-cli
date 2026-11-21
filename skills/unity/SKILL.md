@@ -256,6 +256,9 @@ The failures above are the ones you hit in an afternoon. The expensive ones live
 sequence is wired, when each HUD element first appears, where the tutorial runs, what a save may contain, what
 draws in front of what, and how to prove any of it is true on a real phone.
 
+Porting a shipped web game to Unity has its own release gates (visual and behaviour parity, save migration, the
+minimum Android API): `skills/unity-port/SKILL.md`.
+
 That material is not in this file — it is retrievable, and it is specific enough to change what you write:
 
 - `knowledge_get({ key: 'pattern:unity-ui-layout' })` — before placing a single element. Design width is a

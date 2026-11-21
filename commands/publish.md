@@ -74,6 +74,16 @@ account has no build of that slug, and `publish_game` would refuse it (`no_such_
 the `gameId` the build started with. If none of their games has it, the game was not built here: say so and offer
 `/make-game`.
 
+**The latest line.** Publishing an older line overwrites newer live work, and a feature that lives on only one
+branch (telemetry added on its own branch, say) disappears when another branch is published. When the game folder
+is a git repository, run `node <pluginRoot>/skills/game-verify/line-check.mjs {gameDir}` (read-only; `--fetch` updates
+remote refs first): exit 1 lists every remote branch holding work that neither this checkout nor the default branch
+has; exit 3 means only "pull the default branch first". Merge that work, or ask the user whether it is abandoned;
+never publish past it on your own. If the game is already live, also run
+`node <pluginRoot>/skills/game-verify/live-diff.mjs {gameDir}/dist <publicUrl>` after the build: every differing file
+should be explained by this change, and a `foreign` line (the live page loads files this build does not have) means
+the live game came from other source; find it before publishing.
+
 **Played on record.** `publish_upload` refuses (`play_gate_missing`, `_failed`, `_unreviewed` or `_stale`) a `dist/`
 that `play_gate` and `play_review` have not passed. If this build was not played yet, do it now, as `/make-game`
 says: `play_gate({gameDir, buildId, desktop, phone})`, fix every failed check, then `play_review`.
@@ -137,6 +147,10 @@ the bytes against `dist/index.html`. Matching filenames are not proof: the build
 page can rebuild to identical bundle names.
 
 A stale response is **not** live — treat it exactly like a failed publish.
+
+The page check proves `index.html`. To prove every asset, including stable-named ones, run
+`node <pluginRoot>/skills/game-verify/live-diff.mjs {gameDir}/dist <publicUrl>`: exit 0 means every built file is
+byte-identical live and the page loads nothing foreign.
 
 ## 5. Record it, then hand it over
 
