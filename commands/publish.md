@@ -112,13 +112,18 @@ build*, never *retry the call*:
 | `too_many_files` / `payload_too_large` | Over the per-publish limits | Trim the build (unused assets, source maps) |
 | `missing_size` | A file was sent without its size (named in `path`) | Send every file as `{path, size}`, size in bytes |
 
-Otherwise it returns `{uploads, publicUrl, signing}` — upload slots, no bytes moved yet.
+Otherwise it returns `{publishId, publicUrl, signing, fileCount, source}` — no bytes moved yet. An older client
+returns raw `{uploads, publicUrl, signing}` slots instead of a `publishId`.
 
 It also returns `source` — where this publish keeps a private copy of the game's source. Every member of the gamebyte-ai organization can read it.
 
-Then `publish_upload({gameDir, uploads, source})` (a local `ongame` tool) → reads each built file and uploads it, then
-keeps the source. **Pass each slot through unchanged** — the slots carry headers that were signed for that exact file,
-so editing or dropping a field makes the upload fail. Returns `{uploaded, skipped?, failed?, source, repo}`; `repo` is
+Then `publish_upload({gameDir, publishId})` (a local `ongame` tool) with the ID `publish_game` returned in this
+session → reads each built file, checks the page boots, uploads it, then keeps the source. Do not copy upload URLs or
+source slots. `reason: "publish_session_unavailable"` → call `publish_game` again and use its new ID; an ID lasts up
+to one hour. Only when `publish_game` returned raw `uploads` (an older client) use
+`publish_upload({gameDir, uploads, source})` and **pass each slot through unchanged** — the slots carry headers that
+were signed for that exact file, so editing or dropping a field makes the upload fail. Never mix the two forms, and
+never upload to the signed URLs yourself: that skips the boot check and the source copy. Returns `{uploaded, skipped?, failed?, source, repo}`; `repo` is
 the game folder's repository URL, or `none` when it has none.
 
 `source` is separate from the game: `.env` files, keys, `node_modules`, `dist` and `.ongame` are never in it, and its

@@ -28,6 +28,10 @@ the output path it is given.
 - `/make-game` names `forge-assets`, `mobile-ready` and `game-verify` where their work starts; `/publish` runs
   `line-check.mjs` before and `live-diff.mjs` after a publish; `store-prep` hands off to `store-build` and
   `store-submit`; `unity` points to `unity-port`.
+- `/publish` step 3 now uploads with `publish_upload({gameDir, publishId})`, as the polish phase already did. It
+  told the agent to pass raw `uploads` and `source` by hand; on a build of about 100 files those slots are too large to
+  pass on, which led to uploading to the signed URLs directly and skipping the boot check and the source copy. The
+  slot form stays only for an older client that returns raw slots.
 - `test/shipped-lessons-skills.test.mjs` checks the six skills load, are named, keep their exit codes, and this version.
 
 ## 1.7.89 — 2026-11-20

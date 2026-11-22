@@ -40,6 +40,15 @@ test('publish runs the latest-line check and the full live diff', () => {
   assert.ok(text.includes('skills/game-verify/live-diff.mjs {gameDir}/dist <publicUrl>'));
 });
 
+test('publish uploads by publishId and keeps raw slots only for an older client', () => {
+  const text = flat(read('commands/publish.md'));
+  const session = text.indexOf('Then `publish_upload({gameDir, publishId})`');
+  const legacy = text.indexOf('Only when `publish_game` returned raw `uploads`');
+  assert.ok(session > -1, 'the session form is the default');
+  assert.ok(legacy > session, 'the slot form is named only as the older-client fallback');
+  assert.ok(text.includes('never upload to the signed URLs yourself'));
+});
+
 const SCRIPTS = [
   'skills/store-build/store-check.mjs',
   'skills/store-submit/check-text.mjs',
