@@ -154,8 +154,8 @@ No refused move appeared in the 343 s of play video. These are starting values.
 6. **End the show in about a second.** The banner is gone at 1000 ms and the halo at 1060 ms. Only the score pop
    comes later, and it fades from 1335 ms.
 7. **Keep the routine quiet.** If every placement shakes the screen, a combo has nowhere to go.
-8. **Effects never hold input.** In 22 of 57 clears the player had picked up the next piece before the banner left
-   (M; 4 of them checked by eye).
+8. **Effects never hold input.** On 3 clears the player was seen dragging the next piece while the banner was still
+   up (M, n=3).
 
 ## Starting constants
 
