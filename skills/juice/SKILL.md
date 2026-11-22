@@ -21,7 +21,9 @@ below maps them onto any game.
 - **Zero point:** times count from the frame the event happens: the frame the piece lands, or the frame the
   cleared blocks vanish.
 - **Sizes** are given for a 390 px wide screen, and as a share of the screen width or of one grid cell. Scale a
-  size with the screen. Never scale a time with the screen.
+  size with the screen and keep each time as it is. That rule is inferred: one screen size was measured.
+- **Ranges** in brackets are the smallest and largest value seen, unless the row says otherwise.
+- **"What it is for"** is a reading of the design. It was not measured.
 - **Sound delays** include the recording's own sound offset, which could not be measured. The difference between
   two events does not depend on it.
 - **Limits:** one player, one phone, one game version. Start from these numbers, then tune by feel.
@@ -37,7 +39,7 @@ A piece is picked up and placed, with no line cleared. The player does this ever
 | Shake, flash, particles | none; the largest screen offset was 0.03 px | M, n=17 | Routine stays quiet, so a reward stands out |
 | Score count starts | 67 to 83 ms after the snap (one at 100) | M, n=23 | The eye sees the piece land first, then the gain |
 | Score count speed | +1 point every 33 ms, one point per block | M, n=21 | A bigger piece ticks longer, with no extra rule |
-| Sound | starts at 90 ms (79 to 105); its click peaks at 195 ms (184 to 210) | M, n=36 | Confirms the placement without masking the next one |
+| Sound | starts at 90 ms; its click peaks at 195 ms (184 to 210 for 8 in 10) | M, n=36 | Confirms the placement without masking the next one |
 
 **Scale:** nothing here grows. A bigger piece only makes the score count longer: 4 blocks tick for 130 ms, 9
 blocks for 300 ms.
@@ -51,10 +53,10 @@ One line is cleared and no combo is running.
 | Preview, before release | the line that would clear glows in the piece's colour while the piece hovers on the spot; seen, not timed | M, n=4 | The player sees the reward before committing to it |
 | Blocks vanish | 1 frame (17 ms), no fade | M, n=35 | The result is instant; the show comes after |
 | Empty beat | 67 ms with nothing on the line; the game does not freeze | M, n=11 | A breath before the show; this replaces a hit-stop |
-| Beam of light along the line | on at 83 to 100 ms, lasts 67 to 83 ms, 6 px wide (14% of a cell) | M, n=7 | Draws the eye along what was cleared |
+| Beam of light along the line | on at 83 to 117 ms, lasts 67 to 83 ms, 6 px wide (14% of a cell) | M, n=7 | Draws the eye along what was cleared |
 | Flash | none: the top and bottom of the screen change by at most 1.5% in the 167 ms after a clear | M, n=57 | The beam is the only flash, and it stays on its line |
 | Particles, first | 167 ms (100 to 183) | M, n=13 | They follow the beam; they never cover it |
-| Particles, count | 3.4 per block: 27 on the fullest frame for a line of 8 (17 to 39) | M, n=13 | Enough to read as a burst, few enough to stay cheap |
+| Particles, count | 3.4 per block: 27 on the fullest frame for a line of 8 (17 to 39, and one at 82) | M, n=13 | Enough to read as a burst, few enough to stay cheap |
 | Particles, life | gone at 600 ms, so about 430 ms each | M, n=7 | The grid is clean before the next placement lands |
 | Particles, spread | 95% stay within 0.73 cell (32 px) of the line | M, n=13 | The burst stays on its line and hides no neighbour |
 | Sound | starts at 80 ms (61 to 111), together with the beam | M, n=18 | Ear and eye get the reward at the same moment |
@@ -89,9 +91,9 @@ adds one thing. When a combo ends was not measured.
 | Score pop, value | grows by one base amount per step: 15, 30, 45, 60, 75 for steps 0 to 4 | M, n=8 | The reward number is what grows without limit |
 | Shake, start | 33 ms after the blocks vanish (17 to 67) | M, n=39 | It hits during the empty beat, before the beam |
 | Shake, motion | the whole screen moves, the HUD too; a new random offset every frame, on both axes | M, n=39 | Reads as an impact on the device, not a wobble of one object |
-| Shake, size | peak 4.5 px (1.2% of the width); a typical frame is 3.0 px (0.8%) | M, n=39 | Felt, but text stays readable |
+| Shake, size | peak 4.5 px (1.2% of the width); 37 of 39 clears peaked between 4.0 and 4.7 px, the other two at 5.1 and 5.4; a typical frame is 3.0 px (0.8%) | M, n=39 | Felt, but text stays readable |
 | Shake, growth | size never grows; only the length grows, once, from 190 to 300 ms | M, n=39 | A longer shake reads as bigger without blurring the screen |
-| Halo | the background beside the grid frame gets about 30% brighter (26 to 34%); on at 350 ms, peak at 434 ms, off at 1060 ms; the rest of the screen does not change | M, n=22 | One soft glow, the same at every step from 4 up |
+| Halo | the background 11 to 37 px under the grid frame gets 34% brighter on its brightest colour channel (31 to 36%); on at 350 ms, peak at 434 ms, off at 1060 ms; the top of the screen does not change | M, n=22 | One soft glow, the same at every step from 4 up |
 | Pitch | semitones over the base, steps 0 to 9: 0, 0, 1, 2, 3, 5, 6, 7, 8, 12 | M, n=57 | A small rise at each step is heard as a climb |
 | Loudness | the same at every step: all 56 clears are within 4 dB of each other | M, n=56 | A combo never becomes tiring to hear |
 | Sound delay | median 4 to 19 ms at steps 2, 3, 4, 6 and 7; 47 to 111 ms at steps 0, 1, 5, 8 and 9 | M, n=57 | From step 2 the sound lands with the shake |
@@ -108,8 +110,8 @@ amount each step. Switch layers on by step: banner at 1, shake at 2, halo at 4. 
 | Ladder jump | the clear adds its line count to the combo step | M, n=21 | A big clear feels big because it skips steps |
 | Shake | set by the combo step, never by the line count; 5 two-line clears at step 1 had none | M, n=5 | One rule decides when the screen moves |
 | Sound, 3 or 4 lines | about 1.5 dB louder | M, n=9 | The only loudness change in the game |
-| Wind-up, 3 or 4 lines | the blocks turn into beams of light for 1 to 2 frames (17 to 33 ms) before they vanish | M, n=9 | A beat of anticipation only the big clear gets |
-| Colour sweep, 3 or 4 lines | replaces the empty beat and the beam: starts at 50 ms (17 to 83), covers the lines by 133 ms (100 to 150), fades from 250 ms, gone by about 330 ms | M, n=9 | A different picture for the rarest clear |
+| Wind-up, 3 or 4 lines | the blocks turn into beams of light for 1 to 2 frames (17 to 33 ms) before they vanish; 3 of 12 two-line clears had it too | M, n=9 | A beat of anticipation only the big clear gets |
+| Colour sweep, 3 or 4 lines | replaces the empty beat and the beam: starts at 50 ms (17 to 83), covers the lines by 133 ms (100 to 150), fades from about 250 ms, gone at 317 to 417 ms | M, n=9 | A different picture for the rarest clear |
 
 **Scale:** a bigger clear does not get a bigger version of each layer. It jumps the ladder: three lines from a
 cold start land on step 2, so the shake arrives with them.
@@ -144,7 +146,7 @@ No refused move appeared in the 343 s of play video. These are starting values.
 1. **Respond in one frame.** The snap and the vanish take 1 frame. A delay belongs to the show, never to the
    response.
 2. **Order the show.** Result at 0 ms, shake at 33 ms, beam and sound at 80 ms, particles at 167 ms, banner at
-   384 ms, score pop last. No two layers start together.
+   384 ms, score pop last. Only the beam and its sound start together.
 3. **Add a layer; do not enlarge one.** Growth comes from switching layers on, from pitch and from the score number.
 4. **Shake has one size.** Keep the peak at 1.2% of the screen width. Change only the length: none, 190 ms, 300 ms.
 5. **Pitch climbs, loudness holds.** From step 2 to step 8 the pitch rises one or two semitones per step; step 9 is
@@ -174,10 +176,10 @@ No refused move appeared in the 343 s of play video. These are starting values.
     "fromStep": 2, "startMs": 33, "peakShareOfWidth": 0.0115, "typicalShareOfWidth": 0.0077,
     "lengthMsByStep": { "2": 190, "3": 300 }, "newOffsetEveryMs": 17
   },
-  "halo": { "fromStep": 4, "brighter": 0.3, "onMs": 350, "peakMs": 434, "offMs": 1060 },
+  "halo": { "fromStep": 4, "brighter": 0.34, "onMs": 350, "peakMs": 434, "offMs": 1060 },
   "bigClear": {
     "fromLines": 3, "windUpMs": [17, 33], "sweepOnMs": 50, "sweepFullMs": 133, "sweepFadeFromMs": 250,
-    "sweepGoneMs": 330, "louderDb": 1.5
+    "sweepGoneMs": 325, "louderDb": 1.5
   },
   "pitch": { "baseHz": 261, "ratioPerSemitone": 1.0595, "semitonesByStep": [0, 0, 1, 2, 3, 5, 6, 7, 8, 12] },
   "gameOver": { "labelAfterMs": [80, 550], "fillStartsAfterLabelMs": [0, 67], "fillMs": [330, 430], "holdMs": [1900, 2000] },
@@ -205,7 +207,8 @@ action and a combo.
 
 1. Step the game's clock one frame at a time, or record it at 60 fps, and count frames from the event.
 2. Each time in the tables must be within one frame of your count: 17 ms at 60 fps, 33 ms at 30 fps.
-3. Outside its window the shake offset is exactly 0. Inside it, no frame exceeds 1.2% of the screen width.
+3. Outside its window the shake offset is exactly 0. Inside it, no frame exceeds 1.4% of the screen width, the
+   largest offset measured.
 4. Place ten pieces with no clear: the screen never moves and no particle appears.
 5. Run a combo to step 4: the banner has the same size at every step, and the pitch rises at steps 2, 3 and 4.
 6. Say which numbers you changed after tuning, and why. A changed number is no longer measured.
