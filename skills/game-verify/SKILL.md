@@ -8,8 +8,8 @@ description: Before saying a game change is done, before a web publish and befor
 what they leave open. Use those first; do not repeat them here.
 
 ```sh
-node <this skill's dir>/line-check.mjs <gameDir> [--fetch]       # 0 = latest line; read-only unless --fetch
-node <this skill's dir>/live-diff.mjs <gameDir>/dist <liveUrl>   # 0 = every built file is byte-identical live
+node <this skill's dir>/line-check.mjs <gameDir> [--fetch]       # 0 = latest line, 1 = other work or BEHIND, 2 = error
+node <this skill's dir>/live-diff.mjs <gameDir>/dist <liveUrl>   # 0 = all byte-identical live, 1 = differs, 2 = error
 ```
 
 ## 1. Rules did not break
@@ -54,11 +54,11 @@ sizes of the `/make-game` phone check and open every image before calling it pas
 
 Building from an older line overwrites newer live work, and a feature that lives on only one branch disappears
 when another branch is published.
-1. `game_summary({gameId})` and `line-check.mjs <gameDir>` (add `--fetch` when the
-   remote refs may be stale). Branches merged into the default branch are collapsed. Exit 1 lists branches with
-   work neither HEAD nor the default branch has, and the files that differ; `NEWER` = newer than HEAD. Merge it or
-   have the user confirm it is abandoned; never build past a `NEWER` line on your own. Exit 3 = pull the default
-   branch first.
+1. `game_summary({gameId})` and `line-check.mjs <gameDir>`. Read-only by default; `--fetch` first updates the
+   remote-tracking refs (its only write) and exits 2 if the fetch fails. Local and remote branches are compared;
+   ones merged into the default branch are collapsed. Exit 1 lists branches with work neither HEAD nor the default
+   branch has, and the files that differ (`NEWER` = newer than HEAD); a `BEHIND` line means pull the default branch
+   first. Merge the work or have the user confirm it is abandoned; never build past a `NEWER` line on your own.
 2. Build, then `live-diff.mjs <gameDir>/dist <live url>` BEFORE publishing. Every differing file should be one
    your change explains. `foreign` = the live page loads files this build lacks, so the live game came from other
    source: stop and find it. `outside` = a same-origin ref outside the page's folder (wrong `base`).

@@ -25,7 +25,7 @@ gate passes. Source-level phone behaviour (Android back key, pause on background
 | Bundle id | ask, and confirm | It cannot change after the first upload in either store. |
 | Ads | off in the first store build | Advice from one release, not a store rule: an ad-free first release kept the tracking prompt and the ad declarations out of its first review, and passed. Ads come in an update (`store-submit` references/privacy-forms.md). |
 | Purchases | real store purchases, or none | A purchase sheet that grants paid items without a store transaction is not a store build. |
-| Devices | iPhone only, the game's orientation | An iPad target needs its own screenshot set. |
+| Devices | ask (or read the live product); the game's orientation | iPad adds its own screenshot set and iPad testing. |
 | Publisher name, contact email | **from the user, never invented** | They appear in the legal pages and in-game support lines. |
 
 ## 2. Native shell
@@ -46,8 +46,8 @@ native settings for each platform, icons and splash from the game's own art, and
   ```
 
   `ads`: `none` or the ad network; `iap`: `store` (real store), `none` (sells nothing) or `test` (a purchase sheet
-  that grants without a store — web testing only). The gate FAILs when this record says `iap: test` or ads on with
-  placeholder/sample ads. Without the record it reads `.env.store` and text hints, and those checks only WARN.
+  that grants without a store — web testing only). The gate FAILs when this record is not valid JSON, says `iap: test`
+  or ads on with placeholder/sample ads. Without the record it reads `.env.store` and text hints, and those checks only WARN.
 - **With ads off the store build shows no ad UI:** rewards are granted directly or their buttons hidden, a "watch a
   video" quest gets other wording and stays reachable. A linked ad SDK keeps its native app id even with ads off;
   removing it crashed the app at launch.

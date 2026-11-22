@@ -20,13 +20,15 @@ the shop sells nothing. The store build's job is to install a real store behind 
    key: every price showed "...", purchases failed, review rejected it under 2.1 (Information Needed, with a request
    for a screen recording), and only a new build fixed it. The gate fails on an empty `VITE_*RC*KEY` /
    `*PURCHASE*KEY` / `*IAP*KEY` line; only the installed build proves the key works (`store-submit`).
-4. **Three lists must line up.** The ids in the game's code are RevenueCat **package** ids in the current offering
-   (`coins_100`, `remove_ads`), not store product ids — a package id is the same on web, Android and iOS. In
-   RevenueCat, each of those packages is in the current offering and has the App Store product and the Play product
-   attached; in each store console, those products exist and are active. A package with no product attached for a
-   platform shows no price there. Write the table (package id → App Store product id → Play product id → entitlement)
-   into the game's `store/` folder, and keep a test that compares the code's catalog with the shop's items, so a
-   renamed item breaks a test, not a review.
+4. **Three lists must line up.** With RevenueCat (the ongame scaffold's path), the ids in the game's code are
+   RevenueCat **package** ids in the current offering (`coins_100`, `remove_ads`), not store product ids — a package
+   id is the same on web, Android and iOS. In RevenueCat, each of those packages is in the current offering and has
+   the App Store product and the Play product attached; in each store console, those products exist and are active.
+   A package with no product attached for a platform shows no price there.
+   With `cordova-plugin-purchase`, the code uses store product ids, registered per platform: code id → App Store
+   product id and Play product id (keep them identical where you can), each active in its console.
+   Write the table (code id → App Store product id → Play product id → entitlement) into the game's `store/` folder,
+   and keep a test that compares the code's catalog with the shop's items, so a renamed item breaks a test, not a review.
 5. **Do not sell "No Ads" in a build with no ads**: hide it, keep Restore.
 
 ## Rules that came from bugs

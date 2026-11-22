@@ -29,7 +29,8 @@ If the user pastes a private key or secret into the chat, tell them to revoke it
    version had to be pulled from review. Steps: `references/app-store.md`.
 4. **The privacy forms match every SDK in the store build.** A mismatch blocked a Play release twice; a "No data is
    collected" review note contradicted App Privacy. `references/privacy-forms.md`, `skills/analytics/store-labels.md`.
-5. **Store text passes.** `node <this skill's dir>/check-text.mjs <gameDir> [--no-ads]` (exit 0 = no FAIL) — see below.
+5. **Store text passes.** `node <this skill's dir>/check-text.mjs <gameDir> [--no-ads]` (exit 0 = no FAIL, 1 = a FAIL,
+   2 = nothing readable) — see below.
 6. **Similarity check before an iOS submission.** Compare the game's core loop and first screenshot with the game it
    resembles. Why: a declared replica and a game whose first screenshot nearly matched a well-known game were both
    rejected under 4.3(a) Spam. Never answer "original" for a replica; never resubmit unchanged.
@@ -43,10 +44,12 @@ write each app's description and review notes on their own — a shared template
 ## Store text
 
 `check-text.mjs` reads the listing, description, release-note, review-note and screenshot-caption files under
-`store/` (or every text file in the paths you give after `<gameDir>`). No `store/` folder means nothing to check
-(exit 0). It reports:
+`store/` (or every text file in the paths you give after `<gameDir>`). No store text read is not a pass: it exits 2
+("nothing readable") — pass the files as paths if they live elsewhere. It reports:
 
-- **FAIL "no data is collected"** while the game ships an analytics, purchases, ads or crash SDK.
+- **FAIL "no data is collected"** while the game ships an analytics, purchases, ads or crash SDK — found in
+  `package.json` or in the native shell (Gradle files, Podfile/Podfile.lock, the Xcode project, `Package.resolved`,
+  `AndroidManifest.xml`, `Info.plist`); the message names the file each SDK came from.
 - **FAIL, with `--no-ads`: ad wording or a "No Ads" sale** in a build with ads off ("No ads." itself passes). When only
   one platform is ad-free, pass that platform's text files as paths.
 - **WARN a level count** ("200 levels", "Level 3/120"). A count goes stale with every content update — a listing once

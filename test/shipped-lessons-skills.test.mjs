@@ -74,8 +74,10 @@ test('check-text warns on a level count but fails a "no data" claim next to an a
   assert.equal(run('skills/store-submit/check-text.mjs', [dir]).status, 1);
 });
 
-test('check-text has nothing to check without a store folder', () => {
-  assert.equal(run('skills/store-submit/check-text.mjs', [scratch()]).status, 0);
+test('check-text exits 2, nothing readable, without a store folder', () => {
+  const res = run('skills/store-submit/check-text.mjs', [scratch()]);
+  assert.equal(res.status, 2);
+  assert.match(res.stderr, /nothing readable/);
 });
 
 test('mobile-ready fails a game that only handles pagehide', () => {

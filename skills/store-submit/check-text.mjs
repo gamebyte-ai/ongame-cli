@@ -3,12 +3,18 @@
 //   node check-text.mjs <gameDir> [--no-ads] [path ...]
 // Reads the store text files under <gameDir>/store (listing, description, release notes, review notes, screenshot
 // captions), or every text file in the paths you give, and reports:
-//   FAIL "no data is collected" while package.json links an analytics, purchases, ads or crash SDK;
+//   FAIL "no data is collected" while package.json or a native dependency file (Gradle, Podfile, Xcode project,
+//        Package.resolved, AndroidManifest, Info.plist) links an analytics, purchases, ads or crash SDK;
 //   FAIL with --no-ads, any ad wording;
 //   WARN a level count ("200 levels", "forty boards", "Level 3/120"): it goes stale with every content update.
-// Exit 0 = no FAIL (also when there is no store/ folder: nothing to check), 1 = a FAIL, 2 = bad arguments or no gameDir.
+// Exit 0 = no FAIL, 1 = a FAIL, 2 = bad arguments, no gameDir, or nothing readable (no store text file was read).
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, relative, extname, resolve } from 'node:path';
+
+process.on('uncaughtException', (e) => {
+  console.error(`check-text: ${e.code ? `${e.code} ` : ''}${e.message}`);
+  process.exit(2);
+});
 
 const args = process.argv.slice(2);
 const noAds = args.includes('--no-ads');
@@ -24,10 +30,13 @@ if (!existsSync(gameDir) || !statSync(gameDir).isDirectory()) {
 }
 const explicit = rest.length > 1;
 const targets = explicit ? rest.slice(1).map((p) => resolve(p)) : [join(gameDir, 'store')];
-if (!explicit && !existsSync(targets[0])) {
-  console.log(`nothing to check: no store/ folder in ${gameDir} (pass the store text files as paths if they live elsewhere)`);
-  process.exit(0);
-}
+const nothingReadable = () => {
+  console.error(explicit
+    ? 'nothing readable: no text file in the paths given'
+    : `nothing readable: no store text under ${join(gameDir, 'store')} (pass paths explicitly if it lives elsewhere)`);
+  process.exit(2);
+};
+if (!explicit && !existsSync(targets[0])) nothingReadable();
 for (const t of targets) {
   if (!existsSync(t)) {
     console.error(`no such path: ${t} (pass the store text files or folders explicitly)`);
@@ -51,6 +60,7 @@ const walk = (p) => {
   }
 };
 targets.forEach(walk);
+if (!files.length) nothingReadable();
 
 const NUM = '(?:\\d{2,}\\+?|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundreds?|thousands?)';
 const UNIT = '(?:levels|stages|puzzles|boards)';
@@ -77,15 +87,53 @@ if (noAds) {
 
 // SDKs that send data from a packaged game. Any of them makes "no data is collected" false.
 const SDK = /revenuecat|purchases-capacitor|cordova-plugin-purchase|gameanalytics|admob|firebase|posthog|sentry|facebook|appsflyer|adjust|unity-ads|applovin/i;
-let sdks = [];
-try {
-  const pkg = JSON.parse(readFileSync(join(gameDir, 'package.json'), 'utf8'));
-  sdks = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).filter((d) => SDK.test(d));
-} catch { /* no package.json: skip the SDK rule's evidence */ }
-try {
-  const a = JSON.parse(readFileSync(join(gameDir, '.ongame', 'analytics.json'), 'utf8'));
-  if (a.audience === 'general') sdks.push('onGame analytics (audience general)');
-} catch { /* not set up */ }
+const sdks = [];
+const readJson = (p) => {
+  try { return JSON.parse(readFileSync(p, 'utf8')); } catch (e) { throw new Error(`cannot parse ${relative(gameDir, p)}: ${e.message}`); }
+};
+const pkgPath = join(gameDir, 'package.json');
+if (existsSync(pkgPath)) {
+  const pkg = readJson(pkgPath);
+  for (const d of Object.keys({ ...pkg.dependencies, ...pkg.devDependencies })) if (SDK.test(d)) sdks.push(`${d} (package.json)`);
+}
+const analyticsPath = join(gameDir, '.ongame', 'analytics.json');
+if (existsSync(analyticsPath) && readJson(analyticsPath).audience === 'general') sdks.push('onGame analytics (audience general)');
+// The native shells link SDKs too, sometimes with nothing in package.json (a Pod, a Gradle line, a plist key).
+// Names are specific enough not to hit Android words like adjustResize.
+const NATIVE_SDK = [
+  ['AdMob', /admob|play-services-ads|Google-Mobile-Ads-SDK|GoogleMobileAds|GADApplicationIdentifier|com\.google\.android\.gms\.ads/i],
+  ['Firebase', /firebase/i],
+  ['GameAnalytics', /gameanalytics/i],
+  ['RevenueCat', /revenuecat/i],
+  ['Facebook', /com\.facebook|FBSDK|FacebookAppID/],
+  ['AppsFlyer', /appsflyer/i],
+  ['Adjust', /com\.adjust\.sdk|AdjustSdk|['"]Adjust['"]/],
+  ['AppLovin', /applovin/i],
+  ['Unity Ads', /unity-ads|UnityAds|com\.unity3d\.ads/i],
+  ['Sentry', /sentry/i],
+  ['PostHog', /posthog/i],
+];
+const NATIVE_FILES = [
+  'android/app/build.gradle', 'android/app/build.gradle.kts', 'android/app/capacitor.build.gradle',
+  'android/build.gradle', 'android/build.gradle.kts', 'android/app/src/main/AndroidManifest.xml',
+  'ios/App/Podfile', 'ios/App/Podfile.lock', 'ios/App/App.xcodeproj/project.pbxproj', 'ios/App/App/Info.plist',
+  'ios/App/CapApp-SPM/Package.swift',
+];
+const resolvedFiles = [];
+(function findResolved(d, depth) {
+  if (depth > 5 || !existsSync(d)) return;
+  for (const e of readdirSync(d, { withFileTypes: true })) {
+    if (e.isDirectory()) { if (!['Pods', 'build', 'DerivedData', 'node_modules'].includes(e.name)) findResolved(join(d, e.name), depth + 1); }
+    else if (e.name === 'Package.resolved') resolvedFiles.push(relative(gameDir, join(d, e.name)));
+  }
+})(join(gameDir, 'ios', 'App'), 0);
+for (const rel of [...NATIVE_FILES, ...resolvedFiles]) {
+  const p = join(gameDir, rel);
+  if (!existsSync(p)) continue;
+  // Comment lines name SDKs that were removed; only live lines count.
+  const live = readFileSync(p, 'utf8').split('\n').filter((l) => !/^\s*(?:\/\/|#|\/\*|\*|<!--)/.test(l)).join('\n');
+  for (const [name, re] of NATIVE_SDK) if (re.test(live)) sdks.push(`${name} (${rel})`);
+}
 if (sdks.length) {
   RULES.push({
     id: 'no-data-claim',

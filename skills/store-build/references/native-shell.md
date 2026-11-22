@@ -32,7 +32,7 @@ const config: CapacitorConfig = {
   server: { errorPath: 'webview-update.html' },
   android: {
     minWebViewVersion: 107,                  // see "Old WebViews"
-    loggingBehavior: 'production',           // console.* reaches logcat in release builds too
+    loggingBehavior: 'none',                 // 'debug' for dev builds; 'production' only for internal builds with no sensitive data
     webContentsDebuggingEnabled: false,
   },
   plugins: {
@@ -64,7 +64,8 @@ Do these once per project, then re-run the gate. They are edits to generated fil
 
 **iOS (`ios/App/App/Info.plist`, `project.pbxproj`)**
 - `UISupportedInterfaceOrientations` (and `~ipad`) = the game's orientation only.
-- `TARGETED_DEVICE_FAMILY = 1` for iPhone only; `2` adds iPad and an iPad screenshot set.
+- `TARGETED_DEVICE_FAMILY` = the devices the user chose (SKILL step 1): `1` iPhone only; `1,2` adds iPad, an iPad
+  screenshot set and iPad testing.
 - `ITSAppUsesNonExemptEncryption` = `false` when the app uses only HTTPS/OS crypto; otherwise App Store Connect asks
   on every build.
 - `UIRequiredDeviceCapabilities` = `arm64` (the template still lists `armv7`).
@@ -77,12 +78,14 @@ Do these once per project, then re-run the gate. They are edits to generated fil
 - `AndroidManifest.xml`: the activity's `android:screenOrientation`, and `android:appCategory="game"` on the
   application — Android 16 ignores orientation locks on large screens except for games.
 - Drop `android.permission.INTERNET` only if the game is fully offline (no ads, purchases, analytics or online play).
-- `variables.gradle`: `targetSdkVersion` 35 or higher.
+- `variables.gradle`: `targetSdkVersion` 36 or higher — as of 2026-11, Play requires API 36 for new apps and app
+  updates (from 2026-08-31); check developer.android.com's target-SDK page before each release.
 - `app/build.gradle`: a release `signingConfig` read from `android/keystore.properties`; keep that file and the
-  `.jks` out of git. Without it `bundleRelease` gives an unsigned bundle. The upload key is the owner's.
+  `.jks` out of git. Without it `bundleRelease` gives an unsigned bundle (fine when CI signs it). Never point the
+  release build type at `signingConfigs.debug`; the gate fails on it. The upload key is the owner's.
 - `styles.xml`: if the window shows a band of another colour in the cutout on old WebViews, set
   `android:windowBackground` to the HUD's top colour.
-- `android/gradlew` must stay executable; an export dropped the bit once (`Permission denied`). Commit the mode.
+- `android/gradlew` must exist and stay executable; an export dropped the bit once (`Permission denied`). Commit the mode.
 
 ## Icons and splash
 
@@ -100,4 +103,4 @@ npx capacitor-assets generate --ios --android --iconBackgroundColor '<bg>' --spl
 ## After every web change
 
 `npm run build:store && npx cap sync`, then the gate. The gate warns when a `src/` file is newer than the synced page,
-or when Android and iOS carry different builds.
+and fails when Android and iOS carry different web files (Capacitor's per-platform `cordova*.js` and `plugins/` aside).

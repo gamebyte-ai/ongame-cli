@@ -76,9 +76,10 @@ the `gameId` the build started with. If none of their games has it, the game was
 
 **The latest line.** Publishing an older line overwrites newer live work, and a feature that lives on only one
 branch (telemetry added on its own branch, say) disappears when another branch is published. When the game folder
-is a git repository, run `node <pluginRoot>/skills/game-verify/line-check.mjs {gameDir}` (read-only; `--fetch` updates
-remote refs first): exit 1 lists every remote branch holding work that neither this checkout nor the default branch
-has; exit 3 means only "pull the default branch first". Merge that work, or ask the user whether it is abandoned;
+is a git repository, run `node <pluginRoot>/skills/game-verify/line-check.mjs {gameDir} --fetch` (`--fetch` updates
+remote-tracking refs only, nothing else is written): exit 1 lists every local or remote branch holding work that
+neither this checkout nor the default branch has, or prints `BEHIND` (pull the default branch first); exit 2 means
+the fetch or git failed, so the line is unknown. Merge that work, or ask the user whether it is abandoned;
 never publish past it on your own. If the game is already live, also run
 `node <pluginRoot>/skills/game-verify/live-diff.mjs {gameDir}/dist <publicUrl>` after the build: every differing file
 should be explained by this change, and a `foreign` line (the live page loads files this build does not have) means

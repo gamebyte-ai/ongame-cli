@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Cut a generated sprite out of a flat magenta plate, or check that a "transparent" PNG really has alpha.
-// Node built-ins only (zlib for PNG). Reads 8-bit grey/RGB/RGBA/grey-alpha and 1-8 bit palette PNGs, non-interlaced.
-// 16-bit and interlaced PNGs are refused with exit 2.
+// Node built-ins only (zlib for PNG). Reads 8-bit grey/RGB/RGBA/grey-alpha and 1-8 bit palette PNGs, non-interlaced;
+// a tRNS chunk makes its palette entries, or its one grey/RGB colour, transparent. 16-bit and interlaced PNGs are
+// refused with exit 2.
 //
 //   node chroma-key.mjs check <in.png>
 //     exit 0: a real cut-out — at least 5% of pixels fully transparent (alpha 0) AND at least 25% of the
@@ -13,16 +14,18 @@
 //     score = min(r, b) - g. score >= hi → transparent; score <= lo → kept; between → soft edge.
 //     Despill: in every kept pixel with score > 0, r = min(r, g + spill) and b = min(b, g + spill).
 //     Only the magenta excess is removed, so reds, oranges and purples survive.
-//     exit 0: keyed, <out.png> written. exit 1: under 5% of the image keyed (no magenta plate found);
-//     nothing is written. <out.png> must not be <in.png>.
-//   exit 2: usage error, unreadable file, or unsupported PNG.
-import { readFileSync, writeFileSync, realpathSync, existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+//     lo, hi and spill are 0-255 and lo < hi.
+//     exit 0: keyed, <out.png> written (to a temp file beside it, then renamed). exit 1: under 5% of the image keyed
+//     (no magenta plate found); nothing is written. <out.png> must not be <in.png>, a link to it, or a hard link.
+//   exit 2: usage error, bad option, unreadable file, unsupported PNG, or an output that cannot be written.
+import { readFileSync, writeFileSync, realpathSync, existsSync, statSync, renameSync, unlinkSync } from 'node:fs';
+import { resolve, dirname, basename, join } from 'node:path';
 import { inflateSync, deflateSync } from 'node:zlib';
 
 const SIG = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 
 function fail(msg, code = 2) { process.stderr.write(msg + '\n'); process.exit(code); }
+process.on('uncaughtException', (e) => fail(`chroma-key: ${e.code ? `${e.code} ` : ''}${e.message}`));
 
 function decode(buf) {
   if (!buf.subarray(0, 8).equals(SIG)) fail('not a PNG');
@@ -35,8 +38,8 @@ function decode(buf) {
     else if (type === 'IEND') break;
     off += 12 + len;
   }
-  const w = ihdr.readUInt32BE(0), h = ihdr.readUInt32BE(4), depth = ihdr[8], ct = ihdr[9];
   if (!ihdr) fail('not a valid PNG: no IHDR chunk');
+  const w = ihdr.readUInt32BE(0), h = ihdr.readUInt32BE(4), depth = ihdr[8], ct = ihdr[9];
   if (depth === 16) fail('unsupported: 16-bit PNG; re-save it as 8-bit');
   if (ihdr[12] !== 0) fail('interlaced PNG is not supported; re-save it non-interlaced');
   const ch = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }[ct];
@@ -59,6 +62,8 @@ function decode(buf) {
     prev = cur;
   }
   const out = Buffer.alloc(w * h * 4);
+  // Grey (ct 0) and RGB (ct 2) tRNS hold one 16-bit sample per channel: pixels of exactly that colour are clear.
+  const key = trns && (ct === 0 || ct === 2) && trns.length >= ch * 2 ? Array.from({ length: ch }, (_, k) => trns.readUInt16BE(k * 2)) : null;
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const o = (y * w + x) * 4, row = y * stride;
     if (ct === 3) {
@@ -70,6 +75,7 @@ function decode(buf) {
       const i = row + x * ch;
       if (ct === 0 || ct === 4) { out[o] = out[o + 1] = out[o + 2] = px[i]; out[o + 3] = ct === 4 ? px[i + 1] : 255; }
       else { out[o] = px[i]; out[o + 1] = px[i + 1]; out[o + 2] = px[i + 2]; out[o + 3] = ct === 6 ? px[i + 3] : 255; }
+      if (key && key.every((v, k) => v === px[i + k])) out[o + 3] = 0;
     }
   }
   return { w, h, rgba: out };
@@ -89,18 +95,32 @@ function encode({ w, h, rgba }) {
   return Buffer.concat([SIG, chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw, { level: 9 })), chunk('IEND', Buffer.alloc(0))]);
 }
 
-const [cmd, inPath, outPath, ...rest] = process.argv.slice(2);
-const opt = (name, def) => { const i = rest.indexOf(`--${name}`); return i >= 0 ? Number(rest[i + 1]) : def; };
-if (!cmd || !inPath || (cmd === 'key' && !outPath) || !['check', 'key'].includes(cmd)) {
-  fail('usage: chroma-key.mjs check <in.png> | key <in.png> <out.png> [--lo 20] [--hi 70] [--spill 20]\n' +
-    '  check passes when >= 5% of pixels and >= 25% of border pixels are fully transparent; see the header.');
+const USAGE = 'usage: chroma-key.mjs check <in.png> | key <in.png> <out.png> [--lo 20] [--hi 70] [--spill 20]\n' +
+  '  check passes when >= 5% of pixels and >= 25% of border pixels are fully transparent; see the header.';
+const [cmd, ...argv] = process.argv.slice(2);
+if (!['check', 'key'].includes(cmd)) fail(USAGE);
+const pos = [], opts = { lo: 20, hi: 70, spill: 20 };
+for (let i = 0; i < argv.length; i++) {
+  const a = argv[i];
+  if (!a.startsWith('--')) { pos.push(a); continue; }
+  const name = a.slice(2);
+  if (cmd !== 'key' || !(name in opts)) fail(`unknown option ${a}\n${USAGE}`);
+  const raw = argv[++i];
+  if (raw === undefined || raw.startsWith('--')) fail(`${a} needs a value\n${USAGE}`);
+  const v = Number(raw);
+  if (raw.trim() === '' || !Number.isFinite(v) || v < 0 || v > 255) fail(`${a} ${raw}: expected a number from 0 to 255\n${USAGE}`);
+  opts[name] = v;
 }
+if (pos.length !== (cmd === 'key' ? 2 : 1)) fail(USAGE);
+if (opts.lo >= opts.hi) fail(`--lo ${opts.lo} must be below --hi ${opts.hi}\n${USAGE}`);
+const [inPath, outPath] = pos;
 let buf;
 try { buf = readFileSync(inPath); } catch (e) { fail(`cannot read ${inPath}: ${e.code === 'ENOENT' ? 'no such file' : e.code || e.message}`); }
 if (cmd === 'key') {
   const real = (p) => { try { return realpathSync(p); } catch { return resolve(p); } };
-  if (existsSync(outPath) && real(outPath) === real(inPath) || resolve(outPath) === resolve(inPath)) {
-    fail('refused: <out.png> is the same file as <in.png>; write to a new path');
+  const same = () => { const a = statSync(inPath), b = statSync(outPath); return a.dev === b.dev && a.ino === b.ino; };
+  if (resolve(outPath) === resolve(inPath) || existsSync(outPath) && (real(outPath) === real(inPath) || same())) {
+    fail('refused: <out.png> is the same file as <in.png> (same path, symlink or hard link); write to a new path');
   }
 }
 let img;
@@ -127,7 +147,7 @@ if (cmd === 'check') {
   process.exit(0);
 }
 
-const lo = opt('lo', 20), hi = opt('hi', 70), spill = opt('spill', 20);
+const { lo, hi, spill } = opts;
 let keyed = 0, edge = 0, despilled = 0;
 for (let o = 0; o < d.length; o += 4) {
   const r = d[o], g = d[o + 1], b = d[o + 2], score = Math.min(r, b) - g;
@@ -139,5 +159,8 @@ const pct = (v) => +(100 * v / n).toFixed(2);
 const ok = keyed >= n * 0.05;
 console.log(JSON.stringify({ in: inPath, out: ok ? outPath : null, w: img.w, h: img.h, keyedPct: pct(keyed), edgePct: pct(edge), despilledPct: pct(despilled) }));
 if (!ok) { console.log('FAIL: under 5% keyed — no flat magenta plate found; nothing written. Check the prompt asked for one.'); process.exit(1); }
-writeFileSync(outPath, encode(img));
+// Temp file in the same directory, then rename: a crash never leaves a half-written <out.png>.
+const tmp = join(dirname(resolve(outPath)), `.${basename(outPath)}.${process.pid}.tmp`);
+try { writeFileSync(tmp, encode(img), { flag: 'wx' }); renameSync(tmp, outPath); }
+catch (e) { try { unlinkSync(tmp); } catch { /* never created */ } fail(`cannot write ${outPath}: ${e.code || e.message}`); }
 console.log('OK: keyed. Look at the result on a flat colour, not only its alpha: a wrong despill passes every alpha check.');

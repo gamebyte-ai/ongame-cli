@@ -3,20 +3,23 @@
 ## 1.7.90 — 2026-11-21
 
 Six skills from games that shipped to the web, Google Play and the App Store. Each rule comes from a failure seen on a
-real release. Each script needs only Node; the checks are read-only, and only `chroma-key.mjs key` writes a file,
-the output path it is given.
+real release. Each script needs only Node and keeps one exit contract: 0 pass, 1 a finding, 2 bad usage or nothing
+readable. The checks read the game; `chroma-key.mjs key` writes only the output it is given (atomically, never over
+its input), and `line-check.mjs --fetch` updates remote-tracking refs, nothing else.
 
 - `store-build`: turns a finished web game into the uploadable native package — Capacitor shell, native settings, an
   ad-free store build, the purchase key and package list, legal pages, an AAB and an emulator smoke run.
-  `store-check.mjs` is the pre-upload gate (placeholder icon, empty purchase key, a remote `server.url`, test-mode
-  purchases recorded in `build-info.json`, unsigned or debuggable builds).
+  `store-check.mjs` is the pre-upload gate: placeholder icon, empty purchase key, a remote `server.url`, an invalid or
+  test-mode `build-info.json`, Android and iOS shipping different game files, target SDK below 36 (Play's requirement
+  as of 2026-11), a missing Gradle wrapper, a release signed with the debug key, a debuggable build.
 - `store-submit`: the review step. The agent never writes to a store; it prepares and the owner submits. Covers prices
   proven on the reviewed build, first in-app purchases sent with the version, privacy forms that match every SDK, the
   2.1 and 4.3 rejections, and click-by-click console steps. `check-text.mjs` fails a "no data collected" claim next
-  to an analytics or purchases SDK and warns on level counts that go stale.
+  to an analytics, ads or purchases SDK found in `package.json` or the native projects, and warns on level counts that
+  go stale.
 - `game-verify`: proof before "done" — test counts before and after, a proof run with real input on the built page,
-  every screen at its fullest, a verdict only after the run ends. `line-check.mjs` finds remote work the checkout
-  lacks before a publish; `live-diff.mjs` hashes every built file against the live game.
+  every screen at its fullest, a verdict only after the run ends. `line-check.mjs` finds local or remote branch work the
+  checkout and the default branch lack, and a checkout behind the default branch, before a publish; `live-diff.mjs` hashes every built file against the live game.
 - `mobile-ready`: the phone behaviour `/make-game`'s phone check does not list — pixel-ratio cap values, safe-area
   values that arrive after load, pause, backgrounding, the Android back-key order. `check.mjs` reads the source for
   what it can show.
@@ -32,7 +35,9 @@ the output path it is given.
   told the agent to pass raw `uploads` and `source` by hand; on a build of about 100 files those slots are too large to
   pass on, which led to uploading to the signed URLs directly and skipping the boot check and the source copy. The
   slot form stays only for an older client that returns raw slots.
-- `test/shipped-lessons-skills.test.mjs` checks the six skills load, are named, keep their exit codes, and this version.
+- `test/shipped-lessons-skills.test.mjs` checks the six skills load, are named and this version;
+  `test/store-build-check.test.mjs`, `test/game-verify-scripts.test.mjs` and `test/check-scripts.test.mjs` hold each
+  script's pass, finding and unreadable cases on fixtures (temporary git repos and a localhost server, no network).
 
 ## 1.7.89 — 2026-11-20
 

@@ -7,6 +7,11 @@
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
+process.on('uncaughtException', (e) => {
+  console.error(`mobile-ready check: ${e.code ? `${e.code} ` : ''}${e.message}`);
+  process.exit(2);
+});
+
 const dir = process.argv[2];
 if (!dir || !existsSync(join(dir, 'index.html'))) {
   console.error('usage: node check.mjs <gameDir>   (the directory holding index.html)');
@@ -29,6 +34,21 @@ const pkg = existsSync(pkgPath) ? JSON.parse(readFileSync(pkgPath, 'utf8')) : {}
 const deps = { ...pkg.dependencies, ...pkg.devDependencies };
 const src = files.map((f) => ({ f: relative(dir, f), t: readFileSync(f, 'utf8') }));
 const all = html + '\n' + src.map((s) => s.t).join('\n');
+// Comments and logs name lifecycle events without handling them; listener checks read code only.
+const stripComments = (t) => {
+  let o = '', q = null;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (q) { o += c; if (c === '\\') o += t[++i] ?? ''; else if (c === q) q = null; continue; }
+    if (c === '/' && t[i + 1] === '/') { while (i < t.length && t[i] !== '\n') i++; o += '\n'; continue; }
+    if (c === '/' && t[i + 1] === '*') { const e = t.indexOf('*/', i + 2); i = e < 0 ? t.length : e + 1; o += ' '; continue; }
+    if (c === '"' || c === "'" || c === '`') q = c;
+    o += c;
+  }
+  return o;
+};
+const code = html.replace(/<!--[\s\S]*?-->/g, '') + '\n' +
+  src.map((s) => /\.css$/.test(s.f) ? '' : stripComments(s.t)).join('\n');
 const where = (re) => src.filter((s) => re.test(s.t)).map((s) => s.f).slice(0, 3).join(', ');
 const lines = (re) => src.flatMap((s) => s.t.split('\n')).filter((l) => re.test(l));
 
@@ -47,8 +67,19 @@ else if (!usesEnv && !usesVar && !/safeArea|SafeInsets|getContentRect/i.test(all
 
 // Backgrounding and audio
 // pagehide alone is not enough: a backgrounded tab or app fires visibilitychange, not pagehide.
-if (!/visibilitychange|appStateChange|document\.hidden|visibilityState/.test(all))
-  add('FAIL', 'lifecycle', /pagehide/.test(all)
+const Q = '[\'"`]';
+const listens = new RegExp(`addEventListener\\(\\s*${Q}visibilitychange${Q}|\\bonvisibilitychange\\s*=|` +
+  `\\.addListener\\(\\s*${Q}(?:appStateChange|pause)${Q}`).test(code);
+// GamelabsApp always starts an AudioService that pauses its own sounds on visibilitychange — nothing else.
+const gamelabsApp = /from\s+['"]@gamebyte\/gamelabsjs[^'"]*['"]/.test(code) && /\b(?:extends|new)\s+GamelabsApp\b/.test(code);
+const mentions = /visibilitychange|appStateChange|document\.hidden|visibilityState/.test(code);
+if (listens) { /* handled */ }
+else if (gamelabsApp)
+  add('WARN', 'lifecycle-gamelabs', 'Only gamelabs reacts to backgrounding: its AudioService pauses on visibilitychange, but the game state, its timers and any sound outside AudioService keep running. Pause the game on visibilitychange / appStateChange.');
+else if (mentions)
+  add('WARN', 'lifecycle', `Lifecycle reference without a listener (${where(/visibilitychange|appStateChange|document\.hidden|visibilityState/)}): nothing found calls addEventListener('visibilitychange'), sets onvisibilitychange or App.addListener('appStateChange'). Polling document.hidden in the loop can work; check that a backgrounded game stops and goes silent.`);
+else
+  add('FAIL', 'lifecycle', /pagehide/.test(code)
     ? 'Only pagehide is handled: it fires when the page is unloaded or cached, while switching apps or tabs fires visibilitychange (and the shell\'s appStateChange), so a backgrounded game keeps running and playing sound.'
     : 'No visibilitychange / appStateChange listener: a backgrounded game keeps running and playing sound.');
 const ownCtx = /new\s+(window\.)?(webkit)?AudioContext\b|new\s+\(?\s*window\.AudioContext/.test(all);
