@@ -74,6 +74,17 @@ account has no build of that slug, and `publish_game` would refuse it (`no_such_
 the `gameId` the build started with. If none of their games has it, the game was not built here: say so and offer
 `/make-game`.
 
+**The latest line.** Publishing an older line overwrites newer live work, and a feature that lives on only one
+branch (telemetry added on its own branch, say) disappears when another branch is published. When the game folder
+is a git repository, run `node <pluginRoot>/skills/game-verify/line-check.mjs {gameDir} --fetch` (`--fetch` updates
+remote-tracking refs only, nothing else is written): exit 1 lists every local or remote branch holding work that
+neither this checkout nor the default branch has, or prints `BEHIND` (pull the default branch first); exit 2 means
+the fetch or git failed, so the line is unknown. Merge that work, or ask the user whether it is abandoned;
+never publish past it on your own. If the game is already live, also run
+`node <pluginRoot>/skills/game-verify/live-diff.mjs {gameDir}/dist <publicUrl>` after the build: every differing file
+should be explained by this change, and a `foreign` line (the live page loads files this build does not have) means
+the live game came from other source; find it before publishing.
+
 **Played on record.** `publish_upload` refuses (`play_gate_missing`, `_failed`, `_unreviewed` or `_stale`) a `dist/`
 that `play_gate` and `play_review` have not passed. If this build was not played yet, do it now, as `/make-game`
 says: `play_gate({gameDir, buildId, desktop, phone})`, fix every failed check, then `play_review`.
@@ -102,13 +113,18 @@ build*, never *retry the call*:
 | `too_many_files` / `payload_too_large` | Over the per-publish limits | Trim the build (unused assets, source maps) |
 | `missing_size` | A file was sent without its size (named in `path`) | Send every file as `{path, size}`, size in bytes |
 
-Otherwise it returns `{uploads, publicUrl, signing}` — upload slots, no bytes moved yet.
+Otherwise it returns `{publishId, publicUrl, signing, fileCount, source}` — no bytes moved yet. An older client
+returns raw `{uploads, publicUrl, signing}` slots instead of a `publishId`.
 
 It also returns `source` — where this publish keeps a private copy of the game's source. Every member of the gamebyte-ai organization can read it.
 
-Then `publish_upload({gameDir, uploads, source})` (a local `ongame` tool) → reads each built file and uploads it, then
-keeps the source. **Pass each slot through unchanged** — the slots carry headers that were signed for that exact file,
-so editing or dropping a field makes the upload fail. Returns `{uploaded, skipped?, failed?, source, repo}`; `repo` is
+Then `publish_upload({gameDir, publishId})` (a local `ongame` tool) with the ID `publish_game` returned in this
+session → reads each built file, checks the page boots, uploads it, then keeps the source. Do not copy upload URLs or
+source slots. `reason: "publish_session_unavailable"` → call `publish_game` again and use its new ID; an ID lasts up
+to one hour. Only when `publish_game` returned raw `uploads` (an older client) use
+`publish_upload({gameDir, uploads, source})` and **pass each slot through unchanged** — the slots carry headers that
+were signed for that exact file, so editing or dropping a field makes the upload fail. Never mix the two forms, and
+never upload to the signed URLs yourself: that skips the boot check and the source copy. Returns `{uploaded, skipped?, failed?, source, repo}`; `repo` is
 the game folder's repository URL, or `none` when it has none.
 
 `source` is separate from the game: `.env` files, keys, `node_modules`, `dist` and `.ongame` are never in it, and its
@@ -137,6 +153,10 @@ the bytes against `dist/index.html`. Matching filenames are not proof: the build
 page can rebuild to identical bundle names.
 
 A stale response is **not** live — treat it exactly like a failed publish.
+
+The page check proves `index.html`. To prove every asset, including stable-named ones, run
+`node <pluginRoot>/skills/game-verify/live-diff.mjs {gameDir}/dist <publicUrl>`: exit 0 means every built file is
+byte-identical live and the page loads nothing foreign.
 
 ## 5. Record it, then hand it over
 

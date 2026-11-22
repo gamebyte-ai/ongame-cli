@@ -187,8 +187,11 @@ new game and in a change to a finished one:
 - the levels of a level-based game, before `skills/level-design/SKILL.md` — `skills/difficulty-curve/SKILL.md`: the
   curve from `levels_generate` on a D1, D7 or D30 profile, its check, and a levels review that reads the economy;
 - any asset request — `skills/asset-anchor/SKILL.md`: anchor it to what the game already has, never generate cold;
+  then `skills/forge-assets/SKILL.md` before a generated file goes into the game: real alpha, sliced sheets, the
+  returned sound length and the character's pose and arms, measured;
 - the HUD and screen layout, and before calling a game done on phones — `skills/phone-layout/SKILL.md`: layout
-  components that reflow, and the device-reality checks.
+  components that reflow, and the device-reality checks; then `skills/mobile-ready/SKILL.md` for the pixel-ratio cap,
+  late safe-area values, pause, backgrounding and the Android back key.
 
 Before the levels of a level-based game are generated or authored — a numbered sequence of puzzle, casual or
 hybrid-casual stages — consult `skills/level-design/SKILL.md` — or, where that file is not on disk, the same procedure as
@@ -307,13 +310,16 @@ Verify the behavior the user asked for in the relevant runtime. A preview URL, c
 alone is not proof that a game works. Inspect actual rendering and interaction in a browser or the engine.
 If verification is unavailable, state what remains unverified. Do not mark a native goal complete without that
 evidence, and do not claim a phase or review happened when it did not.
+Before saying done, follow `skills/game-verify/SKILL.md`: the test pass and fail counts before and after the change,
+a proof run with real input on the built page, every screen at its fullest, and a verdict only after the run ends.
 Before calling a web game done, check it as a phone. The onGame launch card (the `credit` skill) is required in every game,
 not only published ones: run `node <pluginRoot>/skills/credit/apply.mjs {gameDir}` before `npm run build`, then
 `node <pluginRoot>/skills/credit/apply.mjs --check {gameDir}/dist/index.html` after it. Run
 `node <pluginRoot>/skills/gradients/check.mjs {gameDir}` and replace every stacked-shape fade it names with one
 gradient fill (exit 1 lists them). Open the built page at 360×640 and 414×896 with DPR 3, and walk
 `pattern:gamelabs-shell-contract` §14 — pause halts the sim, background suspends audio, back key, pixel ratio
-per canvas, safe-area fallback. Unity: the same list in `pattern:unity-shell-contract` §14.
+per canvas, safe-area fallback. Unity: the same list in `pattern:unity-shell-contract` §14. Run
+`node <pluginRoot>/skills/mobile-ready/check.mjs {gameDir}` and fix every FAIL it prints (exit 1).
 When the browser check is done, call `browser_close`: an open game keeps the browser rendering, and that drains the
 user's battery.
 Step the clock frame by frame for timing-critical moments, check placement with a numeric probe rather than by

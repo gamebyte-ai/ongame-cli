@@ -6,7 +6,9 @@ description: Get a finished game ready for the App Store and Google Play — sto
 Use this when a game already plays end to end and the user wants it ready for the stores. It produces
 everything a person needs to upload; it uploads nothing and submits nothing.
 
-**Not for** a game that is still being built, or for publishing to a web link — that is `/publish`.
+**Not for** a game that is still being built, or for publishing to a web link — that is `/publish`. The uploadable
+native package (Capacitor shell, store build, the pre-upload gate) is `skills/store-build`; review, privacy forms and
+the owner's console steps are `skills/store-submit`.
 
 1. Find the game the same way `/publish` does: look where you are, then `games_list`, then ask.
 2. Call `knowledge_get({ key: "pattern:store-prep" })` and follow the returned procedure. It names the
