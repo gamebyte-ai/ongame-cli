@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.90 — 2026-11-22
+
+- New skill `skills/juice/SKILL.md`: feedback timings in milliseconds for a placement, a line clear, a combo, a big clear and game over. They were measured frame by frame from 60 fps play video of a shipped grid puzzle game, with an error of one frame (17 ms). Each number is marked measured or inferred, says what it is for, and says how to scale it from a small event to a big one. The refused-move numbers are inferred: the video showed none.
+- `/make-game` and the polish phase, Sub-phase 5, point to the skill for timings and sizes.
+- `test/juice-skill.test.mjs` checks the marks, the scaling rules, the constants against the tables, the two links and this version. It also checks that the skill names no game.
+
 ## 1.7.89 — 2026-11-20
 
 - `/make-game` says how to write the play script for a game played by dragging a finger, such as connect letters, draw a line or pull a slingshot: it uses a `drag` step through hit-area ids. The `drag` step needs the CLI release after `cli-v0.2.49`; that release is being prepared.

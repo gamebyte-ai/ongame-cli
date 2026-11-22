@@ -163,6 +163,9 @@ physical motion. Praise words (Great!, Superb!) sit tilted together with their r
 `knowledge_get({ key: "pattern:celebration-and-reward-art" })` for the layers and the frozen-frame check. If it
 returns empty, continue with your own judgment.
 Call `knowledge_get({ key: "pattern:polish-juice-recipes" })` for the tuned juice/motion recipes (burst counts, durations, easings, amplitudes, mobile-safe glow). If it returns empty, continue with your own judgment.
+**Timings and sizes start from `skills/juice/SKILL.md`.** Read it before the first effect. It gives each response in
+milliseconds, measured frame by frame, and says how it grows from a small event to a big one: by adding a layer per
+combo step, not by enlarging one. Where a recipe and that skill give different numbers, start from the skill's.
 
 > All these effects are triggered in the **Controller** (when Board state changes), the **View** only renders.
 > The effect does NOT BLOCK input — the input lock already exists in the code phase during cascade resolving.
