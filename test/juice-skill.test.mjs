@@ -132,6 +132,10 @@ test('the constants agree with the tables', () => {
     assert.ok(ladder.includes(`${hz}`), `${hz} Hz is in the ladder`);
   });
   assert.ok(ladder.includes('0, 0, 1, 2, 3, 5, 6, 7, 8, 12'));
+  // The rules must not ask for a rise the measured steps do not have: step 1 keeps the base pitch.
+  assert.equal(pitch.semitonesByStep[1], 0);
+  assert.ok(!/one semitone per step/i.test(skill) && !skill.includes('rises at each one'), 'no uniform-rise rule');
+  assert.ok(ladder.includes('it holds at step 1, rises one or two semitones'));
   // Layers switch on by step.
   assert.deepEqual([banner.fromStep, shake.fromStep, halo.fromStep], [1, 2, 4]);
   assert.ok(ladder.includes('banner at 1, shake at 2, halo at 4'));

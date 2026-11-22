@@ -92,13 +92,13 @@ adds one thing. When a combo ends was not measured.
 | Shake, size | peak 4.5 px (1.2% of the width); a typical frame is 3.0 px (0.8%) | M, n=39 | Felt, but text stays readable |
 | Shake, growth | size never grows; only the length grows, once, from 190 to 300 ms | M, n=39 | A longer shake reads as bigger without blurring the screen |
 | Halo | the background beside the grid frame gets about 30% brighter (26 to 34%); on at 350 ms, peak at 434 ms, off at 1060 ms; the rest of the screen does not change | M, n=22 | One soft glow, the same at every step from 4 up |
-| Pitch | semitones over the base, steps 0 to 9: 0, 0, 1, 2, 3, 5, 6, 7, 8, 12 | M, n=57 | One semitone per step is heard as a climb |
+| Pitch | semitones over the base, steps 0 to 9: 0, 0, 1, 2, 3, 5, 6, 7, 8, 12 | M, n=57 | A small rise at each step is heard as a climb |
 | Loudness | the same at every step: all 56 clears are within 4 dB of each other | M, n=56 | A combo never becomes tiring to hear |
 | Sound delay | median 4 to 19 ms at steps 2, 3, 4, 6 and 7; 47 to 111 ms at steps 0, 1, 5, 8 and 9 | M, n=57 | From step 2 the sound lands with the shake |
 
-**Scale:** raise the pitch by one semitone (x1.0595) per step and stop at one octave (x2). Raise the score number
-by the same amount each step. Switch layers on by step: banner at 1, shake at 2, halo at 4. Do not enlarge a layer
-that is already on.
+**Scale:** take the pitch for a step from the row above: it holds at step 1, rises one or two semitones (x1.0595
+each) per step from step 2 to step 8, and jumps to one octave (x2) at step 9. Raise the score number by the same
+amount each step. Switch layers on by step: banner at 1, shake at 2, halo at 4. Do not enlarge a layer that is already on.
 
 ## Big clears: two or more lines at once
 
@@ -147,7 +147,8 @@ No refused move appeared in the 343 s of play video. These are starting values.
    384 ms, score pop last. No two layers start together.
 3. **Add a layer; do not enlarge one.** Growth comes from switching layers on, from pitch and from the score number.
 4. **Shake has one size.** Keep the peak at 1.2% of the screen width. Change only the length: none, 190 ms, 300 ms.
-5. **Pitch climbs, loudness holds.** One semitone per step, capped at one octave.
+5. **Pitch climbs, loudness holds.** From step 2 to step 8 the pitch rises one or two semitones per step; step 9 is
+   the octave.
 6. **End the show in about a second.** The banner is gone at 1000 ms and the halo at 1060 ms. Only the score pop
    comes later, and it fades from 1335 ms.
 7. **Keep the routine quiet.** If every placement shakes the screen, a combo has nowhere to go.
@@ -185,7 +186,8 @@ No refused move appeared in the 343 s of play video. These are starting values.
 ```
 
 Shake offset in pixels is `peakShareOfWidth` times the screen width: 4.5 px on a 390 px screen, 8.8 px on a 768 px
-one. Pitch for a step is `baseHz * ratioPerSemitone ** semitonesByStep[step]`; past step 9, stay on the octave.
+one. Pitch for a step is `baseHz * ratioPerSemitone ** semitonesByStep[step]`. No step past 9 was seen; staying on
+the octave there is inferred.
 
 ## Other genres
 
@@ -194,7 +196,8 @@ action and a combo.
 
 - **Tier 0** is the action the player repeats most: a tap, a move, a shot, a swap. One frame, a quiet sound, no shake.
 - **Tier 1** is the smallest success: a match, a hit, a pickup. A vanish, a short beat, a burst, a phrase of sound.
-- **The ladder** is whatever chains: a combo, a cascade, a run of kills. One new layer per step, pitch up per step.
+- **The ladder** is whatever chains: a combo, a cascade, a run of kills. One new layer per step, and the pitch from
+  the ladder's row.
 - **A big clear** is one action that scores several times. It jumps the ladder by what it scored.
 - **The end** is a fail or a finish: show the cause, hold about 2 s, then change the screen.
 
@@ -204,5 +207,5 @@ action and a combo.
 2. Each time in the tables must be within one frame of your count: 17 ms at 60 fps, 33 ms at 30 fps.
 3. Outside its window the shake offset is exactly 0. Inside it, no frame exceeds 1.2% of the screen width.
 4. Place ten pieces with no clear: the screen never moves and no particle appears.
-5. Run a combo to step 4: the banner has the same size at every step, and the pitch rises at each one.
+5. Run a combo to step 4: the banner has the same size at every step, and the pitch rises at steps 2, 3 and 4.
 6. Say which numbers you changed after tuning, and why. A changed number is no longer measured.
