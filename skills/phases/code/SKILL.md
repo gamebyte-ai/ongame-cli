@@ -106,14 +106,23 @@ zombie report. This lock guards WRITES only — reading/analysis needs no lock.
 > `prototype` skips it (mechanics first). The rules, the boundary of what belongs to the game rather than the layer,
 > and the silent failures this prevents come from `knowledge_get({key:'pattern:unity-meta-systems'})` — read it
 > before you place the frame. The dressing (tabs, products, art, thresholds) is NOT this phase; polish does that.
-- **`scaffold_materialize(gameDir=<gameDir>, gameName=<the game's display name>, engine=<"gamelabs"|"unity">)`**
+- **`scaffold_materialize(gameDir=<gameDir>, gameName=<the game's display name>, engine=<"gamelabs"|"unity">, dimension=<"2d"|"3d">)`**
   (find by bare name `scaffold_materialize` via ToolSearch). `engine` defaults to `"gamelabs"`, so a Unity build must
-  pass `engine="unity"` explicitly. It copies the bundled baseplate for that engine into `gameDir` and renames every
+  pass `engine="unity"` explicitly. **On gamelabs, pass `dimension` every time — you decide it from
+  `GAME_DESIGN.md`.** `"2d"` is the frame for a game drawn only in the 2D HUD: it leaves three.js out, about 40%
+  less JavaScript for the player to download. `"3d"` is the frame for a game with a 3D world, and for a 2D game that wants the
+  engine's ready-made main screen, settings popup, UI components or on-screen controls. Left out, it is `"3d"`.
+  Unity ignores it. It copies the bundled baseplate for that engine into `gameDir` and renames every
   `MyGame*` identifier → PascalCase(`gameName`) across file contents **and** file names — on gamelabs that is
   `MyGameApp`/`MyGameConfig`/`MyGameUIIds` + the enum value + the package `"name"`; on Unity it is the C# namespaces
   and class names plus every `.asmdef` `name`, `rootNamespace` and cross-assembly `references` entry. It returns
-  `{ written:[...], renamedTo, engine }` — `renamedTo` is the PascalCase identifier the App/Config/UIIds were renamed
-  to (use it when you reference the App class below).
+  `{ written:[...], renamedTo, engine, dimension }` — `renamedTo` is the PascalCase identifier the App/Config/UIIds were renamed
+  to (use it when you reference the App class below). `dimension` is the frame you
+  got; a gamelabs result without it came from an older CLI and is the 3D frame.
+- **One engine entry per game.** The frame you picked fixes where every file imports the engine from: the same
+  specifier as `src/<renamedTo>App.ts` (`@gamebyte/gamelabsjs` on 3D, `@gamebyte/gamelabsjs/core` on 2D). A file on
+  the other one typechecks clean and stops the game at boot. `knowledge_get(key="framework")`, "Two entries", has
+  the one exception and the boot errors that name this mistake. On a continuation, read that line first.
 - Then **`deps_install(gameDir=<gameDir>)`** — gamelabs only; the Unity scaffold has no npm step. Use it
   instead of a shell `npm install`: a sandboxed agent (Codex by default) has no network, and the tool runs outside it.
   On `ok:false` follow its `fix`; never write the game without its installed engine.
@@ -203,7 +212,7 @@ zombie report. This lock guards WRITES only — reading/analysis needs no lock.
 When composing gamelabs.js Lego, do NOT MIX the layers. Every game keeps these units separate:
 
 > gamelabs.js supports 3D via the three.js world3d layer (knowledge `pattern:3d-basics` / `pattern:3d-objects`);
-> do not assume 2D-only — the concept decides the dimension.
+> do not assume 2D-only — the concept decides the dimension, and §2's `dimension` is where you commit to it.
 
 - **Board / state (pure data + rules):** `src/game/<X>Board.ts` — game state like grid/entity/score
   + pure mutation methods. **Does NOT import PixiJS/DOM**, knows nothing about render, is

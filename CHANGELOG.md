@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.7.91 — 2026-11-23
+## 1.7.92 — 2026-11-23
 
 - `store-prep`, `store-build` and `store-submit` each get one line for onGame team members: when `playbook catalog`
   lists `ongame-game-launch`, the team's Google Play launch cycle, read the phase that matches the step (creatives;
@@ -9,6 +9,13 @@
   the agent still uploads nothing and never writes to a store.
 - `test/launch-skill-pointer.test.mjs` checks the three lines, that each is conditional on the catalog, and this
   version.
+
+## 1.7.91 — 2026-11-22
+
+- The code phase asks the agent to pick a frame when it scaffolds a web game: `scaffold_materialize` takes `dimension`, `"2d"` or `"3d"`. A 2D game leaves three.js out. Measured on fresh scaffolds: 249.2 kB of gzipped JavaScript for 2D against 409.5 kB for 3D.
+- The code phase states the rule a 2D frame needs: every file imports the engine from the same entry as the game's App file. The polish and audio phases say which ready-made engine modules stop a 2D frame at boot, and what to build instead.
+- `dimension` needs the CLI release after `cli-v0.2.50`. An older CLI ignores it and writes the 3D frame, as before; the result then has no `dimension`.
+- `test/scaffold-dimension-text.test.mjs` checks these lines and this version.
 
 ## 1.7.90 — 2026-11-21
 
