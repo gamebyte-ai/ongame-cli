@@ -27,10 +27,13 @@ for (const [skill, phases] of STEPS) {
   });
 }
 
-test('store-submit keeps its boundary next to the pointer', () => {
-  const text = flat(read('skills/store-submit/SKILL.md'));
-  assert.ok(text.includes('**The agent never writes to a store.**'));
-  assert.ok(text.includes('qa phases; the boundary above still holds.'));
+test('store-build and store-submit keep their limits next to the pointer', () => {
+  const build = flat(read('skills/store-build/SKILL.md'));
+  assert.ok(build.includes('it does not upload, sign with the owner\'s key, or submit'));
+  assert.ok(build.includes('play-console phases; the limits above still hold.'));
+  const submit = flat(read('skills/store-submit/SKILL.md'));
+  assert.ok(submit.includes('**The agent never writes to a store.**'));
+  assert.ok(submit.includes('qa phases; the boundary above still holds.'));
 });
 
 test('the plugin version and changelog name the release that adds the pointers', () => {

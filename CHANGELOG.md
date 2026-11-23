@@ -5,8 +5,8 @@
 - `store-prep`, `store-build` and `store-submit` each get one line for onGame team members: when `playbook catalog`
   lists `ongame-game-launch`, the team's Google Play launch cycle, read the phase that matches the step (creatives;
   integrations and play-console; play-console and qa). Nothing from that skill is copied here. Without the `playbook`
-  command, or before the skill is listed, the line does nothing. `store-submit` keeps its boundary: the agent still
-  never writes to a store.
+  command, or before the skill is listed, the line does nothing. `store-build` and `store-submit` keep their limits:
+  the agent still uploads nothing and never writes to a store.
 - `test/launch-skill-pointer.test.mjs` checks the three lines, that each is conditional on the catalog, and this
   version.
 
