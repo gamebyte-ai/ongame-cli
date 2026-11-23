@@ -38,10 +38,10 @@ test('store-build and store-submit keep their limits next to the pointer', () =>
 
 test('the plugin version and changelog name the release that adds the pointers', () => {
   const version = JSON.parse(read('.claude-plugin/plugin.json')).version;
-  assert.ok(version.localeCompare('1.7.91', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.91 or later`);
+  assert.ok(version.localeCompare('1.7.92', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.92 or later`);
   const changelog = read('CHANGELOG.md');
-  const i = changelog.indexOf('## 1.7.91 ');
-  assert.ok(i > -1, 'the changelog has an entry for 1.7.91');
+  const i = changelog.indexOf('## 1.7.92 ');
+  assert.ok(i > -1, 'the changelog has an entry for 1.7.92');
   const end = changelog.indexOf('\n## ', i + 1);
-  assert.ok(changelog.slice(i, end).includes('`ongame-game-launch`'), 'the 1.7.91 entry names the skill');
+  assert.ok(changelog.slice(i, end).includes('`ongame-game-launch`'), 'the 1.7.92 entry names the skill');
 });
