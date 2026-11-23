@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.91 — 2026-11-22
+
+- The code phase asks the agent to pick a frame when it scaffolds a web game: `scaffold_materialize` takes `dimension`, `"2d"` or `"3d"`. A 2D game leaves three.js out. Measured on fresh scaffolds: 249.2 kB of gzipped JavaScript for 2D against 409.5 kB for 3D.
+- The code phase states the rule a 2D frame needs: every file imports the engine from the same entry as the game's App file. The polish and audio phases say which ready-made engine modules stop a 2D frame at boot, and what to build instead.
+- `dimension` needs the CLI release after `cli-v0.2.50`. An older CLI ignores it and writes the 3D frame, as before; the result then has no `dimension`.
+- `test/scaffold-dimension-text.test.mjs` checks these lines and this version.
+
 ## 1.7.90 — 2026-11-21
 
 Six skills from games that shipped to the web, Google Play and the App Store. Each rule comes from a failure seen on a
