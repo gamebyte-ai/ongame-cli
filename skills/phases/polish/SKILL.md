@@ -66,6 +66,9 @@ from scratch; **compose** what's already in the engine.
    Sub-phase 10, every time. Skip it only when there is no runnable build to look at.
 
 **gamelabs primitive summary (the Lego to compose):**
+> On a 2D frame (`src/<Name>App.ts` imports `@gamebyte/gamelabsjs/core`) the ready-made `MainScreenBinding`,
+> `SettingsBinding` and `UIComponentsBinding` stop the boot. Build those screens from `ScreenView`/`PopupView`,
+> Pixi and the shell templates instead. Particles and the timeline work. See `framework`, "Two entries".
 - **Screen/menu:** `GamelabsApp`, `UIEvents.createScreen(id, transition)`, `ScreenView`,
   `PopupView`, ready-made `MainScreenBinding`/`MainScreenView` (+`MainScreenEvents`),
   `SettingsBinding`/`SettingsPopupView`, `SCREEN_TRANSITION_TYPES`.
