@@ -16,6 +16,9 @@ a checklist) and may read status. An earlier yes does not cover the next build.
 
 If the user pastes a private key or secret into the chat, tell them to revoke it and make a new one.
 
+onGame team: if `playbook catalog` lists `ongame-game-launch`, run `playbook skill ongame-game-launch` and read its
+play-console and qa phases; the boundary above still holds.
+
 ## Before the owner submits
 
 1. **Prove prices and a test purchase on the build that will be reviewed.** Install that exact build (TestFlight /

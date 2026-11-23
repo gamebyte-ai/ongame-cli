@@ -1,6 +1,6 @@
 {
-  "pluginVersion": "1.7.90",
-  "generatedAt": "2026-11-22",
+  "pluginVersion": "1.7.91",
+  "generatedAt": "2026-11-23",
   "skills": {
     "analytics": {
       "sha256": "a9664cf8a16c4e7b555d3ba1c1d4e9b790e3866c8af447e2537ef5b7f4a14270",
@@ -138,19 +138,19 @@
       "lines": 25
     },
     "store-build": {
-      "sha256": "6fd6c5da7bbd1cdf943ff5f9a3a25b454ffdb67b0c9b9fa645cd9e5109bbc238",
-      "bytes": 6343,
-      "lines": 96
+      "sha256": "453e9a4124fda7e15cf6c75a5f83758aa257ab095079b3f2c9bf7b8dd1638be6",
+      "bytes": 6460,
+      "lines": 98
     },
     "store-prep": {
-      "sha256": "273300c26bbeb146f866155afb0426551c1b1a8750fdced74a7f087ea47e35a6",
-      "bytes": 1737,
-      "lines": 26
+      "sha256": "90a2b19fc4643ba98b929f59abbe5fc66a764baf45de0b10a7eb7889c024524e",
+      "bytes": 1885,
+      "lines": 29
     },
     "store-submit": {
-      "sha256": "4a70e49d6ef334e262ec7e778ca6fc837e765b71bccd0f734f9357d22ff3e2d4",
-      "bytes": 4923,
-      "lines": 68
+      "sha256": "b4b4be61310484d2ea43ac4f164797f50688ff9d4c1e4e11d8e37af3c0f0229e",
+      "bytes": 5100,
+      "lines": 71
     },
     "storyboard": {
       "sha256": "35472fdb1abd04b54ad371d96a7651ba3bdfaa591f6948e52df5fdab38bd6ccc",
