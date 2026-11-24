@@ -107,8 +107,9 @@ function strings(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
 }
 
-/** C0 and C1 control characters, DEL and whitespace: none belongs in an address, and a control character can
- *  steer the terminal. The URL parser quietly drops some of them, so they are refused before it runs. */
+/** C0 and C1 control characters, DEL and whitespace are refused before the URL parser runs. Node 26's parser drops
+ *  a newline or tab anywhere and control characters at either end (`http://local\nhost:5173/` parses as
+ *  `http://localhost:5173/`), so the address it checked would not be the one given. */
 const UNSAFE_URL = /[\u0000-\u0020\u007f-\u009f]/;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/g;
 

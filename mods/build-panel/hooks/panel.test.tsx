@@ -30,7 +30,7 @@ const NARROW = pane(40, 'inline');
 type Setup = {
   marker?: string | null;
   store?: Record<string, unknown>;
-  /** The store refuses every write, as a full disk or a store over its 4 MiB would. */
+  /** The store refuses every write, as `$.store.set` does once the store would pass 4 MiB of JSON. */
   isStoreFull?: boolean;
   answers?: Record<string, unknown>;
 };
