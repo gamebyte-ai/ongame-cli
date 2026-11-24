@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.7.99 — 2026-11-24
+
+- A game with an **Analytics** switch applies a saved "off" at boot: `if (saved === 'off') setConsent(false);` in
+  `src/main.ts`, before the first `await`. The deployed SDK starts after the game's code and sends what an earlier
+  visit left queued, so an answer given after an `await` can come too late. `skills/analytics/SKILL.md` states the
+  rule, and that a game never writes the SDK's own storage keys (`ongame_consent:*`, `ongame_spool:*`).
+- `upgrade.mjs --check` fails such a game when its boot module calls no `setConsent` with an answer before its first
+  `await`, when a game file it imports has a top-level `await`, or when its `src/telemetry.ts` drops a
+  `setConsent(false)` made before the SDK starts. The upgrade run prints the same lines as notes and keeps its exit
+  codes; `/publish` and the polish phase act on them. The boot check reads a syntax tree with the parser the
+  gradients check already bundles.
+- The shim that keeps that early answer comes with the onGame CLI release after `cli-v0.2.50`. An older scaffold's
+  shim fails the check; `/analytics add` takes the new one. An upgrade never swaps the new shim for an older one.
+- `test/analytics-upgrade.test.mjs` covers the call before and after the `await`, helpers, branches, callbacks,
+  top-level `await` in the boot module and in what it imports, the boot module `index.html` names, and both shims.
+
 ## 1.7.97 — 2026-11-24
 
 - The build panel's "Play here" link shows only for a preview of this build's game folder: the folder of its

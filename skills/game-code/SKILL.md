@@ -37,7 +37,8 @@ directly; the code phase points here.
   `'shop'`, `'settings'`, `'gameover'`). Give every interactive Pixi object a short, stable `label`
   (`'play'`, `'shop_buy_coins'`, `'tile'`): the SDK reports its taps by that label, with no `tap()` call. Call `tap(id)`
   only for a DOM button, a key or a swipe. Currency changes call `economy('earn' | 'spend', currency, amount, source)`;
-  tutorial steps call `tutorial(stepId, done)`. Settings gets an **Analytics** on/off switch calling `setConsent(on)`.
+  tutorial steps call `tutorial(stepId, done)`. Settings gets an **Analytics** on/off switch calling `setConsent(on)`;
+  `src/main.ts` applies its saved answer before the first `await`.
   Never pass typed text, a name or a position as meta. The full list: `skills/analytics/SKILL.md`.
   **An older scaffold has shim v1:** `src/telemetry.ts` exports no `levelStart`. Then use `trackLevelStart(n)`,
   `trackLevelComplete(n)` and `trackLevelFail(n)`, still add the labels, and skip the other v2 calls.

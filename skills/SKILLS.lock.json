@@ -1,11 +1,11 @@
 {
-  "pluginVersion": "1.7.97",
+  "pluginVersion": "1.7.99",
   "generatedAt": "2026-11-24",
   "skills": {
     "analytics": {
-      "sha256": "a9664cf8a16c4e7b555d3ba1c1d4e9b790e3866c8af447e2537ef5b7f4a14270",
-      "bytes": 4281,
-      "lines": 68
+      "sha256": "c374432a518b90f5c56f567f9e0797519e6fcbc3e7232d3c305b989dbfa1ac3d",
+      "bytes": 6202,
+      "lines": 91
     },
     "art-direction": {
       "sha256": "4fb82004119bfc33672560fdea3da9ad11d71d2eb9a535574f0a8ac522beb1c0",
@@ -33,9 +33,9 @@
       "lines": 73
     },
     "game-code": {
-      "sha256": "a6a4d8363a7b095884f662dbc95726d789c1ebb5070bdaafb6cbb716283b690f",
-      "bytes": 7233,
-      "lines": 87
+      "sha256": "ee60187601acd8d5825b91e458f70c2afbd92378b60db52989b7a7f933ddd4ac",
+      "bytes": 7300,
+      "lines": 88
     },
     "game-concept": {
       "sha256": "533f0ac3a2f0ec7367e4f4b3f7cbdc65400c5c2b93e911772e29a3dfc876331d",
@@ -108,9 +108,9 @@
       "lines": 72
     },
     "phases/polish": {
-      "sha256": "f4133158506710cc0927bb2044272345fcadcb78840c7578727a898bcddb3946",
-      "bytes": 50031,
-      "lines": 500
+      "sha256": "6df9a782fc8b2a270d0b69cdc68388ca38daf286bbb13ac7991d2ca7e9ed06b0",
+      "bytes": 50236,
+      "lines": 501
     },
     "phases/research": {
       "sha256": "6ee0d19bdc0c2faeeeb73e0658cb7d630bcc41f8ad8dac02a8004fb3c55dbb5c",

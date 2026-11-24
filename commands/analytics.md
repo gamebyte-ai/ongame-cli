@@ -47,7 +47,8 @@ Check first; add only what is missing, so a second run adds nothing:
 - Interactive Pixi objects with no `label` → give each a short, stable `label`.
 - `trackLevelStart` / `trackLevelComplete` / `trackLevelFail` keep working. Move them to `levelStart` / `levelEnd`
   only when you touch that code anyway; also send `levelEnd(a, 'quit')` when the player leaves a level to the menu.
-- Settings has no analytics switch → add **Analytics** on/off calling `setConsent(on)`.
+- Settings has no analytics switch → add **Analytics** on/off calling `setConsent(on)`. Apply its saved answer at
+  boot, in `src/main.ts` before the first `await` (`skills/analytics/SKILL.md`, "Audience and consent").
 
 ## 5. Prove it
 

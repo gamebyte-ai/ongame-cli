@@ -317,6 +317,54 @@ function children(node) {
   return out.sort((a, b) => (a.start ?? 0) - (b.start ?? 0));
 }
 
+/** The module holds an await that runs while it is evaluated: one outside every function. */
+function awaitsAtTopLevel(node) {
+  if (!node || typeof node.type !== 'string' || DEFERRED.has(node.type)) return false;
+  if (node.type === 'AwaitExpression' || (node.type === 'ForOfStatement' && node.await)) return true;
+  return children(node).some(awaitsAtTopLevel);
+}
+
+/** The game file a relative import names, tried the way a bundler tries it; undefined for anything else. */
+function resolveModule(fromDir, spec) {
+  if (!/^\.\.?\//.test(spec)) return undefined;
+  const base = resolve(fromDir, spec);
+  for (const b of new Set([base, base.replace(/\.m?js$/, '')])) {
+    for (const ext of RESOLVE_EXT) {
+      const p = b + ext;
+      if (/\.(m?[jt]sx?)$/.test(p) && existsSync(p) && statSync(p).isFile()) return p;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * The game files the boot module imports, directly or through others, that hold a top-level await: the boot module
+ * runs only after it. Each comes with the error when it could not be read. Packages and aliases are not followed.
+ */
+function awaitedImports(bootFile, bootAst) {
+  const out = [];
+  const seen = new Set([bootFile]);
+  const queue = [bootAst];
+  const dirs = [dirname(bootFile)];
+  while (queue.length) {
+    const ast = queue.shift();
+    const dir = dirs.shift();
+    for (const node of ast.program.body) {
+      const typeOnly = node.importKind === 'type' || node.exportKind === 'type';
+      const spec = /^(?:Import|ExportNamed|ExportAll)Declaration$/.test(node.type) && !typeOnly ? node.source?.value : undefined;
+      const file = spec && resolveModule(dir, spec);
+      if (!file || seen.has(file)) continue;
+      seen.add(file);
+      let dep;
+      try { dep = syntaxTree(readFileSync(file, 'utf8'), file); } catch (e) { out.push({ file, error: String(e.message).split('\n')[0] }); continue; }
+      if (awaitsAtTopLevel(dep.program)) out.push({ file });
+      queue.push(dep);
+      dirs.push(dirname(file));
+    }
+  }
+  return out;
+}
+
 /**
  * What a general game with an Analytics switch still lacks to apply the saved answer at boot, as lines for the maker's
  * agent. Empty when the shim keeps an early no and the boot module applies the answer before its first await.
@@ -325,7 +373,7 @@ export function bootAnswerProblems(gameDir, shim) {
   const problems = [];
   if (!keepsEarlyNo(shim)) {
     problems.push('src/telemetry.ts drops a setConsent(false) made before analytics starts: it comes from an older scaffold. ' +
-      'Take src/telemetry.ts from a fresh scaffold (/analytics add, steps 1-2). The onGame CLI after cli-v0.2.50 has it.');
+      'Update the onGame CLI to the release after cli-v0.2.50, then take src/telemetry.ts from a fresh scaffold (/analytics add, steps 1-2).');
   }
   const boot = bootModule(gameDir);
   const shown = shownPath(gameDir, boot);
@@ -339,8 +387,14 @@ export function bootAnswerProblems(gameDir, shim) {
     return problems;
   }
   if (!appliesAnswerAtBoot(ast)) {
-    problems.push(`${shown} does not apply the saved Analytics answer before its first await. Read the saved answer and call ` +
-      'setConsent(<it>) there, before the first await (in the template, before `await app.initialize()`).');
+    problems.push(`${shown} does not apply the saved Analytics answer before its first await. Read the saved answer there and, ` +
+      'when it is off, call setConsent(false) before the first await (in the template, before `await app.initialize()`).');
+  }
+  for (const { file, error } of awaitedImports(boot, ast)) {
+    const dep = shownPath(gameDir, file);
+    problems.push(error
+      ? `${dep} cannot be read as code (${error}), so whether ${shown} runs after an await cannot be checked`
+      : `${dep} has a top-level await, and ${shown} imports it, so the boot runs only after that await. Move the await into a function.`);
   }
   return problems;
 }
@@ -467,6 +521,9 @@ export function run(argv, log = console.log) {
     // The audience and the privacy page are still saved: the served SDK sends its own events whatever the shim is.
     log(`not v2: ${opts.shim ?? 'src/telemetry.ts'} lacks ${missingV2.join(', ')}. Update the onGame CLI, then take src/telemetry.ts from a fresh scaffold.`);
     shimState = 'not-v2';
+  } else if (candidate !== current && current !== null && keepsEarlyNo(current) && !keepsEarlyNo(candidate)) {
+    // A scaffold from an older CLI must not undo the early no: the game keeps the newer shim.
+    log('note: src/telemetry.ts is kept. It keeps a setConsent(false) made before analytics starts; the offered shim, from an older onGame CLI, drops it.');
   } else if (candidate !== current) {
     const offered = exportedNames(candidate);
     const broken = [...importedNames(join(gameDir, 'src'))].filter(([name]) => !offered.has(name));

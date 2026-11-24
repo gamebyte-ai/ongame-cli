@@ -298,7 +298,7 @@ them with one radial gradient centred on the rays, never one flat colour. The po
 you write the code they belong to: `screen('<id>')` where each screen is shown, `const a = levelStart(n)` when a
 level begins play and `levelEnd(a, 'complete' | 'fail' | 'quit')` when it ends, `economy(...)` when currency
 changes, and a short, stable `label` on every interactive Pixi object, whose taps the SDK then reports itself.
-Settings gets an **Analytics** on/off switch calling `setConsent(on)`; once it works, pass `--opt-out yes` to the upgrade run below. The calls and rules: `skills/analytics/SKILL.md`.
+Settings gets an **Analytics** on/off switch calling `setConsent(on)`, and `src/main.ts` applies its saved answer before the first `await`; once it works, pass `--opt-out yes` to the upgrade run below. The calls and rules: `skills/analytics/SKILL.md`.
 If `src/telemetry.ts` exports no `levelStart` (shim v1, an older scaffold), use `trackLevelStart(n)`,
 `trackLevelComplete(n)` and `trackLevelFail(n)`, add the labels, and skip the other v2 calls.
 Before calling a web game done, run `node <pluginRoot>/skills/analytics/upgrade.mjs {gameDir}`. Exit 3 → ask the

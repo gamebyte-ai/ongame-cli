@@ -1,8 +1,8 @@
 # Vendored parser
 
 `babel-parser.cjs` is `lib/index.js` of `@babel/parser` 7.29.14, copied byte for byte. `../check.mjs` uses it to
-read a game's code as a syntax tree. It requires no other module, so the check runs with Node alone. It is MIT
-licensed; `LICENSE` here is the package's own.
+read a game's code as a syntax tree; `../../analytics/upgrade.mjs` reads a game's boot module with it. It requires no
+other module, so both run with Node alone. It is MIT licensed; `LICENSE` here is the package's own.
 
 | | |
 |---|---|

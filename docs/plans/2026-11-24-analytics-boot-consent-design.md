@@ -18,7 +18,8 @@ agent the rule and check that a game follows it.
 
 ## What the game must do
 
-1. Call `setConsent(<saved answer>)` in `src/main.ts`, before the first `await` of its boot.
+1. In `src/main.ts`, before the first `await` of its boot: `if (saved === 'off') setConsent(false);`. With nothing
+   saved, no call. A call such as `setConsent(stored === 'on')` would turn a first-time player's analytics off.
 2. Never write the SDK's own storage keys: `ongame_consent:<gameId>` and `ongame_spool:<gameId>` (the names in
    `sdk.ts`). The game keeps its switch under its own key and tells the SDK only through `setConsent`.
 3. Have a shim that keeps the early "no". A shim from before PR 1350 drops a `setConsent` call made before the SDK
@@ -32,11 +33,13 @@ your device and stops all sending." Rule 1 and rule 3 are what make that true at
 problems, both only for a `general` game with `optOut: true` and a v2 shim:
 
 - the shim has no `__ongameConsent` outside its comments: it predates the early "no";
-- the boot module does not call `setConsent` before its first `await`.
+- the boot module does not call `setConsent` before its first `await`;
+- a game file the boot module imports, directly or through others, has a top-level `await`. The boot module's body
+  runs only after it, and `sdk.js` may start in between.
 
-The upgrade run (no `--check`) prints the same two lines as `note:` lines and keeps its exit codes. The polish
-phase and `/publish` run only the upgrade, so the note is how they learn of it. `/make-game` and `/analytics add`
-already require `--check` to pass.
+The upgrade run (no `--check`) prints the same lines as `note:` lines and keeps its exit codes. The polish phase
+and `/publish` run only the upgrade, so their steps now say to fix what a boot note names. `/make-game` and
+`/analytics add` already require `--check` to pass.
 
 Rule 2 is text only. Nothing in the game's code names those keys today, and a check would have to guess every way
 of writing a string.
@@ -47,12 +50,22 @@ Two ways were open. Chosen: `--check` requires it, and the failure line names th
 `src/telemetry.ts` from a fresh scaffold (`/analytics add` steps 1-2). The upgrade already replaces a shim that
 differs from the fresh one.
 
-Telling the agent alone was rejected. A boot call through an old shim does nothing, so checking the call and not
+Two guards keep the failure from trapping an agent:
+
+- The failure line says to update the onGame CLI first, then take the fresh scaffold.
+- An upgrade never swaps a shim that keeps the early "no" for one that drops it. An older CLI's scaffold would
+  otherwise undo the fix on the next `/analytics add`.
+
+Rejected: the shim's `setConsent` body pasted into the skill as a fallback patch. The scaffold is the one source of
+that code. A second copy in the skill would drift from it.
+
+Telling the agent alone was rejected too. A boot call through an old shim does nothing, so checking the call and not
 the shim would pass a game whose saved "off" is still sent past.
 
 The cost: the newest CLI release, `cli-v0.2.50` (2026-11-20), scaffolds the old shim. Measured: its
 `templates/gamelabs-base/src/telemetry.ts` holds no `__ongameConsent`. Until the next CLI release, a fresh scaffold
 cannot fix the failure. So this plugin version should reach makers only after a CLI release that holds `ef48b04`.
+`keepsEarlyNo` looks for the global's name only, not `= false`, so an upstream rewrite of that line still passes.
 
 ## How the boot check reads the code
 
@@ -71,7 +84,10 @@ It reads a syntax tree, with the `@babel/parser` the gradients check already ven
 - **Both branches count:** an `if`, `? :`, `&&`, `try` or loop is read in source order, every branch. A call
   inside `if (!saved) setConsent(false)` counts. An `await` in any branch stops the walk there.
 - **The answer:** a call counts when it has an argument and that argument is not the literal `true`. A literal
-  `setConsent(true)` at start is not the player's answer.
+  `setConsent(true)` at start is not the player's answer. The check cannot tell a right condition from a wrong one,
+  so the skill gives the one safe form.
+- **Imports:** every game file the boot module imports by a relative path, followed through further imports, is read
+  for a top-level `await`. `import type`, dynamic `import()`, packages and path aliases are not followed.
 
 Not followed: functions imported from other modules, methods, and class constructors. A game that applies the
 answer only inside one of those fails. The message says to call `setConsent` in the boot module itself, which is
@@ -84,11 +100,19 @@ always possible. A false failure costs one line; a false pass would send a playe
 - `.ongame/analytics.json` has no `optOut: true`: neither check runs. A game without a switch has no saved "off".
 - A children's game: neither check runs. It sends nothing.
 - The shim is not v2: only the existing not-v2 line is shown; exit 4 stays as it was.
+- A file the boot module imports cannot be parsed: `--check` names it.
+- Accepted gaps, each a false pass that needs unusual code: a call only in a `catch` block, or under a test such as
+  `import.meta.env.DEV`. False failures, each fixed with one line in the boot module: a call inside a `new Promise`
+  executor or a class `static` block.
+- `index.html` lists a polyfill module before the game's: the check reads the polyfill and fails. A hand-placed
+  `sdk.js` tag before the game's script breaks the premise; `telemetry_inject` puts it just before `</body>`
+  (onGame `cli/src/inject.ts`), after the template's game script.
 
 ## Tests
 
 `test/analytics-upgrade.test.mjs` gets cases for: the template's boot with the call before the await (pass); the
 call after the await (fail); a call through a helper declared in `main.ts` (pass) and through a helper called only
 after the await (fail); `setConsent(true)` only (fail); a namespace import (pass); a top-level `await` before the
-call (fail); the old shim (fail with the scaffold line); no switch on file (no new check). Each failing case fails on the
+call (fail); a top-level `await` two imports down (fail) and in a type-only or dynamic import (pass); the old shim
+(fail with the scaffold line); an older offered shim (kept out); no switch on file (no new check). Each failing case fails on the
 code before this change.

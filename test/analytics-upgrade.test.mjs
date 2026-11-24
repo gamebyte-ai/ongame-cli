@@ -384,6 +384,43 @@ test('a game with a switch and a shim from before the boot fix fails --check, na
   assert.equal(check(dir).status, 0);
 });
 
+test('a top-level await in a module the boot imports fails --check: the boot runs only after it', () => {
+  const save = (dir, rel, code) => { fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true }); fs.writeFileSync(path.join(dir, rel), code); };
+  const { dir } = switchGame(BOOT());
+  save(dir, 'src/settings.ts', "import { db } from './store/db.js';\nexport const loadSettings = () => ({ analytics: db.get('analytics') !== 'off' });\n");
+  save(dir, 'src/store/db.ts', 'export const db = new Map<string, string>();\n');
+  assert.equal(check(dir).status, 0, check(dir).stdout);
+  // Two imports down, written as '.js' for a .ts file, the way TypeScript ESM writes it.
+  save(dir, 'src/store/db.ts', "export const db = new Map<string, string>(await Promise.resolve([['analytics', 'on']]));\n");
+  const r = check(dir);
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /src\/store\/db\.ts has a top-level await, and src\/main\.ts imports it/);
+  assert.doesNotMatch(r.stdout, BOOT_LINE);
+  // An await inside a function, a type-only import and a dynamic import run nothing at load.
+  save(dir, 'src/store/db.ts', "export const db = new Map<string, string>();\nexport async function load(): Promise<void> { await Promise.resolve(); }\n");
+  save(dir, 'src/types.ts', 'export type Saved = { analytics: boolean };\nawait Promise.resolve();\n');
+  save(dir, 'src/later.ts', 'await Promise.resolve();\nexport const later = 1;\n');
+  fs.appendFileSync(path.join(dir, 'src/main.ts'), "import type { Saved } from './types';\nexport const s: Saved | null = null;\nexport const later = () => import('./later');\n");
+  assert.equal(check(dir).status, 0, check(dir).stdout);
+  // A module it imports that cannot be read is no pass.
+  save(dir, 'src/store/db.ts', 'export const db = new Map<string, string>(;\n');
+  const u = check(dir);
+  assert.equal(u.status, 1);
+  assert.match(u.stdout, /src\/store\/db\.ts cannot be read as code/);
+});
+
+test('an upgrade never swaps a shim that keeps the early no for one that drops it', () => {
+  const { dir } = switchGame(BOOT());
+  const older = path.join(tmp('analytics-shim-'), 'telemetry.ts');
+  fs.writeFileSync(older, SHIM_V2 + 'export function watchTaps(pixiApp: unknown): void {}\n');
+  const r = run(dir, '--shim', older);
+  assert.equal(r.status, 0, r.stdout);
+  assert.equal(summary(r).shim, 'unchanged');
+  assert.match(r.stdout, /note: src\/telemetry\.ts is kept/);
+  assert.equal(fs.readFileSync(path.join(dir, 'src/telemetry.ts'), 'utf8'), SHIM_BOOT);
+  assert.equal(check(dir).status, 0);
+});
+
 test('the boot checks apply only to a general game whose maker said it has a switch', () => {
   // No switch on file: neither check runs, whatever the shim and the boot.
   const plain = game({ shim: SHIM_V2 });
@@ -495,6 +532,29 @@ test('nothing in the analytics files names an internal tool or person', () => {
   const text = ['skills/analytics/SKILL.md', 'skills/analytics/store-labels.md', 'skills/analytics/privacy.html',
     'skills/analytics/upgrade.mjs', 'skills/analytics/events.json', 'commands/analytics.md'].map(read).join('\n');
   for (const word of ['fleet', 'board', 'devbox', 'cairn', 'right-hand']) assert.ok(!text.toLowerCase().includes(word), word);
+});
+
+test('the analytics skill states the boot rule and the storage rule, and the switch lines point at it', () => {
+  const skill = read('skills/analytics/SKILL.md');
+  const consent = skill.slice(skill.indexOf('## Audience and consent'), skill.indexOf('## Privacy page'));
+  assert.ok(consent.includes('**Apply a saved off at boot.**'));
+  assert.ok(consent.includes("before the first\n`await` of its boot. When that answer is off, it calls `setConsent(false)` there"));
+  assert.ok(consent.includes('With nothing saved, make no call'));
+  assert.ok(consent.includes('`await app.initialize()`'));
+  assert.ok(consent.includes('has a top-level `await`'));
+  assert.ok(consent.includes('Never pass `--opt-out no` to get past them'));
+  assert.ok(consent.includes('**Never write the SDK\'s own storage keys**, `ongame_consent:*` and `ongame_spool:*`'));
+  assert.ok(consent.includes('Update the onGame CLI to the release after `cli-v0.2.50`'));
+  for (const f of ['commands/analytics.md', 'commands/make-game.md', 'skills/game-code/SKILL.md']) {
+    assert.match(read(f).replace(/\s+/g, ' '), /saved answer (at boot, in `src\/main\.ts` )?before the first `await`/, f);
+  }
+  // /publish and the polish phase run the upgrade without --check, so they act on its note.
+  for (const f of ['commands/publish.md', 'skills/phases/polish/SKILL.md']) {
+    assert.ok(read(f).replace(/\s+/g, ' ').includes('A `note:` about the saved Analytics answer at boot → fix what it names'), f);
+  }
+  const version = JSON.parse(read('.claude-plugin/plugin.json')).version;
+  assert.ok(version.localeCompare('1.7.99', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.99 or later`);
+  assert.ok(read('CHANGELOG.md').includes('## 1.7.99'));
 });
 
 test('the plugin version and changelog carry this change', () => {

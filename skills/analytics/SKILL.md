@@ -46,7 +46,8 @@ currency and tutorial steps. The published page's `sdk.js` does the sending; the
   game already had all of it.
 
 `--check <gameDir>` exits 0 only when the audience is recorded, the shim is v2, `public/privacy.html` is current, and a
-children's game has no telemetry left in `index.html`. For a children's game the script removes the block
+children's game has no telemetry left in `index.html`. A game with the Analytics switch must also apply its saved
+answer at boot (see "Audience and consent"); the upgrade run names what is missing in a `note:` line. For a children's game the script removes the block
 `telemetry_inject` wrote; it names any other telemetry script for you to remove.
 
 ## Audience and consent
@@ -60,6 +61,28 @@ A `general` game's settings screen gets an **Analytics** on/off switch that call
 promises the switch only when you say the player has one: after adding it, run `upgrade.mjs` again with `--opt-out yes`.
 A `setConsent` call alone is no switch (a game may call `setConsent(true)` at start). Without a switch, pass
 `--opt-out no`. The answer is kept in `.ongame/analytics.json`, and `--check` reads the page against it.
+
+**Apply a saved off at boot.** The deployed SDK starts after the game's own code. While it starts, it sends what an
+earlier visit left queued. So a game with the switch reads its saved answer in `src/main.ts`, before the first
+`await` of its boot. When that answer is off, it calls `setConsent(false)` there: `if (saved === 'off') setConsent(false);`.
+With nothing saved, make no call: analytics stays on. The template marks the place: before `await app.initialize()`.
+Called there, the no holds until the SDK starts, and the SDK then sends nothing. After an `await`, even a 0 ms timer,
+it can come too late. A `setConsent(true)` there only withdraws an earlier no; it is not the player's yes.
+
+**Never write the SDK's own storage keys**, `ongame_consent:*` and `ongame_spool:*`. Keep the switch's answer under
+the game's own key. Give it to the SDK only through `setConsent`.
+
+**`--check` enforces it** for a game with the switch. It fails when:
+- `src/main.ts` calls no `setConsent` with an answer before its first `await`. A call made only inside an imported
+  function, a method or a constructor does not count: make it in `src/main.ts` itself.
+- a game file that `src/main.ts` imports has a top-level `await`. The boot then runs only after it.
+- `src/telemetry.ts` drops a `setConsent(false)` made before the SDK starts. An older shim does: its exported names are
+  the same, so the v2 name check cannot see it. Update the onGame CLI to the release after `cli-v0.2.50`, then take
+  the shim from a fresh scaffold (`/analytics add` steps 1-2). An upgrade never swaps a shim that keeps that early no
+  for one that drops it.
+
+The upgrade run prints the same lines as `note:` lines. Never pass `--opt-out no` to get past them while the game has
+the switch.
 
 ## Privacy page and store labels
 
