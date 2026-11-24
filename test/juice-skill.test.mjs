@@ -111,7 +111,7 @@ test('the refused move is measured in the tables and in the constants', () => {
   assert.ok(rows[2][1].includes('the only sound of the move is the one its pick-up made'));
   const pickUp = tables(sections['Tier 0: the routine action'])[0].rows.find((row) => row[0] === 'Pick-up sound');
   assert.ok(pickUp, 'Tier 0 lists the pick-up sound');
-  assert.deepEqual(pickUp.slice(1, 3), ['peaks 50 to 100 ms after the piece leaves the tray, on every pick-up', 'M, n=5']);
+  assert.deepEqual(pickUp.slice(1, 3), ['peaks 50 to 100 ms after the piece leaves the tray', 'M, n=5']);
   // The constants say the same: back in one frame, nothing else plays.
   const { refusedMove } = constants;
   assert.equal(refusedMove.returnMs, 17);

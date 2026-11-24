@@ -37,15 +37,15 @@ A piece is picked up and placed, with no line cleared. The player does this ever
 | Layer | Value | Basis | What it is for |
 |---|---|---|---|
 | Pick-up scale | from 0.43x in the tray to 1.0x in 1 frame (17 ms) | M, n=1 | The piece is in the hand at once; no wind-up |
-| Pick-up sound | peaks 50 to 100 ms after the piece leaves the tray, on every pick-up | M, n=5 | The hand hears the piece taken before it is placed |
+| Pick-up sound | peaks 50 to 100 ms after the piece leaves the tray | M, n=5 | The hand hears the piece taken before it is placed |
 | Snap into place | 1 frame (17 ms), no bounce | M, n=37 | Cause and effect read as one moment |
 | Shake, flash, particles | none; the largest screen offset was 0.03 px | M, n=17 | Routine stays quiet, so a reward stands out |
 | Score count starts | 67 to 83 ms after the snap (one at 100) | M, n=23 | The eye sees the piece land first, then the gain |
 | Score count speed | +1 point every 33 ms, one point per block | M, n=21 | A bigger piece ticks longer, with no extra rule |
 | Sound | starts at 90 ms; its click peaks at 195 ms (184 to 210 for 8 in 10) | M, n=36 | Confirms the placement without masking the next one |
 
-**Scale:** nothing here grows. A bigger piece only makes the score count longer: 4 blocks tick for 130 ms, 9
-blocks for 300 ms.
+**Scale:** no layer here gets bigger for a bigger piece. A bigger piece only makes the score count longer: 4 blocks
+tick for 130 ms, 9 blocks for 300 ms.
 
 ## Tier 1: the small reward
 
@@ -67,8 +67,8 @@ One line is cleared and no combo is running.
 | Score pop at the line | on at 517 ms (501 to 567); fades from 734 ms (718 to 784) | M, n=7 | Says what the clear was worth, after the burst |
 | Shake | none; the largest screen offset was 0.07 px | M, n=18 | A single clear is not big enough to move the screen |
 
-**Scale:** particles scale with what was removed, at 3.4 per block. Every time in this table stays the same for a
-bigger clear.
+**Scale:** give a bigger clear 3.4 particles per block it removes; that rate was measured on single lines, and its use
+for bigger clears is inferred. A two-line clear kept these times; 3 or 4 lines change the picture (see Big clears).
 
 ## Tier 2 and up: the combo ladder
 
@@ -150,8 +150,8 @@ the same response for a repeat is inferred.
 
 1. **Respond in one frame.** The snap and the vanish take 1 frame. A delay belongs to the show, never to the
    response.
-2. **Order the show.** Result at 0 ms, shake at 33 ms, beam and sound at 80 ms, particles at 167 ms, banner at
-   384 ms, score pop last. Only the beam and its sound start together.
+2. **Order the show.** Result at 0 ms, shake at 33 ms, sound at 80 ms, beam from 83 ms, particles at 167 ms,
+   banner at 384 ms, score pop last. Only the beam and its sound land together.
 3. **Add a layer; do not enlarge one.** Growth comes from switching layers on, from pitch and from the score number.
 4. **Shake has one size.** Keep the peak at 1.2% of the screen width. Change only the length: none, 190 ms, 300 ms.
 5. **Pitch climbs, loudness holds.** From step 2 to step 8 the pitch rises one or two semitones per step; step 9 is
@@ -212,8 +212,8 @@ action and a combo.
 
 1. Step the game's clock one frame at a time, or record it at 60 fps, and count frames from the event.
 2. Each time in the tables must be within one frame of your count: 17 ms at 60 fps, 33 ms at 30 fps.
-3. Outside its window the shake offset is exactly 0. Inside it, no frame exceeds 1.4% of the screen width, the
-   largest offset measured.
+3. Outside its window the shake offset is 0: the measured game never moved more than 0.07 px there. Inside it,
+   no frame exceeds 1.4% of the screen width, the largest offset measured.
 4. Place ten pieces with no clear: the screen never moves and no particle appears.
 5. Run a combo to step 4: the banner has the same size at every step, and the pitch rises at steps 2, 3 and 4.
 6. Say which numbers you changed after tuning, and why. A changed number is no longer measured.
