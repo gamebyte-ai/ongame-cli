@@ -314,7 +314,7 @@ test('a publish.done that ongame refused leaves the address unverified', () => {
 });
 
 test('preview_start gives a local play link; a failed start or preview_stop takes it away', () => {
-  // The preview serves the folder this build's play_gate played; another folder's preview is the case further down.
+  // The preview serves the folder of this build's play_gate run; another folder's preview is the case further down.
   let v = view(fold([init(), gate('awaiting_review'), previewOk()]), T0 + 2 * MIN);
   assert.deepEqual(v.links, [{ kind: 'local', url: 'http://localhost:5173/', label: 'Play here', note: 'works while this session runs' }]);
 

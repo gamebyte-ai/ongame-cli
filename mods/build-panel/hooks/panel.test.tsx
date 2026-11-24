@@ -359,7 +359,7 @@ test('a preview_start refused before it stopped anything keeps the play link', a
 });
 
 test('a preview of another folder is not shown as this game\'s play link', async ($, on) => {
-  // A preview names a folder, never a game. Only the folder this build's play_gate played is this game's.
+  // A preview names a folder, never a game. Only the folder of this build's recorded play_gate run is this game's.
   engine(on, {
     marker: MARKER,
     answers: {

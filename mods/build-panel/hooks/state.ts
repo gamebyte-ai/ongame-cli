@@ -369,8 +369,9 @@ export function view(s: BuildState, now: number): PanelView | null {
     status: isSuccess || s.completed.includes(name) ? ('done' as const) : name === s.currentPhase ? ('current' as const) : ('pending' as const),
   }));
   const links: PanelView['links'] = [];
-  // A preview names a folder, never a game: it is this game's link only when it serves the folder this build's
-  // play_gate played. A preview of any other folder, or before that folder is known, may be another game's.
+  // A preview names a folder, never a game: it is this game's link only when it serves the build's folder, the one
+  // of the latest play_gate run ongame recorded for it. A preview of any other folder, or one before that run, may
+  // be another game's.
   if (s.preview && s.preview.gameDir !== null && s.preview.gameDir === s.gameDir) {
     links.push({ kind: 'local', url: s.preview.url, label: 'Play here', note: 'works while this session runs' });
   }
