@@ -76,10 +76,12 @@ It reads a syntax tree, with the `@babel/parser` the gradients check already ven
   `src/main.ts`.
 - **The setConsent names:** from that module's imports of the shim: `setConsent`, an alias of it, or
   `T.setConsent` through `import * as T`. An import counts as the shim's the way the upgrade already decides it
-  (`pointsAtShim`): an alias such as `@/telemetry` counts, a game helper such as `./utils/telemetry` does not.
+  (`pointsAtShim`): an alias such as `@/telemetry` counts, a game helper such as `./utils/telemetry` does not. A name
+  bound again anywhere in the module, such as a parameter called `setConsent`, does not count at all.
 - **The walk:** the module's top-level statements, in order, as the browser runs them. A function declaration is
   not run where it stands. A call to a function declared in the same module (a declaration, or a `const` arrow or
-  function) is followed into its body. An immediately called function is followed too.
+  function) is followed into its body. An immediately called function is followed too. A generator is not: calling
+  it runs none of its body. A `for` loop runs its update after its body.
 - **Where it stops:** an `await` ends the function it is in. A top-level `await` ends the walk. After a called
   function stops at its `await`, the caller goes on: the code after `void boot()` still runs before the SDK.
 - **Both branches count:** an `if`, `? :`, `&&`, `try` or loop is read in source order, every branch. A call
