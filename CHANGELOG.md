@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.95 — 2026-11-24
+
+- The build panel's "Play here" link shows only for a preview of this build's game folder: the folder its
+  `play_gate` run played. A preview of another folder, or one started before this build's first `play_gate`,
+  shows no link. Before, a preview of another game showed under this game's name.
+
 ## 1.7.94 — 2026-11-24
 
 - A build panel in Claude Code shows the game being built: its name, its phase, the play check and the play link.
