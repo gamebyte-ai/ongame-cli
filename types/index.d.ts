@@ -1,5 +1,9 @@
 // The build panel's type contract: the values it keeps in `$.state`, and the shapes its state adapter
-// (hooks/state.ts) passes around. `claude plugin validate` holds every `$.state` key the module names to it.
+// (mods/build-panel/hooks/state.ts) passes around. `claude plugin validate` holds every `$.state` key the module
+// names to it.
+//
+// This file sits at the plugin root because Claude Code reads types/index.d.ts there without a "types" key in
+// plugin.json. Claude Code 2.0.15 to 2.1.75 refuse to load a plugin whose plugin.json has a key they do not know.
 
 export type PlayCheckResult = 'passed' | 'blocked' | 'awaiting_review' | 'skipped' | 'unverified';
 
@@ -50,7 +54,7 @@ export type PanelView = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'ongame-build-panel': {
+    ongame: {
       build: Shaped<BuildState>;
       /** The maker closed the pane this session: it does not open by itself again until they ask. */
       isClosed: boolean;

@@ -10,7 +10,7 @@
 // the local link from cli/src/preview.ts and the online link from the publish steps in commands/publish.md.
 // These are structured fields and exact event names, never words whose meaning is judged.
 
-import type { BuildState, PanelView, PublishedRecord, ToolCall, Tone } from '../types';
+import type { BuildState, PanelView, PublishedRecord, ToolCall, Tone } from '../../../types';
 
 export type { BuildState, PanelView, PublishedRecord, ToolCall, Tone };
 

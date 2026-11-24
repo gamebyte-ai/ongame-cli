@@ -10,7 +10,7 @@
 import { atom, read, update } from 'claude-code';
 import type { EngineInterface, Register } from 'claude-code';
 
-import type { PanelView, Tone } from '../types';
+import type { PanelView, Tone } from '../../../types';
 import {
   MARKER_PATH,
   WATCHED,
@@ -43,9 +43,9 @@ const AMBER = '#f7ae5f';
 const TEAL = '#40b9b9';
 
 // Change the shape tag when BuildState's fields change: a value an earlier version stored outlives a reload.
-const build = atom({ plugin: 'ongame-build-panel', key: 'build' } as const, emptyState(), { shape: 'build-1' });
-const isClosed = atom({ plugin: 'ongame-build-panel', key: 'isClosed' } as const, false);
-const tick = atom({ plugin: 'ongame-build-panel', key: 'tick' } as const, 0);
+const build = atom({ plugin: 'ongame', key: 'build' } as const, emptyState(), { shape: 'build-1' });
+const isClosed = atom({ plugin: 'ongame', key: 'isClosed' } as const, false);
+const tick = atom({ plugin: 'ongame', key: 'tick' } as const, 0);
 
 type $ = EngineInterface;
 
