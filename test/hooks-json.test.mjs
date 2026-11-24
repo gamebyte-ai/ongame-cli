@@ -126,3 +126,40 @@ test('play-gate-finish runs before trace_emit and profile_record_build, through 
   for (const tool of ['trace_emit', 'profile_record_build']) assert.ok(re.test(prefix + tool), `${tool} is not held`);
   for (const tool of ['trace_emit_batch', 'state_init', 'publish_upload']) assert.ok(!re.test(prefix + tool), `${tool} must not be held`);
 });
+
+// The build panel ships inside this plugin (docs/plans/2026-11-24-build-panel-design.md, "Release"). Claude Code loads
+// the one hooks module that `modules` names, by a path relative to hooks/hooks.json. A client without mods ignores it.
+test('the hooks module path names a file inside the plugin', () => {
+  assert.ok(Array.isArray(hooks.modules) && hooks.modules.length === 1, 'modules must list exactly one path');
+  const [rel] = hooks.modules;
+  assert.ok(/^\.\.?\//.test(rel), `${rel}: a module path starts with ./ or ../ (relative to hooks/hooks.json)`);
+  const file = path.resolve(ROOT, 'hooks', rel);
+  assert.ok(file.startsWith(ROOT + path.sep), `${rel} points outside the plugin`);
+  assert.ok(fs.existsSync(file), `${rel} does not exist`);
+});
+
+// A mod's `$.state` values belong to the plugin that loads it. A value named for another plugin is refused at runtime
+// ("state.set: denied"), and Claude Code only logs that: the session looks fine and the panel never fills.
+// types/index.d.ts declares the values; Claude Code reads it at the plugin root without a manifest key.
+test("the hooks module keeps its state under this plugin's name, and types/index.d.ts declares it", () => {
+  const source = fs.readFileSync(path.resolve(ROOT, 'hooks', hooks.modules[0]), 'utf8');
+  const owners = [...source.matchAll(/\bplugin:\s*'([^']+)'/g)].map((m) => m[1]);
+  assert.ok(owners.length > 0, 'no $.state atom found in the hooks module');
+  for (const owner of owners) assert.equal(owner, manifest.name, `a $.state value belongs to ${owner}, not to ${manifest.name}`);
+  const types = fs.readFileSync(path.join(ROOT, 'types/index.d.ts'), 'utf8');
+  const declared = new RegExp(`interface PluginState \\{\\s*(?:'${manifest.name}'|${manifest.name}): \\{`);
+  assert.match(types, declared, `types/index.d.ts declares no PluginState for ${manifest.name}`);
+});
+
+// Claude Code 2.0.15 to 2.1.75 refuse a plugin whose plugin.json has a key they do not know, and then load none of its
+// MCP servers, skills or commands. Measured on 2.1.50 with "types" on 2026-11-24 (board item i_q2xe7ru5).
+test('plugin.json uses only keys that old Claude Code clients accept', () => {
+  const accepted = ['name', 'description', 'version', 'author', 'mcpServers'];
+  for (const key of Object.keys(manifest)) {
+    assert.ok(
+      accepted.includes(key),
+      `plugin.json key "${key}": Claude Code 2.0.15 to 2.1.75 refuse the whole plugin for a key they do not know. ` +
+        'Run the plugin on such a client (for example 2.1.50) before adding the key to this list.',
+    );
+  }
+});
