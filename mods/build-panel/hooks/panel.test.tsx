@@ -194,7 +194,7 @@ test('the Turn off button turns it off and says how to turn it on', async ($, on
   await ui.press({ key: 'off' });
   await ui.unmount();
   expect(seen.closed).toEqual(['ongame-build']);
-  expect(seen.toasts).toEqual(['ongame panel off. /ongame-panel on turns it back on.']);
+  expect(seen.toasts).toEqual(['The ongame panel is off. /ongame-panel on turns it back on.']);
 });
 
 test('a verified online link is kept for the next session in this folder', async ($, on) => {

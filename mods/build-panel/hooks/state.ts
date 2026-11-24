@@ -61,10 +61,11 @@ export const WATCHED = new Set([
  * `mcp__plugin_ongame-cli_ongame-local__preview_start` (the CLI repo's own plugin), as desktop/src/progress.ts has them.
  */
 export function ongameTool(name: string): string | null {
-  if (!name.startsWith('mcp__')) return null;
+  const prefix = 'mcp__';
+  if (!name.startsWith(prefix)) return null;
   const i = name.lastIndexOf('__');
-  if (i <= 'mcp_'.length) return null;
-  const server = name.slice('mcp__'.length, i).toLowerCase();
+  if (i <= prefix.length) return null; // no server name between the prefix and the tool name
+  const server = name.slice(prefix.length, i).toLowerCase();
   return server.includes('ongame') ? name.slice(i + 2) : null;
 }
 
@@ -169,7 +170,10 @@ function takeBuild(s: BuildState, tool: string, input: Record<string, unknown>, 
   };
 }
 
-function takeCheck(s: BuildState, tool: string, out: Record<string, unknown>, now: number): BuildState {
+function takeCheck(s: BuildState, tool: string, input: Record<string, unknown>, out: Record<string, unknown>, now: number): BuildState {
+  // A check of another build is not this build's check.
+  const buildId = str(input.buildId);
+  if (buildId !== null && s.buildId !== null && buildId !== s.buildId) return s;
   if (tool === 'play_review') {
     return out.status === 'passed' ? { ...s, check: { result: 'passed', failed: 0, at: now }, updatedAt: now } : s;
   }
@@ -192,6 +196,7 @@ function takeTrace(s: BuildState, input: Record<string, unknown>, now: number): 
     const gameId = str(asRecord(input.payload)?.gameId);
     if (pending === null) return s;
     if (gameId !== null && pending.gameId !== null && gameId !== pending.gameId) return s;
+    if (pending.gameId !== null && s.gameId !== null && pending.gameId !== s.gameId) return s;
     return { ...s, published: { url: pending.url, at: now }, pendingPublish: null, updatedAt: now };
   }
   return s;
@@ -207,7 +212,7 @@ export function observe(s: BuildState, call: ToolCall, now: number): BuildState 
       return takeTrace(s, input, now);
     case 'play_gate':
     case 'play_review':
-      return takeCheck(s, tool, output, now);
+      return takeCheck(s, tool, input, output, now);
     case 'preview_start': {
       // A new start stops the last preview server first (cli/src/preview.ts), so a failed start leaves no link.
       const url = output.ok === true ? playUrl(output.url) : null;
@@ -216,8 +221,11 @@ export function observe(s: BuildState, call: ToolCall, now: number): BuildState 
     case 'preview_stop':
       return s.preview === null ? s : { ...s, preview: null, updatedAt: now };
     case 'publish_game': {
+      // A publish of another game is not this game's link.
+      const gameId = str(input.gameId);
+      if (gameId !== null && s.gameId !== null && gameId !== s.gameId) return s;
       const url = output.refused === true ? null : playUrl(output.publicUrl);
-      return url ? { ...s, pendingPublish: { url, gameId: str(input.gameId) }, updatedAt: now } : s;
+      return url ? { ...s, pendingPublish: { url, gameId }, updatedAt: now } : s;
     }
     default:
       return takeBuild(s, tool, input, output, now);

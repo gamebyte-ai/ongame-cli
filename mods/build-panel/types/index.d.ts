@@ -54,7 +54,7 @@ declare module 'claude-code' {
       build: Shaped<BuildState>;
       /** The maker closed the pane this session: it does not open by itself again until they ask. */
       isClosed: boolean;
-      /** Moves every 30 s so "2 min ago" stays true while the pane is up. */
+      /** Moves on a timer (register.tsx TICK_MS) so "2 min ago" stays true while the pane is up. */
       tick: number;
     };
   }

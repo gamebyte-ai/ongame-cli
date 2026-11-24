@@ -32,6 +32,11 @@ const OFF = 'isOff';
 const PUBLISHED = 'published:';
 /** The body rows the pane asks for when it sits inline above the prompt. */
 const INLINE_ROWS = 9;
+/** Below this many body columns a link gets its own row. */
+const NARROW_COLUMNS = 48;
+/** How often "2 min ago" is redrawn. */
+const TICK_MS = 30_000;
+const OFF_TEXT = 'The ongame panel is off. /ongame-panel on turns it back on.';
 
 // The palette of ongame's own site (docs/index.html): amber for the name, teal for a running build.
 const AMBER = '#f7ae5f';
@@ -71,7 +76,15 @@ async function openByItself($: $): Promise<void> {
   await $.ui.open({ id: PANE, title: TITLE, rows: INLINE_ROWS });
 }
 
+/** Turns the panel off for this and every later session: it never opens by itself again until `/ongame-panel on`. */
+async function turnOff($: $): Promise<void> {
+  await $.store.set(OFF, true);
+  await $.ui.close({ id: PANE });
+}
+
 const MARK: Record<'done' | 'current' | 'pending', string> = { done: '✓', current: '●', pending: '○' };
+const STATE_MARK: Record<Tone, string> = { active: '● ', done: '✓ ', failed: '✗ ', muted: '' };
+const CHECK_MARK: Record<Tone, string> = { active: '· ', done: '✓ ', failed: '✗ ', muted: '· ' };
 
 function toneColor(tone: Tone): string | undefined {
   switch (tone) {
@@ -104,7 +117,7 @@ export const register: Register = (on) => {
     await update($, build, (s) => withPublished(s, kept));
     await refresh($);
     // "2 min ago" stays true while the pane is up: the tick is all the pane re-reads.
-    $.clock.every(30_000, () => {
+    $.clock.every(TICK_MS, () => {
       void update($, tick, (n) => n + 1);
     });
     if (e.isInteractive) await openByItself($);
@@ -138,9 +151,8 @@ export const register: Register = (on) => {
   on('command.run', { command: 'ongame-panel' }, async ($, e) => {
     const arg = e.args.trim().toLowerCase();
     if (arg === 'off') {
-      await $.store.set(OFF, true);
-      await $.ui.close({ id: PANE });
-      return { text: 'The ongame panel is off. /ongame-panel on turns it back on.', isTextDisplayOnly: true };
+      await turnOff($);
+      return { text: OFF_TEXT, isTextDisplayOnly: true };
     }
     if (arg !== '' && arg !== 'on') {
       return { text: 'Use /ongame-panel to show the panel, or /ongame-panel off or on.', isTextDisplayOnly: true };
@@ -180,7 +192,7 @@ export const register: Register = (on) => {
 
     const steps = v.steps.map((step) => `${MARK[step.status]} ${step.name}`).join('  ');
     const copyUrl = v.links[0]?.url;
-    const isNarrow = width < 48;
+    const isNarrow = width < NARROW_COLUMNS;
 
     return (
       <Box flexDirection="column">
@@ -193,7 +205,7 @@ export const register: Register = (on) => {
         </Text>
         <Text wrap="truncate-end">
           <Text color={toneColor(v.state.tone)} dimColor={v.state.tone === 'muted'}>
-            {v.state.tone === 'active' ? '● ' : v.state.tone === 'done' ? '✓ ' : ''}
+            {STATE_MARK[v.state.tone]}
             {v.state.label}
           </Text>
           {phaseText(v)}
@@ -201,7 +213,7 @@ export const register: Register = (on) => {
         {steps !== '' && steps.length <= width && <Text dimColor>{steps}</Text>}
         {v.check !== null && (
           <Text color={toneColor(v.check.tone)} dimColor={v.check.tone === 'muted'} wrap="truncate-end">
-            {v.check.tone === 'failed' ? '✗ ' : v.check.tone === 'done' ? '✓ ' : '· '}
+            {CHECK_MARK[v.check.tone]}
             {v.check.label}
           </Text>
         )}
@@ -239,9 +251,8 @@ export const register: Register = (on) => {
             key="off"
             label="Turn off"
             onPress={async () => {
-              await $.store.set(OFF, true);
-              await $.ui.close({ id: PANE });
-              $.ui.toast('ongame panel off. /ongame-panel on turns it back on.');
+              await turnOff($);
+              $.ui.toast(OFF_TEXT);
             }}
           />
         </Box>

@@ -121,6 +121,29 @@ test('the play check shows the real result, failures counted', () => {
   assert.equal(view(fold([init()]), T0).check, null, 'no play check yet: no line');
 });
 
+test('a play check of another build is not this build\'s check', () => {
+  const blocked = call('play_gate', { gameDir: '/g', buildId: BUILD }, { status: 'ok', state: 'blocked', checks: [{ id: 'x', status: 'fail' }] });
+  const otherReview = call('play_review', { buildId: OTHER }, { status: 'passed' });
+  const s = fold([init(), blocked, otherReview]);
+  assert.equal(s.check.result, 'blocked');
+  // Without a buildId the check is the running build's, as the ongame tools default to it.
+  assert.equal(fold([init(), call('play_gate', { gameDir: '/g' }, { status: 'ok', state: 'skipped' })]).check.result, 'skipped');
+});
+
+test('a publish of another game is not this game\'s link', () => {
+  const publishOther = call('publish_game', { gameId: 'another', files: [] }, { publishId: 'p2', publicUrl: 'https://play.ongame.test/another/' });
+  const done = call('trace_emit', { buildId: BUILD, name: 'publish.done', payload: { gameId: 'another' } }, {});
+  const s = fold([init(), publishOther, done]);
+  assert.equal(s.pendingPublish, null);
+  assert.equal(s.published, null);
+  assert.equal(publishedRecord(s), null, 'nothing is kept under fizzlab');
+
+  // A publish that started before another game took over the panel is not promoted either.
+  const publishMine = call('publish_game', { gameId: 'fizzlab', files: [] }, { publishId: 'p1', publicUrl: 'https://play.ongame.test/fizzlab/' });
+  const switched = { ...fold([init(), publishMine]), gameId: 'another' };
+  assert.equal(observe(switched, call('trace_emit', { buildId: BUILD, name: 'publish.done' }, {}), T0).published, null);
+});
+
 test('preview_start gives a local play link; a failed start or preview_stop takes it away', () => {
   const started = call('preview_start', { gameDir: '/g' }, { ok: true, url: 'http://localhost:5173/', pid: 42 });
   let v = view(fold([init(), started]), T0 + 2 * MIN);
@@ -276,4 +299,39 @@ test('a verified online link is kept for the next session of this game', () => {
     assert.deepEqual(withPublished(emptyState(), broken), emptyState());
   }
   assert.equal(withPublished(live, { ...record, at: T0 }).published.at, T0 + 2 * MIN, 'an older record does not win');
+});
+
+test('the marker TTL boundary and odd start times follow the CLI status line', () => {
+  const at = (epoch) => JSON.stringify({ buildId: BUILD, gameId: 'fizzlab', startedAtEpoch: epoch });
+  assert.equal(fromMarker(emptyState(), at(T0 / 1000), T0 + MARKER_TTL_MS).buildId, BUILD, 'exactly 36 h: still running');
+  assert.equal(fromMarker(emptyState(), at(T0 / 1000), T0 + MARKER_TTL_MS + 1000).buildId, null, 'past 36 h: abandoned');
+  // cli/src/statusline.ts treats a missing or non-numeric start as 0 and skips the age check. So does the panel.
+  for (const epoch of [0, -1, 'x', undefined]) {
+    const s = fromMarker(emptyState(), at(epoch), T0);
+    assert.equal(s.buildId, BUILD, `startedAtEpoch ${epoch}`);
+    assert.equal(s.startedAt, null);
+  }
+});
+
+test('a phase outside the registered plan shows by name only', () => {
+  const s = fold([init(), call('record_iteration', { buildId: BUILD }, { buildId: BUILD, state: { currentPhase: 'audio', completed: ['concept'], plan: PLAN } })]);
+  const v = view(s, T0 + MIN);
+  assert.deepEqual(v.phase, { name: 'audio', index: 0, total: 0 });
+  assert.deepEqual(v.steps.map((x) => x.status), ['done', 'pending', 'pending', 'pending', 'pending']);
+});
+
+test('a state answer with no state fields only touches the update time', () => {
+  const s = fold([init(), advance('code', ['concept']), call('approve_phase', { buildId: BUILD }, { approved: true })]);
+  assert.equal(s.currentPhase, 'code');
+  assert.equal(s.updatedAt, T0 + 2 * MIN);
+});
+
+test('an unsafe publish address never becomes a link', () => {
+  const s = fold([init(), call('publish_game', { gameId: 'fizzlab', files: [] }, { publishId: 'p1', publicUrl: 'javascript:alert(1)' })]);
+  assert.equal(s.pendingPublish, null);
+});
+
+test('one day reads in the singular', () => {
+  const s = { ...fold([init()]), startedAt: null };
+  assert.equal(view(s, T0 + 24 * 3600_000).updated, 'Updated 1 day ago');
 });

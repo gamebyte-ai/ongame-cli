@@ -11,9 +11,9 @@ The panel shows only what an ongame tool or file has said. It never guesses a st
 | --- | --- | --- |
 | Game name | `gameId` from `state_init`'s input, or `.ongame/active-build.json` | No game: no panel. |
 | Build state | `state_init` / `state_advance` / `state_get` / `record_iteration` / `approve_phase` answers (`currentPhase`, `completed`, `done`, `plan.phases`); `trace_emit` `build.done` | A marker older than 36 h counts as no build, as the status line does. |
-| Play check | `play_gate` (`blocked`, `awaiting_review`, `skipped`, `unverified`) and `play_review` (`passed`) | A refused call changes nothing. |
-| Play link | `preview_start` `{ ok: true, url }` (local, ends with the session); `publish_game` `publicUrl` held as pending until `trace_emit` `publish.done` | A link shows only with an `http:` or `https:` address. A pending publish shows no link. |
-| Updated | the time of the last fact above | Shown as "2 min ago". |
+| Play check | `play_gate` (`blocked`, `awaiting_review`, `passed`, `skipped`, `unverified`) and `play_review` (`passed`) | A refused call, or a check of another build, changes nothing. |
+| Play link | `preview_start` `{ ok: true, url }` (local, ends with the session); `publish_game` `publicUrl` held as pending until `trace_emit` `publish.done` | A link shows only with an `http:` or `https:` address and no control characters. A pending publish, or one of another game, shows no link. |
+| Updated | the time of the last fact above | "Started 2 min ago" while the build's start is the last fact, else "Updated 2 min ago". |
 
 There is no "next step" line. ongame does not save one, so the panel leaves it out.
 
