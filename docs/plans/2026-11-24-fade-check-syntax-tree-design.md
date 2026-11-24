@@ -14,13 +14,13 @@ The check must run with Node alone: makers run it from the plugin folder, with n
 
 | option | TS and TSX | runs with Node alone | cost |
 |---|---|---|---|
-| `typescript` from the game's `node_modules` | yes | no: absent in JS games and in this repo's CI | a second path when it is missing |
-| `acorn` plus Node's `stripTypeScriptTypes` | TS only, no TSX | Node 22.13 or later only | two tools, a Node floor |
-| `@babel/parser`, vendored | yes | yes, Node 6 or later | one 530 kB file |
+| `typescript` from the game's `node_modules` | yes | no: absent in a game without TypeScript and in this repo's CI | a second path when it is missing |
+| `acorn` plus Node's `stripTypeScriptTypes` | TS only: TSX throws on Node 26 | Node 22.13 or later (a guess from Node's docs, not run) | two tools, a Node floor |
+| `@babel/parser`, vendored | yes | yes; its package asks for Node 6 or later | one 530 kB file |
 
 Chosen: `@babel/parser` 7.29.14 (MIT), copied byte for byte from the npm tarball into
-`skills/gradients/vendor/babel-parser.cjs`. Its `lib/index.js` requires nothing at run time. The 7.x line keeps
-Node 18 working, which the README names; 8.x needs Node 22.18 or later and is ESM only. 7.29.14 was 12 days old on 2026-11-24, past the 7-day rule. The tarball
+`skills/gradients/vendor/babel-parser.cjs`. Its `lib/index.js` requires nothing at run time. The 7.x package asks
+for Node 6 or later, below the Node 18 the README names; 8.x asks for Node 22.18 or later and is ESM only. 7.29.14 was 12 days old on 2026-11-24, past the 7-day rule. The tarball
 integrity and the file's sha256 sit in `vendor/README.md`, so anyone can re-download and compare. NOTICE lists it.
 
 ## Reading rules from nodes
