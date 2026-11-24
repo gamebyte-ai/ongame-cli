@@ -1,6 +1,6 @@
 {
-  "pluginVersion": "1.7.91",
-  "generatedAt": "2026-11-23",
+  "pluginVersion": "1.7.93",
+  "generatedAt": "2026-11-24",
   "skills": {
     "analytics": {
       "sha256": "a9664cf8a16c4e7b555d3ba1c1d4e9b790e3866c8af447e2537ef5b7f4a14270",
@@ -23,9 +23,9 @@
       "lines": 39
     },
     "difficulty-curve": {
-      "sha256": "53d93c873fb2334eb8f4f51984746e619f6f1c8291c07b78bc7a1ac839e5bcf6",
-      "bytes": 3197,
-      "lines": 48
+      "sha256": "7fd76a66f3688fcc97bcd9e7434a4571bad08ec723db7063f868ec5f753fbb36",
+      "bytes": 3625,
+      "lines": 53
     },
     "forge-assets": {
       "sha256": "f2a62ee5176ad25ecc9e51c39c51af1b1381754ad95d0b202871eabfa36509b9",
@@ -38,19 +38,19 @@
       "lines": 87
     },
     "game-concept": {
-      "sha256": "3c5205af44dc1e228d7346b55ea01c8a6342de3d80dad1840f57315176dcb34c",
-      "bytes": 3033,
-      "lines": 41
+      "sha256": "533f0ac3a2f0ec7367e4f4b3f7cbdc65400c5c2b93e911772e29a3dfc876331d",
+      "bytes": 3267,
+      "lines": 43
     },
     "game-design": {
-      "sha256": "93045e7728be657b860115bb38753cd70913cc5ee2e43a43c0562a56222c4b74",
-      "bytes": 5028,
-      "lines": 88
+      "sha256": "3f7a8c8fe3b47226ea3c3b587eb9da8542aaaf4f00fdee012fdd76e6f4d786c1",
+      "bytes": 5749,
+      "lines": 97
     },
     "game-verify": {
-      "sha256": "3a16a523148a7b5e9f0527aadb266c08182f4e0606c008e6a7b192a31ef42ff5",
-      "bytes": 5119,
-      "lines": 72
+      "sha256": "30037127955ffbbb144548797a75564d2ca890286fad299ef216ea28d8744638",
+      "bytes": 5453,
+      "lines": 76
     },
     "gradients": {
       "sha256": "7f435eeed457d5bbdcf2619c1a8d6df2338064896e2a57b734476d62c4396b21",

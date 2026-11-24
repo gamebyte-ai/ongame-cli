@@ -39,6 +39,11 @@ the curve that step 4 writes.
 **The levels review reads the economy too.** A `phase_review` of the levels gets
 `artifact:<the levels.config.json curve text, then each file that sets prices, earnings or upgrade effects, each under a `--- <path> ---` line>`.
 
+**Check the coin runway with the curve.** When levels earn or spend coins, run the game's economy simulation
+with the assertion from `skills/game-design/economy.md`. Early shortages must fail its normal test command.
+A D1 profile or a short level list does not waive the 12-session AND 3-day default; extend the simulated content
+horizon or report it unverified. Include the report with the economy files in the levels review.
+
 ## D1 / D7 / D30 logic (profile selection)
 
 Pick the profile by the retention horizon the game is built for: `d1` for a short/casual game or a prototype, `d7`

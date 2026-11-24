@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.93 — 2026-11-24
+
+- New game plans default to no needed-item coin shortage before 12 completed sessions and three full elapsed days, without purchases or rewarded ads. The starting planning assumption is four 5–6 minute sessions a day, about 66 minutes across 12 sessions.
+- The shared economy runway checker rejects early shortages and insufficient simulation coverage for average and light players. A runnable example and tests cover both passing and failing plans.
+
 ## 1.7.91 — 2026-11-22
 
 - The code phase asks the agent to pick a frame when it scaffolds a web game: `scaffold_materialize` takes `dimension`, `"2d"` or `"3d"`. A 2D game leaves three.js out. Measured on fresh scaffolds: 249.2 kB of gzipped JavaScript for 2D against 409.5 kB for 3D.
