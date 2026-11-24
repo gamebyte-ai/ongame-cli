@@ -193,8 +193,8 @@ the same response for a repeat is inferred.
 ```
 
 Shake offset in pixels is `peakShareOfWidth` times the screen width: 4.5 px on a 390 px screen as measured, and by
-the inferred size rule 8.8 px on a 768 px one. Pitch for a step is `baseHz * ratioPerSemitone ** semitonesByStep[step]`. No step past 9 was seen; staying on
-the octave there is inferred.
+the inferred size rule 8.8 px on a 768 px one. Pitch for a step is `baseHz * ratioPerSemitone ** semitonesByStep[step]`.
+No step past 9 was seen; staying on the octave there is inferred.
 
 ## Other genres
 
