@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.7.95 — 2026-11-24
+
+- `skills/gradients/check.mjs` reads a game's code as a parsed syntax tree, not as text. Its rules are unchanged. Spacing, comments, semicolons, quotes, regex literals, type casts and `!` no longer change what it finds. Before, each new way of writing the same code needed its own fix.
+- It parses with `@babel/parser` 7.29.14, bundled in `skills/gradients/vendor/` with its MIT license and listed in `NOTICE`. Nothing is installed: Node alone runs it, from Node 18.
+- It now also reads `do ... while` loops and Canvas styles set with a string key (`ctx['globalAlpha'] = ...`).
+- A file it cannot parse is named and not checked. The run then exits 2, or 1 when it found a fade elsewhere. An unchecked file is never a pass.
+- `test/gradients-syntax-tree.test.mjs` holds 10 cases the text check got wrong. The old tests and fixtures pass unchanged.
+
 ## 1.7.93 — 2026-11-24
 
 - New game plans default to no needed-item coin shortage before 12 completed sessions and three full elapsed days, without purchases or rewarded ads. The starting planning assumption is four 5–6 minute sessions a day, about 66 minutes across 12 sessions.
