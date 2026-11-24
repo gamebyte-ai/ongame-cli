@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.7.94 — 2026-11-24
+## 1.7.96 — 2026-11-24
 
 - A build panel in Claude Code shows the game being built: its name, its phase, the play check and the play link.
   It reads only what ongame's own tools answered. During a build it opens by itself as a sidebar when the terminal
@@ -10,6 +10,14 @@
   before, without the panel: measured on 2.1.50, 2.1.100, 2.1.150, 2.1.250 and 2.1.280.
 - `test/hooks-json.test.mjs` checks that the panel's module path stays inside the plugin, that its state belongs
   to the ongame plugin, and that `plugin.json` keeps to keys Claude Code 2.0.15 to 2.1.75 accept.
+
+## 1.7.95 — 2026-11-24
+
+- `skills/gradients/check.mjs` reads a game's code as a parsed syntax tree, not as text. Its rules are unchanged. Spacing, comments, semicolons, quotes, regex literals, type casts and `!` no longer change what it finds. Before, each new way of writing the same code needed its own fix.
+- It parses with `@babel/parser` 7.29.14, bundled in `skills/gradients/vendor/` with its MIT license and listed in `NOTICE`. Nothing is installed: Node alone runs it.
+- It now also reads `do ... while` loops, a `for` loop whose counter is declared before it (`for (; i < 20; i++)`), and Canvas styles set with a string key (`ctx['globalAlpha'] = ...`).
+- A file it cannot parse is named and not checked. The run then exits 2, or 1 when it found a fade elsewhere. An unchecked file is never a pass.
+- `test/gradients-syntax-tree.test.mjs` holds 13 cases the text check got wrong. The old tests and fixtures pass unchanged.
 
 ## 1.7.93 — 2026-11-24
 

@@ -10,3 +10,9 @@ The `ongame-cli` binary itself, and the backend services it talks to, are closed
 contain no third-party open-source code requiring separate attribution here. If a future release
 bundles third-party components under their own licenses, those licenses and attributions will be
 listed in this file.
+
+## Third-party components in this repository
+
+- `skills/gradients/vendor/babel-parser.cjs` is @babel/parser 7.29.14 (https://github.com/babel/babel), copied
+  unchanged from its npm package. MIT License, Copyright (C) 2012-2014 by various contributors. The full license
+  text is `skills/gradients/vendor/LICENSE`.

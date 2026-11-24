@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // A stand-in ongame MCP server for trying the build panel in a real Claude Code session without an ongame
-// account. It answers five ongame tools with the CLI's own answer shapes (the sources are named in
+// account. It answers five ongame tools and call_wait with the CLI's own answer shapes (the sources are named in
 // ../hooks/state.ts) and touches nothing else: no network, no files. Its server name must hold "ongame" for the
 // panel to read it, as the real servers' names do.
 //
@@ -10,6 +10,10 @@
 // Run it from the repo root: the panel ships inside the ongame plugin (hooks/hooks.json "modules").
 // Then ask Claude to call state_init, state_advance, play_gate (with the buildId state_init returned), play_review
 // (with the runId play_gate returned) and preview_start.
+//
+// `--pending play_gate,preview_start` (after the file name in "args") makes those tools answer as a call slower than
+// 45 s does in the CLI (cli/src/call-jobs.ts): `call_pending` with a callId at once, then their own answer through
+// call_wait. The fixture answers at once; only the shape of a slow call is reproduced, not its time.
 import { randomUUID } from 'node:crypto';
 import { createInterface } from 'node:readline';
 
@@ -18,6 +22,12 @@ let plan = { phases: [] };
 let step = -1;
 /** The latest play_gate run. As in the CLI, play_review passes only for that run, in the folder it played. */
 let run = null;
+
+const flag = process.argv.indexOf('--pending');
+/** The tools that answer call_pending first. */
+const PENDING = new Set(flag >= 0 ? String(process.argv[flag + 1] ?? '').split(',').filter(Boolean) : []);
+/** The answers of calls that went pending, by callId. As in the CLI, call_wait can read one again until it expires. */
+const held = new Map();
 
 const state = () => ({
   currentPhase: step >= 0 && step < plan.phases.length ? plan.phases[step] : null,
@@ -77,7 +87,28 @@ const TOOLS = {
     inputSchema: { type: 'object', properties: { gameDir: { type: 'string' } }, required: ['gameDir'] },
     run: () => ({ ok: true, url: 'http://localhost:5173/', pid: process.pid }),
   },
+  call_wait: {
+    description: 'Get the result of a tool call that answered reason=call_pending. Pass the callId it returned.',
+    inputSchema: { type: 'object', properties: { callId: { type: 'string', minLength: 1 } }, required: ['callId'] },
+    run: (args) =>
+      held.get(args.callId) ?? {
+        ok: false, reason: 'call_not_found', retryable: false,
+        fix: 'This callId is unknown or expired. Check whether the work landed before calling the original tool again.',
+      },
+  },
 };
+
+/** A tool's answer, or what the CLI answers first when the call is still running after 45 s. */
+function answerOf(name, tool, args) {
+  const answer = tool.run(args);
+  if (!PENDING.has(name)) return answer;
+  const callId = randomUUID();
+  held.set(callId, answer);
+  return {
+    ok: false, reason: 'call_pending', retryable: true, callId, tool: name,
+    fix: `${name} is still running. Call call_wait with this callId to get its result. Do not call ${name} again: that would start the work a second time.`,
+  };
+}
 
 const send = (msg) => process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', ...msg })}\n`);
 
@@ -107,7 +138,7 @@ createInterface({ input: process.stdin }).on('line', (line) => {
     case 'tools/call': {
       const tool = TOOLS[msg.params?.name];
       if (!tool) return send({ id: msg.id, error: { code: -32602, message: `no tool ${msg.params?.name}` } });
-      const answer = tool.run(msg.params?.arguments ?? {});
+      const answer = answerOf(msg.params.name, tool, msg.params?.arguments ?? {});
       return send({ id: msg.id, result: { content: [{ type: 'text', text: JSON.stringify(answer) }] } });
     }
     default:

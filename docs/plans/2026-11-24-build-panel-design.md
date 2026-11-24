@@ -26,10 +26,18 @@ An answer moves the panel only when it says the thing happened, for this build o
 - An accepted `publish.done` names the game in its payload. It promotes the held publish of that game only.
 - `play_review` names a folder and a run, never a build. The panel matches it on the `runId` and `gameDir`
   of the `play_gate` run it holds for this build.
-- A call slower than 45 s answers `{ ok: false, reason: call_pending }` first. That is "not known yet".
-  Its own answer then comes through `call_wait`, which the panel does not read. So after a slow `play_gate`
-  the panel shows no play check line, and after a slow `preview_start` no local link, until a later call
-  answers at once.
+- A call slower than 45 s answers `{ ok: false, reason: call_pending, callId }` first. That is "not known
+  yet". Its own answer then comes through `call_wait`, and the panel reads it as the answer of that call.
+  On aws-w2, 29 of 76 real `play_gate` runs went pending (2026-11-21 to 2026-11-23, i_4rirhc58).
+- That answer is collected later than the call ran, so a newer call of the same kind wins. The kinds are
+  build (the state tools and `build.done`), check (`play_gate`), review (`play_review`), preview
+  (`preview_start`, `preview_stop`) and publish (`publish_game`, `publish.done`). The panel holds at most one
+  waiting call per kind, with only the input fields it reads. Any newer call of that kind, whatever it
+  answered, drops it. So `preview_start` pending, then `preview_stop`, then `call_wait` shows no link.
+  A late answer passes the same checks as one given at once (this build, this run, this game).
+  A late `state_init` names a build no check can hold it to, so it gets the marker's rule: it does not replace
+  a build that started after it went pending. A new game drops a held `preview_start` or `publish_game`, as it
+  drops their links.
 
 ## Parts
 
@@ -60,8 +68,9 @@ has closed the pane by hand yet, so this is a guess until one does.
 - Panel: `claude plugin test` and `claude plugin validate .` from the repo root. These need the `claude`
   command, which CI does not install.
 - In a real session without an ongame account: `mods/build-panel/dev/ongame-fixture.mjs` answers five ongame
-  tools with the CLI's answer shapes. Its header has the `claude --plugin-dir . --mcp-config ...` line.
-  Its `play_review` takes `gameDir` and `runId`, as the CLI's does, and passes only the latest run.
+  tools and `call_wait` with the CLI's answer shapes. Its header has the `claude --plugin-dir . --mcp-config ...`
+  line. Its `play_review` takes `gameDir` and `runId`, as the CLI's does, and passes only the latest run.
+  With `--pending play_gate` it answers `play_gate` as a slow call: `call_pending` first, the run through `call_wait`.
 
 ## Limits kept
 
