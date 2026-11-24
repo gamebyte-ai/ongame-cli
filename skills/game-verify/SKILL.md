@@ -20,6 +20,10 @@ node <this skill's dir>/live-diff.mjs <gameDir>/dist <liveUrl>   # 0 = all byte-
 - **Assert every scripted edit.** A `str.replace` or `sed` whose anchor is gone changes nothing and raises nothing;
   build, type check and console stay clean. Anchor on structure (a signature), then `grep -c` the new symbol.
 
+- **A new or changed coin economy passes the runway check.** Run its normal economy tests, including
+  `assertEconomyRunway` from `skills/game-design/economy-check.mjs` (see `economy.md` beside it). Missing simulation
+  coverage is unverified, not a pass. Report the first shortage and checked horizon in sessions, minutes and days.
+
 ## 2. Prove it on the build, with a scripted player
 
 This section and `references/proof-run.md` are the home of the verification traps; other skills point here.

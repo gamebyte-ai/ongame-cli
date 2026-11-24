@@ -249,6 +249,11 @@ game-rule code, and carry it into later work and re-runs:
 6. **Rival study, applied:** the looks, on-screen sizes and economy of at least three popular games in the
    genre, in one table, and where each finding changed this game.
 
+**Economy default:** before planning coins or monetization, apply `skills/game-design/economy.md`: no needed-item
+coin shortage before **12 completed sessions AND 3 full elapsed days** (four 5–6 minute sessions/day is the starting
+assumption). Run its `economy-check.mjs` against individual no-purchase, no-rewarded-ad simulation runs and put the
+assertion in the game's normal economy test. This applies in direct work and docs-only planning too.
+
 ## Work and verify
 
 Work towards the confirmed brief, choose the necessary tools and implementation approach, and keep the scope
