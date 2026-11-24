@@ -4,9 +4,9 @@
 
 - `skills/gradients/check.mjs` reads a game's code as a parsed syntax tree, not as text. Its rules are unchanged. Spacing, comments, semicolons, quotes, regex literals, type casts and `!` no longer change what it finds. Before, each new way of writing the same code needed its own fix.
 - It parses with `@babel/parser` 7.29.14, bundled in `skills/gradients/vendor/` with its MIT license and listed in `NOTICE`. Nothing is installed: Node alone runs it, from Node 18.
-- It now also reads `do ... while` loops and Canvas styles set with a string key (`ctx['globalAlpha'] = ...`).
+- It now also reads `do ... while` loops, a `for` loop whose counter is declared before it (`for (; i < 20; i++)`), and Canvas styles set with a string key (`ctx['globalAlpha'] = ...`).
 - A file it cannot parse is named and not checked. The run then exits 2, or 1 when it found a fade elsewhere. An unchecked file is never a pass.
-- `test/gradients-syntax-tree.test.mjs` holds 10 cases the text check got wrong. The old tests and fixtures pass unchanged.
+- `test/gradients-syntax-tree.test.mjs` holds 13 cases the text check got wrong. The old tests and fixtures pass unchanged.
 
 ## 1.7.93 — 2026-11-24
 

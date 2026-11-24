@@ -1,6 +1,7 @@
 // The fade check (skills/gradients/check.mjs) reads a game's code as a parsed syntax tree, not as text. The text
-// check needed a new rule for each way of writing the same code. Every case below is written in a way it never
-// learned: it got each one wrong. test/gradients-rule.test.mjs and its fixtures stay the pass bar for the rules.
+// check needed a new rule for each way of writing the same code. The cases below are ways it never learned: it got
+// each one wrong, except `for (i; ...)`, which guards one it did learn. test/gradients-rule.test.mjs and its
+// fixtures stay the pass bar for the rules.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -34,6 +35,14 @@ do { g.circle(0, 0, 100 - i * 4).fill({ color: 0xffffff, alpha: 0.05 }); i++; } 
   this.g.fill({ color: 0xffffff, alpha: 0.05 });`),
   };
   for (const [name, src] of Object.entries(fades)) assert.equal(scan(src).length, 1, name);
+});
+
+test('a for loop finds its counter however its head is written', () => {
+  const discs = '{ g.circle(0, 0, 100 - i * 4).fill({ color: 0xffffff, alpha: 0.05 }); }';
+  for (const head of ['let i = 0;\nfor (i; i < 20; i++) ', 'let i = 0;\nfor (; i < 20; i++) ', 'let i = 0;\nfor (; i < 20; i += 1) ',
+    'let i = 0, j = 0;\nfor (; j < 20; j++, i++) ']) {
+    assert.equal(scan(head + discs).length, 1, head);
+  }
 });
 
 test('a comment inside a fill is not part of its style', () => {

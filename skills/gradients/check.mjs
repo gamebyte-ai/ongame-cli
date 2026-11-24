@@ -299,12 +299,18 @@ function loopOf(node) {
   const body = nodes(node.body);
   let vars = new Set(), counter = false;
   if (node.type === 'ForStatement') {
+    // The counters: names the head declares, assigns or names (`let i = 0`, `i = 0`, `i`), and names its update steps.
     counter = true;
+    const list = (e) => { const u = unwrap(e); return u?.type === 'SequenceExpression' ? u.expressions.map(unwrap) : u ? [u] : []; };
     const init = unwrap(node.init);
     if (init?.type === 'VariableDeclaration') for (const d of init.declarations) bound(d.id).forEach((v) => vars.add(v));
-    else for (const e of init?.type === 'SequenceExpression' ? init.expressions : [init]) {
-      const a = unwrap(e);
-      if (a?.type === 'AssignmentExpression') bound(a.left).forEach((v) => vars.add(v));
+    else for (const a of list(init)) {
+      if (a.type === 'AssignmentExpression') bound(a.left).forEach((v) => vars.add(v));
+      else if (a.type === 'Identifier') vars.add(a.name);
+    }
+    for (const u of list(node.update)) {
+      const name = unwrap(u.type === 'UpdateExpression' ? u.argument : u.type === 'AssignmentExpression' ? u.left : null);
+      if (name?.type === 'Identifier') vars.add(name.name);
     }
   } else if (node.type === 'ForOfStatement' || node.type === 'ForInStatement') {
     const left = unwrap(node.left);
