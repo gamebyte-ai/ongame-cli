@@ -13,8 +13,10 @@ import {
   fromMarker,
   observe,
   ongameTool,
+  publishedRecord,
   readOutput,
   view,
+  withPublished,
 } from '../mods/build-panel/hooks/state.ts';
 
 const T0 = Date.parse('2026-11-24T09:00:00Z');
@@ -53,7 +55,7 @@ test('state_init names the game and the build', () => {
   assert.equal(v.state.tone, 'active');
   assert.equal(v.phase, null, 'no phase is current until state_advance opens one');
   assert.deepEqual(v.steps.map((s) => s.status), ['pending', 'pending', 'pending', 'pending', 'pending']);
-  assert.equal(v.updated, 'Updated 1 min ago');
+  assert.equal(v.updated, 'Started 1 min ago');
 });
 
 test('state_advance moves the phase and the steps', () => {
@@ -131,11 +133,22 @@ test('preview_start gives a local play link; a failed start or preview_stop take
   assert.deepEqual(v.links, []);
 });
 
-test('a link must be an http or https address', () => {
-  for (const url of ['javascript:alert(1)', 'file:///etc/passwd', 'not a url', '', 42, null, `https://x.test/${'a'.repeat(2100)}`]) {
+test('a link must be an http or https address with no control characters', () => {
+  const unsafe = [
+    'javascript:alert(1)', 'file:///etc/passwd', 'not a url', '', 42, null, `https://x.test/${'a'.repeat(2100)}`,
+    'http://localhost:5173/\u001b]8;;https://evil.test\u0007', ' http://localhost:5173/', 'http://local\nhost:5173/', 'http://localhost:5173/\u009b',
+  ];
+  for (const url of unsafe) {
     const s = fold([init(), call('preview_start', { gameDir: '/g' }, { ok: true, url })]);
-    assert.equal(s.preview, null, `${String(url).slice(0, 30)} must not become a link`);
+    assert.equal(s.preview, null, `${JSON.stringify(url)?.slice(0, 40)} must not become a link`);
   }
+  const s = fold([init(), call('preview_start', { gameDir: '/g' }, { ok: true, url: 'HTTP://LocalHost:5173' })]);
+  assert.equal(s.preview.url, 'http://localhost:5173/', 'the checked, normal form is what is drawn');
+});
+
+test('names drawn carry no control characters', () => {
+  const v = view(fold([init('fizz\u001b[31mlab')]), T0);
+  assert.equal(v.game, 'fizz[31mlab');
 });
 
 test('a published link shows only after publish.done', () => {
@@ -211,6 +224,13 @@ test('the marker of the build already known only fills gaps', () => {
   assert.equal(s.startedAt, T0);
 });
 
+test('an older marker never replaces a build that started later', () => {
+  // build-marker-write could not replace the marker (MARKER_FAILED): it still names the earlier build.
+  const known = fold([init('fizzlab', OTHER)], emptyState(), T0 + 10 * MIN);
+  const marker = JSON.stringify({ buildId: BUILD, gameId: 'fizzlab', startedAtEpoch: T0 / 1000 });
+  assert.equal(fromMarker(known, marker, T0 + 11 * MIN).buildId, OTHER);
+});
+
 test('the marker of a newer build replaces the old one', () => {
   const known = fold([init(), advance('code', ['concept'])]);
   const marker = JSON.stringify({ buildId: OTHER, gameId: 'fizzlab', startedAtEpoch: (T0 + 10 * MIN) / 1000 });
@@ -228,10 +248,32 @@ test('an ongame answer reaches the adapter as text or as a structured result', (
 });
 
 test('times read as plain words', () => {
-  const s = fold([init()]);
+  const s = { ...fold([init()]), startedAt: null };
   assert.equal(view(s, T0 + 30_000).updated, 'Updated just now');
   assert.equal(view(s, T0 + 59 * MIN).updated, 'Updated 59 min ago');
   assert.equal(view(s, T0 + 3 * 3600_000).updated, 'Updated 3 h ago');
   assert.equal(view(s, T0 + 50 * 3600_000).updated, 'Updated 2 days ago');
   assert.equal(view(s, T0 - 5 * MIN).updated, 'Updated just now', 'a clock behind the record');
+});
+
+test('a verified online link is kept for the next session of this game', () => {
+  const live = fold([
+    init(),
+    call('publish_game', { gameId: 'fizzlab', files: [] }, { publishId: 'p1', publicUrl: 'https://play.ongame.test/fizzlab/' }),
+    call('trace_emit', { buildId: BUILD, name: 'publish.done', payload: { gameId: 'fizzlab' } }, {}),
+  ]);
+  const record = publishedRecord(live);
+  assert.deepEqual(record, { gameId: 'fizzlab', url: 'https://play.ongame.test/fizzlab/', at: T0 + 2 * MIN });
+  assert.equal(publishedRecord(fold([init()])), null, 'nothing published: nothing kept');
+
+  const later = view(withPublished(emptyState(), record), record.at + 3 * 24 * 3600_000);
+  assert.equal(later.game, 'fizzlab');
+  assert.equal(later.state.label, 'No build running');
+  assert.deepEqual(later.links, [{ kind: 'online', url: 'https://play.ongame.test/fizzlab/', label: 'Play online', note: 'published 3 days ago' }]);
+
+  assert.equal(withPublished(fold([init('other-game')]), record).published, null, 'another game here now');
+  for (const broken of [null, 'x', {}, { ...record, url: 'javascript:x' }, { ...record, at: 'soon' }, { ...record, gameId: '' }]) {
+    assert.deepEqual(withPublished(emptyState(), broken), emptyState());
+  }
+  assert.equal(withPublished(live, { ...record, at: T0 }).published.at, T0 + 2 * MIN, 'an older record does not win');
 });

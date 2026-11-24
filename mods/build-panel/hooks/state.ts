@@ -10,6 +10,10 @@
 // the local link from cli/src/preview.ts and the online link from the publish steps in commands/publish.md.
 // These are structured fields and exact event names, never words whose meaning is judged.
 
+import type { BuildState, PanelView, PublishedRecord, ToolCall, Tone } from '../types';
+
+export type { BuildState, PanelView, PublishedRecord, ToolCall, Tone };
+
 /** The marker counts as abandoned after this long: the CLI's status line and inject hook use the same 36 h. */
 export const MARKER_TTL_MS = 36 * 3600 * 1000;
 
@@ -18,49 +22,6 @@ export const MARKER_PATH = '.ongame/active-build.json';
 
 const BUILD_ID = /^b_[0-9a-f]{16}$/;
 const MAX_URL = 2048;
-
-export type PlayCheckResult = 'passed' | 'blocked' | 'awaiting_review' | 'skipped' | 'unverified';
-
-export type BuildState = {
-  gameId: string | null;
-  buildId: string | null;
-  /** The phases the build registered, in order; empty when only the marker is known. */
-  phases: string[];
-  currentPhase: string | null;
-  completed: string[];
-  isDone: boolean;
-  /** When the build started, ms since the epoch; from the marker. */
-  startedAt: number | null;
-  check: { result: PlayCheckResult; failed: number; at: number } | null;
-  /** A local preview server's address; it lives as long as the agent session that started it. */
-  preview: { url: string; at: number } | null;
-  /** The game's public address, once ongame recorded the publish as verified live. */
-  published: { url: string; at: number } | null;
-  /** A publish under way: its address is not live until `publish.done`. */
-  pendingPublish: { url: string; gameId: string | null } | null;
-  /** When any of the above last changed, ms since the epoch. */
-  updatedAt: number | null;
-};
-
-/** One finished tool call as the adapter reads it: the full tool name, its input, its parsed answer. */
-export type ToolCall = {
-  tool: string;
-  input: Record<string, unknown>;
-  output: Record<string, unknown>;
-  isError: boolean;
-};
-
-export type Tone = 'active' | 'done' | 'failed' | 'muted';
-
-export type PanelView = {
-  game: string;
-  state: { label: string; tone: Tone };
-  phase: { name: string; index: number; total: number } | null;
-  steps: { name: string; status: 'done' | 'current' | 'pending' }[];
-  check: { label: string; tone: Tone } | null;
-  links: { kind: 'local' | 'online'; url: string; label: string; note: string }[];
-  updated: string | null;
-};
 
 export function emptyState(): BuildState {
   return {
@@ -145,15 +106,27 @@ function strings(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
 }
 
-/** An address the panel may show: http or https, parseable, short enough for a terminal link. */
+/** C0 and C1 control characters, DEL and whitespace: none belongs in an address, and a control character can
+ *  steer the terminal. The URL parser quietly drops some of them, so they are refused before it runs. */
+const UNSAFE_URL = /[\u0000-\u0020\u007f-\u009f]/;
+const CONTROL = /[\u0000-\u001f\u007f-\u009f]/g;
+
+/** An address the panel may show: http or https, parseable, short enough for a terminal link. The parser's own
+ *  form is returned, so what is drawn is what was checked. */
 export function playUrl(v: unknown): string | null {
-  if (typeof v !== 'string' || v.length > MAX_URL) return null;
+  if (typeof v !== 'string' || v.length > MAX_URL || UNSAFE_URL.test(v)) return null;
   try {
     const u = new URL(v);
-    return u.protocol === 'http:' || u.protocol === 'https:' ? v : null;
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+    return u.href.length > MAX_URL ? null : u.href;
   } catch {
     return null;
   }
+}
+
+/** A name to draw: control characters out, so a game id cannot steer the terminal. */
+export function clean(v: string): string {
+  return v.replace(CONTROL, '');
 }
 
 /** A new build: the build's own lines go, the links stay when it is the same game. */
@@ -178,7 +151,7 @@ function takeBuild(s: BuildState, tool: string, input: Record<string, unknown>, 
   if (tool === 'state_init') {
     if (id === null || !BUILD_ID.test(id)) return s;
     const gameId = str(input.gameId) ?? str(inner.gameId);
-    next = id === s.buildId ? { ...s, gameId: gameId ?? s.gameId } : startBuild(s, gameId, id, now);
+    next = id === s.buildId ? { ...s, gameId: gameId ?? s.gameId } : { ...startBuild(s, gameId, id, now), startedAt: now };
   } else if (s.buildId === null || (id !== null && id !== s.buildId)) {
     // A state answer for no build the panel knows, or for another build: not this game's state.
     return s;
@@ -267,7 +240,28 @@ export function fromMarker(s: BuildState, text: string | null, now: number): Bui
   if (buildId === s.buildId) {
     return { ...s, gameId: s.gameId ?? gameId, startedAt: s.startedAt ?? startedAt };
   }
+  // The marker names another build. It is the newer one only when it started after the build the panel holds: a
+  // marker the CLI could not replace (cli/src/hooks/build-marker-write.ts, MARKER_FAILED) still names the old build.
+  if (s.buildId !== null && (startedAt === null || s.startedAt === null || startedAt <= s.startedAt)) return s;
   return { ...startBuild(s, gameId, buildId, startedAt ?? now), startedAt };
+}
+
+/** The record to keep across sessions once a link is verified live, or null when there is none. */
+export function publishedRecord(s: BuildState): PublishedRecord | null {
+  return s.gameId !== null && s.published !== null ? { gameId: s.gameId, url: s.published.url, at: s.published.at } : null;
+}
+
+/** Folds a record kept by an earlier session in: the game and its last verified online link. Another game's
+ *  record, a broken one, or one older than the link already held changes nothing. */
+export function withPublished(s: BuildState, record: unknown): BuildState {
+  const r = asRecord(record);
+  const gameId = r ? str(r.gameId) : null;
+  const url = r ? playUrl(r.url) : null;
+  const at = r && typeof r.at === 'number' && Number.isFinite(r.at) ? r.at : null;
+  if (gameId === null || url === null || at === null) return s;
+  if (s.gameId !== null && s.gameId !== gameId) return s;
+  if (s.published !== null && s.published.at >= at) return s;
+  return { ...s, gameId, published: { url, at }, updatedAt: s.updatedAt ?? at };
 }
 
 /** "just now", "4 min ago", "3 h ago", "2 days ago". A record ahead of the clock reads "just now". */
@@ -310,9 +304,9 @@ export function view(s: BuildState, now: number): PanelView | null {
   const index = s.currentPhase === null ? -1 : s.phases.indexOf(s.currentPhase);
   const phase = s.isDone || s.currentPhase === null
     ? null
-    : { name: s.currentPhase, index: index + 1, total: index >= 0 ? s.phases.length : 0 };
+    : { name: clean(s.currentPhase), index: index + 1, total: index >= 0 ? s.phases.length : 0 };
   const steps = s.phases.map((name) => ({
-    name,
+    name: clean(name),
     status: s.isDone || s.completed.includes(name) ? ('done' as const) : name === s.currentPhase ? ('current' as const) : ('pending' as const),
   }));
   const links: PanelView['links'] = [];
@@ -323,5 +317,5 @@ export function view(s: BuildState, now: number): PanelView | null {
       ? `Started ${ago(s.startedAt, now)}`
       : `Updated ${ago(s.updatedAt, now)}`
     : null;
-  return { game: s.gameId, state, phase, steps, check: s.check ? checkLine(s.check) : null, links, updated };
+  return { game: clean(s.gameId), state, phase, steps, check: s.check ? checkLine(s.check) : null, links, updated };
 }

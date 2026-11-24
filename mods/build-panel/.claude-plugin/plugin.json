@@ -1,0 +1,9 @@
+{
+  "name": "ongame-build-panel",
+  "version": "0.1.0",
+  "description": "ongame build panel: your game's build state and play link beside the chat.",
+  "author": {
+    "name": "ongame"
+  },
+  "types": "./types/index.d.ts"
+}
