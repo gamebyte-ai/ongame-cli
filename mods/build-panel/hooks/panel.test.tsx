@@ -154,11 +154,13 @@ test('on a narrow screen the link gets its own row and a long step list is left 
   engine(on, {
     answers: {
       state_init: { buildId: BUILD, state: { currentPhase: 'polish', completed: ['concept', 'assets', 'code', 'levels'], done: false, plan: PLAN } },
+      play_gate: { status: 'ok', state: 'awaiting_review', runId: RUN, checks: [] },
       preview_start: { ok: true, url: 'http://localhost:5173/' },
     },
   });
   await $.session.start(start);
   await $.tool.call(callOf(ongame('state_init'), { gameId: 'fizzlab', plan: PLAN }));
+  await $.tool.call(callOf(ongame('play_gate'), { gameDir: CWD, buildId: BUILD }));
   await $.tool.call(callOf(ongame('preview_start'), { gameDir: CWD }));
   const ui = await $.ui.mount({ ...NARROW, surface: 'terminal' });
   expect((await ui.find({ type: 'Text', text: /Building/ }))?.text).toBe('● Building · polish (5 of 5)');
@@ -342,16 +344,39 @@ test('a preview_start refused before it stopped anything keeps the play link', a
   engine(on, {
     marker: MARKER,
     answers: {
+      play_gate: { status: 'ok', state: 'awaiting_review', runId: RUN, checks: [] },
       preview_start: (input: { built?: boolean }) =>
         input.built === true ? { ok: false, code: 'no_dist', reason: 'no_dist', fix: 'x' } : { ok: true, url: 'http://localhost:5173/', pid: 7 },
     },
   });
   await $.session.start(start);
+  await $.tool.call(callOf(ongame('play_gate'), { gameDir: CWD, buildId: BUILD }));
   await $.tool.call(callOf(ongame('preview_start'), { gameDir: CWD }));
   await $.tool.call(callOf(ongame('preview_start'), { gameDir: CWD, built: true }));
   const ui = await $.ui.mount({ ...WIDE, surface: 'terminal' });
   expect((await ui.find({ type: 'Link' }))?.props.href).toBe('http://localhost:5173/');
   await ui.unmount();
+});
+
+test('a preview of another folder is not shown as this game\'s play link', async ($, on) => {
+  // A preview names a folder, never a game. Only the folder this build's play_gate played is this game's.
+  engine(on, {
+    marker: MARKER,
+    answers: {
+      play_gate: { status: 'ok', state: 'awaiting_review', runId: RUN, checks: [] },
+      preview_start: { ok: true, url: 'http://localhost:5174/', pid: 7 },
+    },
+  });
+  await $.session.start(start);
+  await $.tool.call(callOf(ongame('play_gate'), { gameDir: CWD, buildId: BUILD }));
+  await $.tool.call(callOf(ongame('preview_start'), { gameDir: '/games/other' }));
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount({ ...WIDE, surface });
+    expect((await ui.find({ type: 'Text', text: /fizzlab/ }))?.text).toContain('fizzlab');
+    expect(await ui.find({ type: 'Link' })).toBeUndefined();
+    expect(await ui.find({ type: 'Text', text: /Play here/ })).toBeUndefined();
+    await ui.unmount();
+  }
 });
 
 test('a play_gate still running after 45 s shows no earlier result', async ($, on) => {
