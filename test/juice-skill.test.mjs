@@ -8,6 +8,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 const read = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), 'utf8');
 const skill = read('skills/juice/SKILL.md');
 const body = skill.slice(skill.indexOf('\n---\n') + 5);
+const flat = (text) => text.replace(/\s+/g, ' ');
 
 // '## Title' -> the text under it, up to the next '## '.
 const sections = Object.fromEntries(body.split(/^## /m).slice(1).map((part) => {
@@ -121,7 +122,7 @@ test('the constants agree with the tables', () => {
   assert.ok(ladder.includes('peak 4.5 px (1.2% of the width)'));
   assert.deepEqual(shake.lengthMsByStep, { 2: 190, 3: 300 });
   assert.equal(shake.fromStep, 2);
-  assert.ok(skill.includes('4.5 px on a 390 px screen, 8.8 px on a 768 px'));
+  assert.ok(flat(skill).includes('4.5 px on a 390 px screen as measured, and by the inferred size rule 8.8 px on a 768 px one'));
   assert.equal(Math.round(shake.peakShareOfWidth * 768 * 10) / 10, 8.8);
   // Pitch: the tones in the ladder table are the base times a semitone ratio.
   const tones = [261, 261, 277, 293, 311, 349, 370, 392, 415, 523];

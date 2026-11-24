@@ -139,7 +139,7 @@ No refused move appeared in the 343 s of play video. These are starting values.
 | Sound | one short low sound at the base loudness, never pitched up | I | Tells a refusal apart from a placement by ear |
 | Input | never held | I | The player can pick the piece up again during the return |
 
-**Scale:** nothing grows. A second refusal in a row gets the same response as the first.
+**Scale:** nothing grows. A second refusal in a row gets the same response as the first. This is inferred too.
 
 ## Rules
 
@@ -187,8 +187,8 @@ No refused move appeared in the 343 s of play video. These are starting values.
 }
 ```
 
-Shake offset in pixels is `peakShareOfWidth` times the screen width: 4.5 px on a 390 px screen, 8.8 px on a 768 px
-one. Pitch for a step is `baseHz * ratioPerSemitone ** semitonesByStep[step]`. No step past 9 was seen; staying on
+Shake offset in pixels is `peakShareOfWidth` times the screen width: 4.5 px on a 390 px screen as measured, and by
+the inferred size rule 8.8 px on a 768 px one. Pitch for a step is `baseHz * ratioPerSemitone ** semitonesByStep[step]`. No step past 9 was seen; staying on
 the octave there is inferred.
 
 ## Other genres
