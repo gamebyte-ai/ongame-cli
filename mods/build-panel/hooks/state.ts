@@ -13,12 +13,13 @@
 // An answer counts only when it says the thing happened, for this build or this game. trace_emit answers `{ ok }`
 // (core/src/trace.ts traceEmit): `ok: false` is an event ongame refused or a build it does not know. play_review
 // names a folder and a run, never a build (cli/src/local-registry.ts). A call slower than 45 s answers
-// `{ ok: false, reason: 'call_pending', callId }` first (cli/src/call-jobs.ts): that is "not known yet", never a
-// result. Its own answer then comes through call_wait, and is read as the answer of the call it belongs to.
+// `{ ok: false, reason: 'call_pending' }` first (cli/src/call-jobs.ts): that is "not known yet", never a result. Its
+// own answer then comes through call_wait, which the panel does not read: what that call would have shown stays
+// empty until a later answer fills it.
 
-import type { BuildState, PanelView, PendingCall, PublishedRecord, ToolCall, Tone } from '../types';
+import type { BuildState, PanelView, PublishedRecord, ToolCall, Tone } from '../types';
 
-export type { BuildState, PanelView, PendingCall, PublishedRecord, ToolCall, Tone };
+export type { BuildState, PanelView, PublishedRecord, ToolCall, Tone };
 
 /** The marker counts as abandoned after this long: the CLI's status line and inject hook use the same 36 h. */
 export const MARKER_TTL_MS = 36 * 3600 * 1000;
@@ -28,8 +29,6 @@ export const MARKER_PATH = '.ongame/active-build.json';
 
 const BUILD_ID = /^b_[0-9a-f]{16}$/;
 const MAX_URL = 2048;
-/** How many calls the panel waits on at once; the oldest goes first. A session rarely has more than one. */
-export const MAX_WAITING = 8;
 
 export function emptyState(): BuildState {
   return {
@@ -45,7 +44,6 @@ export function emptyState(): BuildState {
     preview: null,
     published: null,
     pendingPublish: null,
-    waiting: {},
     updatedAt: null,
   };
 }
@@ -63,7 +61,6 @@ export const WATCHED = new Set([
   'preview_start',
   'preview_stop',
   'publish_game',
-  'call_wait',
 ]);
 
 /**
@@ -78,11 +75,6 @@ export function ongameTool(name: string): string | null {
   if (i <= prefix.length) return null; // no server name between the prefix and the tool name
   const server = name.slice(prefix.length, i).toLowerCase();
   return server.includes('ongame') ? name.slice(i + 2) : null;
-}
-
-/** The server part of a full tool name: `mcp__plugin_ongame_ongame` of `mcp__plugin_ongame_ongame__state_init`. */
-function serverOf(name: string): string {
-  return name.slice(0, name.lastIndexOf('__'));
 }
 
 function asRecord(v: unknown): Record<string, unknown> | null {
@@ -157,7 +149,6 @@ function startBuild(s: BuildState, gameId: string | null, buildId: string, now: 
     preview: sameGame ? s.preview : null,
     published: sameGame ? s.published : null,
     pendingPublish: sameGame ? s.pendingPublish : null,
-    waiting: s.waiting,
     updatedAt: now,
   };
 }
@@ -252,8 +243,11 @@ function takeTrace(s: BuildState, input: Record<string, unknown>, out: Record<st
  */
 const PREVIEW_UNTOUCHED = new Set(['no_npm_project', 'no_dist', 'superseded']);
 
-/** One watched tool's answer, folded into the state. */
-function take(s: BuildState, tool: string, input: Record<string, unknown>, output: Record<string, unknown>, now: number): BuildState {
+/** Folds one finished tool call into the state. A call that is not ongame's, or that failed, changes nothing. */
+export function observe(s: BuildState, call: ToolCall, now: number): BuildState {
+  const tool = ongameTool(call.tool);
+  if (tool === null || call.isError || !WATCHED.has(tool)) return s;
+  const { input, output } = call;
   switch (tool) {
     case 'trace_emit':
       return takeTrace(s, input, output, now);
@@ -278,63 +272,6 @@ function take(s: BuildState, tool: string, input: Record<string, unknown>, outpu
     default:
       return takeBuild(s, tool, input, output, now);
   }
-}
-
-/**
- * The input fields the adapter reads, and no others. Every call goes through this, the ones answered at once and the
- * ones remembered for call_wait, so both read the same fields and a play script or a file list is never kept.
- */
-function kept(input: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const key of ['gameId', 'buildId', 'gameDir', 'runId', 'name', 'callId']) {
-    const v = str(input[key]);
-    if (v !== null) out[key] = v;
-  }
-  const payload = asRecord(input.payload);
-  if (payload !== null) {
-    const part: Record<string, unknown> = {};
-    for (const key of ['gameId', 'outcome']) {
-      const v = str(payload[key]);
-      if (v !== null) part[key] = v;
-    }
-    out.payload = part;
-  }
-  return out;
-}
-
-/** Remembers a call that answered `call_pending`, under the id call_wait will name. */
-function remember(s: BuildState, name: string, input: Record<string, unknown>, output: Record<string, unknown>): BuildState {
-  const callId = str(output.callId);
-  if (callId === null) return s;
-  const { [callId]: _again, ...others } = s.waiting;
-  const entries = [...Object.entries(others), [callId, { tool: name, input }] as const];
-  return { ...s, waiting: Object.fromEntries(entries.slice(-MAX_WAITING)) };
-}
-
-/** call_wait: the answer of a call the panel waits on. One it does not know, or one still running, changes nothing. */
-function takeWait(s: BuildState, name: string, input: Record<string, unknown>, output: Record<string, unknown>, now: number): BuildState {
-  const callId = str(input.callId);
-  // Own keys only: the id is whatever the caller typed, and `__proto__` is on every object.
-  const held = callId !== null && Object.hasOwn(s.waiting, callId) ? s.waiting[callId] : undefined;
-  if (callId === null || held === undefined || serverOf(held.tool) !== serverOf(name)) return s;
-  if (isPending(output)) return s;
-  const { [callId]: _done, ...waiting } = s.waiting;
-  const rest = { ...s, waiting };
-  // The CLI no longer holds the result (`call_not_found`): it is never known.
-  if (output.ok === false && output.reason === 'call_not_found') return rest;
-  const tool = ongameTool(held.tool);
-  return tool === null ? rest : take(rest, tool, held.input, output, now);
-}
-
-/** Folds one finished tool call into the state. A call that is not ongame's, or that failed, changes nothing. */
-export function observe(s: BuildState, call: ToolCall, now: number): BuildState {
-  const tool = ongameTool(call.tool);
-  if (tool === null || call.isError || !WATCHED.has(tool)) return s;
-  const input = kept(call.input);
-  const { output } = call;
-  if (tool === 'call_wait') return takeWait(s, call.tool, input, output, now);
-  const next = take(s, tool, input, output, now);
-  return isPending(output) ? remember(next, call.tool, input, output) : next;
 }
 
 /**

@@ -12,7 +12,6 @@ import assert from 'node:assert/strict';
 
 import {
   MARKER_TTL_MS,
-  MAX_WAITING,
   emptyState,
   fromMarker,
   observe,
@@ -74,10 +73,7 @@ const publish = (gameId = 'fizzlab', url = `https://play.ongame.test/${gameId}/`
   call('publish_game', { gameId, files: [{ path: 'index.html', size: 512 }] }, { publishId: 'f0a1b2c3-0000-4000-8000-000000000001', publicUrl: url, signing: 'v4', fileCount: 1, source: { status: 'ready', key: 'k' } });
 
 /** What any call slower than 45 s answers first; its own answer then comes through call_wait. */
-const CALL = '5d2c9c1e-7a44-4e0b-b6a3-0c1d2e3f4a5b';
-const pending = (tool, callId = CALL) => ({ ok: false, reason: 'call_pending', retryable: true, callId, tool, fix: 'x' });
-/** call_wait: the waited call's own answer, `call_pending` again, or `call_not_found`. */
-const wait = (output, callId = CALL) => call('call_wait', { callId }, output);
+const pending = (tool) => ({ ok: false, reason: 'call_pending', retryable: true, callId: '5d2c9c1e-7a44-4e0b-b6a3-0c1d2e3f4a5b', tool, fix: 'x' });
 const previewFail = (code) => call('preview_start', { gameDir: GAME_DIR }, { ok: false, code, reason: 'x', fix: 'x' });
 const previewOk = (url = 'http://localhost:5173/') => call('preview_start', { gameDir: GAME_DIR }, { ok: true, url, pid: 42 });
 
@@ -251,90 +247,30 @@ test('only a play_gate that names this build is this build\'s check', () => {
 });
 
 test('a play_gate still running after 45 s leaves no earlier result on the panel', () => {
-  // The CLI deletes the last report when a run starts (runPlayGate), so the earlier result no longer stands, and the
-  // new one is not known until call_wait brings it.
+  // The CLI deletes the last report when a run starts (runPlayGate), so the earlier result no longer stands. The new
+  // one comes through call_wait, which the panel does not read: it shows no play check line until the next run.
   const s = fold([init(), gate('blocked', { checks: FAILS }), gateAnswer(pending('play_gate'))]);
   assert.equal(s.check, null);
-  assert.equal(observe(s, review(), T0).check, null, 'a review cannot pass a run the panel has not seen');
+  assert.equal(view(s, T0 + 3 * MIN).check, null);
+  assert.equal(observe(s, review(), T0).check, null, 'a review cannot pass a run the panel never saw');
   // A slow run of another build says nothing about this one.
   const other = fold([init(), gate('blocked', { checks: FAILS }), gateAnswer(pending('play_gate'), { buildId: OTHER })]);
   assert.equal(other.check.result, 'blocked');
 });
 
-test('the answer of a slow call arrives through call_wait and counts as that call\'s answer', () => {
-  // play_gate plays the game in a browser, so it is the call most likely to pass 45 s. Its run id is what the
-  // review is matched on, and it is only in the answer call_wait brings.
-  const slow = [init(), gateAnswer(pending('play_gate'))];
-  const answer = gate('awaiting_review').output;
-  let s = fold([...slow, wait(pending('play_gate'))]);
-  assert.equal(s.check, null, 'still running');
-  s = fold([...slow, wait(pending('play_gate')), wait(answer)]);
-  assert.equal(s.check.result, 'awaiting_review');
-  assert.equal(s.check.runId, RUN);
-  assert.equal(s.check.gameDir, GAME_DIR, 'the folder of the call that was waited on');
-  assert.deepEqual(s.waiting, {}, 'a delivered answer is not waited on again');
-  assert.equal(observe(s, review(), T0).check.result, 'passed');
-
-  // The same for every watched tool: a build that registers slowly, a slow preview, a slow publish.done.
-  s = fold([call('state_init', { gameId: 'fizzlab', plan: PLAN }, pending('state_init')), wait(init().output)]);
-  assert.equal(s.buildId, BUILD);
-  assert.equal(view(s, T0 + MIN).game, 'fizzlab');
-  s = fold([init(), call('preview_start', { gameDir: GAME_DIR }, pending('preview_start')), wait({ ok: true, url: 'http://localhost:5173/', pid: 42 })]);
-  assert.equal(s.preview.url, 'http://localhost:5173/');
-  s = fold([init(), publish(), publishDone('fizzlab', pending('trace_emit')), wait(PUBLISHED)]);
-  assert.equal(s.published.url, 'https://play.ongame.test/fizzlab/');
-  s = fold([init(), buildDone({ outcome: 'failed' }, pending('trace_emit')), wait({ ok: true })]);
-  assert.equal(view(s, T0 + 2 * MIN).state.label, 'Build failed', 'the waited call keeps its own input');
-});
-
-test('call_wait changes nothing unless it answers a call the panel waits on', () => {
-  const slow = fold([init(), gateAnswer(pending('play_gate'))]);
-  const answer = gate('awaiting_review').output;
-  assert.deepEqual(observe(slow, wait(answer, 'another-call'), T0), slow, 'a call the panel does not know');
-  assert.deepEqual(observe(slow, call('call_wait', {}, answer), T0), slow, 'no call id');
-  assert.deepEqual(observe(slow, { ...wait(answer), isError: true }, T0), slow, 'a wait that failed');
-  // The same id on another ongame server is another call.
-  const elsewhere = { ...wait(answer), tool: 'mcp__plugin_ongame-cli_ongame-core__call_wait' };
-  assert.deepEqual(observe(slow, elsewhere, T0), slow);
-  // The CLI no longer holds the result: it is never known, and nothing is waited on.
-  const lost = observe(slow, wait({ ok: false, reason: 'call_not_found', retryable: false, fix: 'x' }), T0);
-  assert.equal(lost.check, null);
-  assert.deepEqual(lost.waiting, {});
-  // An answer for a call nobody waits on any more does nothing.
-  assert.deepEqual(observe(lost, wait(answer), T0), lost);
-  // A call that was not watched is never waited on.
-  const unwatched = fold([init(), call('forge_request', { gameId: 'fizzlab' }, pending('forge_request'))]);
-  assert.deepEqual(unwatched.waiting, {});
-  // An id that names something every object has is not a call the panel waits on.
-  for (const id of ['__proto__', 'constructor', 'toString']) {
-    assert.deepEqual(observe(slow, wait(answer, id), T0), slow, id);
-  }
-  const odd = fold([init(), gateAnswer(pending('play_gate', '__proto__')), wait(answer, '__proto__')]);
-  assert.equal(odd.check.result, 'awaiting_review', 'such an id still works as an id');
-  assert.deepEqual(Object.keys(odd.waiting), []);
-  // A slow state call is not an update: the panel's time stays.
+test('a call still running after 45 s is never read as its answer', () => {
+  // The answer that comes later through call_wait is not read: call_wait is not a watched tool.
+  const waited = (output) => call('call_wait', { callId: '5d2c9c1e-7a44-4e0b-b6a3-0c1d2e3f4a5b' }, output);
+  const slowGate = fold([init(), gateAnswer(pending('play_gate'))]);
+  assert.deepEqual(observe(slowGate, waited(gate('awaiting_review').output), T0), slowGate);
+  // A build that registers slowly is not started by the pending answer.
+  assert.equal(fold([call('state_init', { gameId: 'fizzlab', plan: PLAN }, pending('state_init'))]).buildId, null);
+  // A slow state call is not an update: the phase and the panel's time stay.
   const before = fold([init(), advance('code', ['concept'])]);
-  const waited = observe(before, call('state_get', { buildId: BUILD }, pending('state_get')), T0 + 9 * MIN);
-  assert.equal(waited.updatedAt, before.updatedAt);
-  assert.equal(waited.currentPhase, 'code');
-});
-
-test('a waited call keeps only the fields the panel reads, and only the newest calls', () => {
-  const script = Array.from({ length: 200 }, () => ({ key: 'ArrowRight' }));
-  const s = fold([init(), call('play_gate', { gameDir: GAME_DIR, buildId: BUILD, desktop: script, phone: script }, pending('play_gate'))]);
-  assert.deepEqual(s.waiting, { [CALL]: { tool: tool('play_gate'), input: { gameDir: GAME_DIR, buildId: BUILD } } });
-  const files = Array.from({ length: 500 }, (_, i) => ({ path: `assets/${i}.png`, size: 1 }));
-  const p = fold([init(), call('publish_game', { gameId: 'fizzlab', files }, pending('publish_game'))]);
-  assert.deepEqual(p.waiting[CALL].input, { gameId: 'fizzlab' });
-  const t = fold([init(), trace('publish.done', { gameId: 'fizzlab', source: 'k', repo: 'none' }, pending('trace_emit'))]);
-  assert.deepEqual(t.waiting[CALL].input, { buildId: BUILD, name: 'publish.done', payload: { gameId: 'fizzlab' } });
-
-  const many = Array.from({ length: MAX_WAITING + 3 }, (_, i) => call('state_get', { buildId: BUILD }, pending('state_get', `call-${i}`)));
-  const held = Object.keys(fold([init(), ...many]).waiting);
-  assert.equal(held.length, MAX_WAITING);
-  assert.equal(held[0], 'call-3', 'the oldest go first');
-  // A new build does not forget the calls still running.
-  assert.equal(Object.keys(fold([init(), gateAnswer(pending('play_gate')), init('fizzlab', OTHER)]).waiting).length, 1);
+  const after = observe(before, call('state_get', { buildId: BUILD }, pending('state_get')), T0 + 9 * MIN);
+  assert.deepEqual(after, before);
+  // A slow publish holds no address.
+  assert.equal(fold([init(), call('publish_game', { gameId: 'fizzlab', files: [] }, pending('publish_game'))]).pendingPublish, null);
 });
 
 test('a publish of another game is not this game\'s link', () => {

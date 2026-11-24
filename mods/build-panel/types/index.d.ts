@@ -24,14 +24,9 @@ export type BuildState = {
   published: { url: string; at: number } | null;
   /** A publish under way: its address is not live until `publish.done`. */
   pendingPublish: { url: string; gameId: string | null } | null;
-  /** Calls that answered `call_pending`, by the id call_wait takes: their own answers are still to come. */
-  waiting: Record<string, PendingCall>;
   /** When any of the above last changed, ms since the epoch. */
   updatedAt: number | null;
 };
-
-/** A call still running after 45 s: its full tool name, and the input fields the adapter reads. */
-export type PendingCall = { tool: string; input: Record<string, unknown> };
 
 /** What the panel keeps across sessions for one project folder: the game's last verified online link. */
 export type PublishedRecord = { gameId: string; url: string; at: number };

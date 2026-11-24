@@ -26,9 +26,10 @@ An answer moves the panel only when it says the thing happened, for this build o
 - An accepted `publish.done` names the game in its payload. It promotes the held publish of that game only.
 - `play_review` names a folder and a run, never a build. The panel matches it on the `runId` and `gameDir`
   of the `play_gate` run it holds for this build.
-- A call slower than 45 s answers `{ ok: false, reason: call_pending, callId }` first. That is "not known
-  yet". The panel remembers the call and reads the answer `call_wait` brings as that call's own answer.
-  Until then a slow `play_gate` shows no play check line, and a slow `preview_start` shows no local link.
+- A call slower than 45 s answers `{ ok: false, reason: call_pending }` first. That is "not known yet".
+  Its own answer then comes through `call_wait`, which the panel does not read. So after a slow `play_gate`
+  the panel shows no play check line, and after a slow `preview_start` no local link, until a later call
+  answers at once.
 
 ## Parts
 

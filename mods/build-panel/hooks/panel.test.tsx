@@ -354,29 +354,29 @@ test('a preview_start refused before it stopped anything keeps the play link', a
   await ui.unmount();
 });
 
-test('a play_gate slower than 45 s shows its result once call_wait brings it', async ($, on) => {
-  // The CLI answers call_pending first (cli/src/call-jobs.ts); the run's own answer comes through call_wait.
+test('a play_gate still running after 45 s shows no earlier result', async ($, on) => {
+  // The CLI answers call_pending first (cli/src/call-jobs.ts). The run's own answer comes through call_wait, which
+  // the panel does not read.
+  let answer: Record<string, unknown> = { status: 'ok', state: 'blocked', runId: RUN, checks: [{ id: 'layout_fits', status: 'fail', detail: 'x' }] };
   engine(on, {
     marker: MARKER,
     answers: {
-      play_gate: { ok: false, reason: 'call_pending', retryable: true, callId: 'c-1', tool: 'play_gate', fix: 'x' },
-      call_wait: { status: 'ok', state: 'awaiting_review', runId: RUN, checks: [] },
+      play_gate: () => answer,
+      call_wait: { status: 'ok', state: 'awaiting_review', runId: OTHER_RUN, checks: [] },
       play_review: { status: 'passed' },
     },
   });
   await $.session.start(start);
   await $.tool.call(callOf(ongame('play_gate'), { gameDir: CWD, buildId: BUILD }));
   let ui = await $.ui.mount({ ...WIDE, surface: 'terminal' });
-  expect(await ui.find({ type: 'Text', text: /Play check/ })).toBeUndefined(); // not known yet
+  expect((await ui.find({ type: 'Text', text: /Play check/ }))?.text).toBe('✗ Play check failed: 1 check');
   await ui.unmount();
 
+  answer = { ok: false, reason: 'call_pending', retryable: true, callId: 'c-1', tool: 'play_gate', fix: 'x' };
+  await $.tool.call(callOf(ongame('play_gate'), { gameDir: CWD, buildId: BUILD }));
   await $.tool.call(callOf(ongame('call_wait'), { callId: 'c-1' }));
+  await $.tool.call(callOf(ongame('play_review'), { gameDir: CWD, runId: OTHER_RUN, review: 'It plays right.', moments: MOMENTS }));
   ui = await $.ui.mount({ ...WIDE, surface: 'terminal' });
-  expect((await ui.find({ type: 'Text', text: /Play check/ }))?.text).toBe('· Play check waiting for review');
-  await ui.unmount();
-
-  await $.tool.call(callOf(ongame('play_review'), { gameDir: CWD, runId: RUN, review: 'It plays right.', moments: MOMENTS }));
-  ui = await $.ui.mount({ ...WIDE, surface: 'terminal' });
-  expect((await ui.find({ type: 'Text', text: /Play check/ }))?.text).toBe('✓ Play check passed');
+  expect(await ui.find({ type: 'Text', text: /Play check/ })).toBeUndefined(); // not known: no line, and no pass
   await ui.unmount();
 });
