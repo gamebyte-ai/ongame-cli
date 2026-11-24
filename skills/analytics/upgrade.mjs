@@ -289,14 +289,17 @@ export function appliesAnswerAtBoot(ast, isShim = (spec) => TELEMETRY_MODULE.tes
     if (node.type.startsWith('TS') && !TS_CODE.has(node.type)) return undefined;
     if (node.type === 'AwaitExpression') return visit(node.argument) ?? 'await';
     if (node.type === 'ForOfStatement' && node.await) return 'await';
-    for (const child of children(node)) {
+    // A for loop runs its update after its body, not where it is written.
+    const order = node.type === 'ForStatement' ? [node.init, node.test, node.body, node.update] : children(node);
+    for (const child of order) {
       const r = visit(child);
       if (r) return r;
     }
     if (node.type !== 'CallExpression' && node.type !== 'OptionalCallExpression') return undefined;
     if (isSetConsent(node.callee) && isAnswer(node.arguments)) return 'found';
     const fn = FUNCTION_VALUE.has(node.callee.type) ? node.callee : node.callee.type === 'Identifier' ? declared.get(node.callee.name) : undefined;
-    if (!fn || following.has(fn)) return undefined;
+    // Calling a generator only makes an iterator: its body has not run.
+    if (!fn || fn.generator || following.has(fn)) return undefined;
     following.add(fn);
     const r = visit(fn.body);
     following.delete(fn);

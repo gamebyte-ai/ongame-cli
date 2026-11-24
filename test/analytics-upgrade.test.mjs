@@ -332,6 +332,8 @@ test('a game with a switch fails --check when its boot applies the answer late, 
     'a top-level await before the call': BOOT('').replace("void boot().catch", "await new Promise((r) => setTimeout(r, 0));\nsetConsent(loadSettings().analytics);\nvoid boot().catch"),
     'a .then callback': BOOT('').replace("void boot().catch((err: unknown) => {", "void boot().then(() => setConsent(loadSettings().analytics)).catch((err: unknown) => {"),
     'a setTimeout callback': BOOT('  setTimeout(() => setConsent(loadSettings().analytics), 0);\n'),
+    'a for loop update after an awaiting body': BOOT('  for (let i = 0; i < 1; setConsent(loadSettings().analytics), i++) { await app.initialize(); }\n'),
+    'a generator that is only created': BOOT('  apply();\n').replace('async function boot', 'function* apply(): Generator<void> {\n  setConsent(loadSettings().analytics);\n}\n\nasync function boot'),
     'a setConsent from another module': BOOT('  setConsent(loadSettings().analytics);\n').replace("import { setConsent, watchTaps } from './telemetry';", "import { watchTaps } from './telemetry';\nimport { setConsent } from './settings';"),
   };
   for (const [name, main] of Object.entries(fails)) {
