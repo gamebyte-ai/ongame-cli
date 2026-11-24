@@ -49,7 +49,9 @@ An answer moves the panel only when it says the thing happened, for this build o
 The panel opens by itself only while an ongame build is active and the maker has not turned it off.
 Claude Code places a pane that opens by itself only from 144 terminal columns (110 once the maker
 opened it), as a sidebar. Below that width the panel waits until the maker types `/ongame-panel`;
-Claude Code then seats it inline above the prompt. A pane the maker closes stays closed for the session.
+Claude Code then seats it inline above the prompt. A pane the maker closes is meant to stay closed for
+the session: the panel sets a flag on that close and then does not open by itself. No test or real session
+has closed the pane by hand yet, so this is a guess until one does.
 
 ## Try it and test it
 
