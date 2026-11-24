@@ -356,8 +356,8 @@ test('a preview_start that a newer call overtook leaves the link to the newer ca
 });
 
 test('a preview is this game\'s play link only when it serves the folder this build\'s play_gate played', () => {
-  // A preview names a folder, never a build (cli/src/local-registry.ts). The folder this build's play_gate named is
-  // the only folder ongame ties to the build, so a preview of any other folder may be another game.
+  // A preview names a folder, never a build (cli/src/local-registry.ts). The panel takes the build's folder from the
+  // play_gate run ongame recorded for it, so a preview of any other folder may be another game.
   const urls = (calls) => view(fold(calls), T0 + 9 * MIN).links.map((l) => l.url);
   const other = call('preview_start', { gameDir: '/games/other' }, { ok: true, url: 'http://localhost:5174/', pid: 42 });
   assert.deepEqual(urls([init(), gate('awaiting_review'), other]), [], 'another folder\'s preview shows no link');

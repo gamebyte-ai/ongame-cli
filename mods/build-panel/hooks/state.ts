@@ -210,7 +210,7 @@ function takeCheck(s: BuildState, tool: string, input: Record<string, unknown>, 
   if (state !== 'blocked' && state !== 'awaiting_review' && state !== 'skipped' && state !== 'passed') return s;
   const failed = Array.isArray(out.checks) ? out.checks.filter((c) => asRecord(c)?.status === 'fail').length : 0;
   // ongame recorded this run for the build, and with it the build's game folder (writeReport, gameDirOfBuild). An
-  // unverified or still running call records none, so only this answer tells the panel which folder is the build's.
+  // unverified or still running call records none, so of play_gate's answers only this one sets the build's folder.
   return { ...s, check: { result: state, failed, at: now, runId: str(out.runId), gameDir }, gameDir, updatedAt: now };
 }
 
