@@ -400,7 +400,7 @@ test('a top-level await in a module the boot imports fails --check: the boot run
   assert.equal(r.status, 1);
   assert.match(r.stdout, /src\/store\/db\.ts has a top-level await, and src\/main\.ts imports it/);
   assert.doesNotMatch(r.stdout, BOOT_LINE);
-  // An await inside a function, a type-only import and a dynamic import run nothing at load.
+  // The check does not follow an await inside a function, a type-only import or a dynamic import.
   save(dir, 'src/store/db.ts', "export const db = new Map<string, string>();\nexport async function load(): Promise<void> { await Promise.resolve(); }\n");
   save(dir, 'src/types.ts', 'export type Saved = { analytics: boolean };\nawait Promise.resolve();\n');
   save(dir, 'src/later.ts', 'await Promise.resolve();\nexport const later = 1;\n');
