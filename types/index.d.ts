@@ -60,7 +60,8 @@ declare module 'claude-code' {
   interface PluginState {
     ongame: {
       build: Shaped<BuildState>;
-      /** The maker closed the pane this session: it does not open by itself again until they ask. */
+      /** Set when the maker closes the pane. The panel is then meant not to open by itself again this session
+       *  until they ask; no test or real session has closed the pane by hand yet, so that is a guess. */
       isClosed: boolean;
       /** Moves on a timer (register.tsx TICK_MS) so "2 min ago" stays true while the pane is up. */
       tick: number;
