@@ -359,6 +359,21 @@ test('order: a newer state answer wins over the late answer of a slow state call
   assert.equal(observe(marked, waited(doc(BUILD, 'fizzlab', 'levels', [])), T0 + 6 * MIN).buildId, OTHER);
 });
 
+test('order: a build that started after a slow state_init went pending stays', () => {
+  // The Codex review's case on this card: the marker names a newer build, then call_wait brings the old registration.
+  const slowInit = fold([call('state_init', { gameId: 'fizzlab', plan: PLAN }, pending('state_init'))]);
+  const marker = (buildId, gameId, at) => JSON.stringify({ buildId, gameId, startedAtEpoch: at / 1000 });
+  const newer = fromMarker(slowInit, marker(OTHER, 'newgame', T0 + 2 * MIN), T0 + 2 * MIN);
+  const s = observe(newer, waited(init().output), T0 + 3 * MIN);
+  assert.deepEqual([s.gameId, s.buildId], ['newgame', OTHER]);
+  // A marker of a build that started before the call went pending is older: the late answer starts its build.
+  const older = fromMarker(slowInit, marker(OTHER, 'fizzlab', T0 - 10 * MIN), T0 + 2 * MIN);
+  assert.equal(observe(older, waited(init().output), T0 + 3 * MIN).buildId, BUILD);
+  // A late answer for the build the marker names fills that build's steps.
+  const same = fromMarker(slowInit, marker(BUILD, 'fizzlab', T0 + 2 * MIN), T0 + 2 * MIN);
+  assert.deepEqual(observe(same, waited(init().output), T0 + 3 * MIN).phases, PLAN.phases);
+});
+
 test('a call of another kind does not drop a slow call\'s late answer', () => {
   const slow = fold([init(), gateAnswer(pending('play_gate'))]);
   const between = [

@@ -35,6 +35,8 @@ An answer moves the panel only when it says the thing happened, for this build o
   waiting call per kind, with only the input fields it reads. Any newer call of that kind, whatever it
   answered, drops it. So `preview_start` pending, then `preview_stop`, then `call_wait` shows no link.
   A late answer passes the same checks as one given at once (this build, this run, this game).
+  A late `state_init` names a build no check can hold it to, so it gets the marker's rule: it does not replace
+  a build that started after it went pending.
 
 ## Parts
 

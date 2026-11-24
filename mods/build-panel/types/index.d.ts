@@ -33,9 +33,9 @@ export type BuildState = {
 /** The part of the panel a call's answer moves. A newer call of a kind makes an older one's late answer stale. */
 export type CallKind = 'build' | 'check' | 'review' | 'preview' | 'publish';
 
-/** A call that answered `call_pending`: the id call_wait takes, its full tool name, and the input fields the adapter
- *  reads (never a play script or a file list). */
-export type WaitingCall = { callId: string; tool: string; input: Record<string, unknown> };
+/** A call that answered `call_pending`: the id call_wait takes, its full tool name, the input fields the adapter
+ *  reads (never a play script or a file list), and when it answered pending, ms since the epoch. */
+export type WaitingCall = { callId: string; tool: string; input: Record<string, unknown>; at: number };
 
 /** What the panel keeps across sessions for one project folder: the game's last verified online link. */
 export type PublishedRecord = { gameId: string; url: string; at: number };

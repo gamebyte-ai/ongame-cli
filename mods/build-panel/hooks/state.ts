@@ -354,7 +354,12 @@ function takeWait(s: BuildState, call: ToolCall, input: Record<string, unknown>,
   const rest = { ...s, waiting: without(s.waiting, kind) };
   if (call.isError || (output.ok === false && output.reason === 'call_not_found')) return rest;
   const tool = ongameTool(held.tool);
-  return tool === null ? rest : take(rest, tool, held.input, output, now);
+  if (tool === null) return rest;
+  // state_init starts whatever build it names, so it gets the marker's rule: a build that started after this call
+  // went pending (a newer marker) is the newer one. Its own build's answer still fills that build.
+  const id = str(output.buildId) ?? str(asRecord(output.state)?.buildId);
+  if (tool === 'state_init' && rest.startedAt !== null && rest.startedAt > held.at && id !== rest.buildId) return rest;
+  return take(rest, tool, held.input, output, now);
 }
 
 /**
@@ -373,7 +378,7 @@ export function observe(s: BuildState, call: ToolCall, now: number): BuildState 
   const next = take(fresh, tool, input, call.output, now);
   const callId = str(call.output.callId);
   if (kind === null || callId === null || !isPending(call.output)) return next;
-  return { ...next, waiting: { ...next.waiting, [kind]: { callId, tool: call.tool, input } } };
+  return { ...next, waiting: { ...next.waiting, [kind]: { callId, tool: call.tool, input, at: now } } };
 }
 
 /**
