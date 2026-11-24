@@ -619,8 +619,9 @@ export function scan(src, file = '') {
     const pixel = (c) => /rect$/i.test(c.name) && [2, 3].some((k) => num(c.args[k]) === 1);
     const shapes = calls(loop.body, (x) => Object.hasOwn(SHAPES, x)).filter((c) => same(c) && !pixel(c));
     const fills = [...calls(loop.body, (x) => FILLS.has(x)), ...styleSets(loop.body)].filter(same);
+    if (!shapes.length) continue;
     const pre = preLoopStyles(node, parents);
-    if (!shapes.length || (!fills.length && !pre.length)) continue;
+    if (!fills.length && !pre.length) continue;
     const on = (x) => target(x.object); // the object drawn on, by its whole path
     let why = null, at = 0;
     // Concentric: a shape whose size ramps with the loop while its position stays put (rings, discs, a vignette).
