@@ -50,7 +50,8 @@ An answer moves the panel only when it says the thing happened, for this build o
   `/ongame-panel` opens it; `/ongame-panel off` turns it off for every later session (`$.store`);
   `/ongame-panel on` turns it back on.
 - Tests: `test/build-panel-state.test.mjs` (Node, runs in CI) for the adapter, and
-  `mods/build-panel/hooks/panel.test.tsx` (`claude plugin test mods/build-panel`) for the panel.
+  `mods/build-panel/hooks/panel.test.tsx` (`claude plugin test` from the repo root) for the panel.
+- `types/index.d.ts`: the `$.state` values and the adapter's shapes. It sits at the plugin root; see Release.
 
 ## Placement
 
@@ -64,10 +65,10 @@ has closed the pane by hand yet, so this is a guess until one does.
 ## Try it and test it
 
 - Adapter: `node --test test/build-panel-state.test.mjs` (also runs in the repo's CI).
-- Panel: `claude plugin test mods/build-panel` and `claude plugin validate mods/build-panel`. These need the
-  `claude` command, which CI does not install.
+- Panel: `claude plugin test` and `claude plugin validate .` from the repo root. These need the `claude`
+  command, which CI does not install.
 - In a real session without an ongame account: `mods/build-panel/dev/ongame-fixture.mjs` answers five ongame
-  tools and `call_wait` with the CLI's answer shapes. Its header has the `claude --plugin-dir ... --mcp-config ...`
+  tools and `call_wait` with the CLI's answer shapes. Its header has the `claude --plugin-dir . --mcp-config ...`
   line. Its `play_review` takes `gameDir` and `runId`, as the CLI's does, and passes only the latest run.
   With `--pending play_gate` it answers `play_gate` as a slow call: `call_pending` first, the run through `call_wait`.
 
@@ -75,6 +76,17 @@ has closed the pane by hand yet, so this is a guess until one does.
 
 - Claude Code is not modified. The mod uses only the documented mod API of Claude Code 2.1.331.
 - The panel says "ongame". It uses no Claude or Anthropic name or logo.
-- Nothing reaches makers yet: the mod is its own plugin folder, and the marketplace does not list it.
-  Releasing it is one change (a marketplace entry, or a `modules` line in the ongame plugin's
-  `hooks/hooks.json`) and waits for Can's go.
+
+## Release (board item i_q2xe7ru5)
+
+Can chose to ship the panel to every maker with the ongame plugin's next update. The ongame plugin loads it:
+
+- `hooks/hooks.json` names the module: `"modules": ["../mods/build-panel/hooks/register.tsx"]`, a path relative
+  to that file. The settings hooks beside it are unchanged.
+- The panel's `$.state` values belong to the plugin that loads them, so their owner is `ongame`.
+- `types/index.d.ts` declares them. Claude Code reads that file at the plugin root by itself from v2.1.299.
+  A `"types"` key in `plugin.json` is not used: Claude Code 2.1.50 then refused the whole plugin
+  (`Unrecognized key: "types"`), and the docs say 2.0.15 to 2.1.75 reject any unknown manifest key.
+- Measured on 2026-11-24 with real sessions and an unchanged-plugin control: 2.1.50, 2.1.100, 2.1.150,
+  2.1.250 and 2.1.280 load the same MCP servers, skills, commands and hooks with this change, and no panel.
+  2.1.286 and 2.1.331 load the panel.

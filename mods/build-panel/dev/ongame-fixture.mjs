@@ -4,9 +4,10 @@
 // ../hooks/state.ts) and touches nothing else: no network, no files. Its server name must hold "ongame" for the
 // panel to read it, as the real servers' names do.
 //
-//   claude --plugin-dir mods/build-panel --mcp-config '{"mcpServers":{"ongame-fixture":
+//   claude --plugin-dir . --mcp-config '{"mcpServers":{"ongame-fixture":
 //     {"command":"node","args":["mods/build-panel/dev/ongame-fixture.mjs"]}}}'
 //
+// Run it from the repo root: the panel ships inside the ongame plugin (hooks/hooks.json "modules").
 // Then ask Claude to call state_init, state_advance, play_gate (with the buildId state_init returned), play_review
 // (with the runId play_gate returned) and preview_start.
 //

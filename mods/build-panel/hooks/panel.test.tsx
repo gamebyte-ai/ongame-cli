@@ -1,4 +1,4 @@
-// The build panel, run by Claude Code's own test kit: `claude plugin test mods/build-panel`.
+// The build panel, run by Claude Code's own test kit: `claude plugin test` from the repo root.
 // Each hook a test registers stands for the engine beneath the panel; a call on `$` is answered `{ value }`.
 import { expect, mock, test } from 'claude-code/testing';
 import type { On, ToolCallArgs } from 'claude-code';
@@ -22,7 +22,7 @@ const callOf = (tool: string, args: Record<string, unknown>) => ({ tool, ...args
 
 function pane(bodyColumns: number, placement: 'dock' | 'inline') {
   return {
-    plugin: 'ongame-build-panel',
+    plugin: 'ongame',
     component: 'Pane',
     requestId: 'ongame-build',
     props: { title: 'ongame build', isFocused: false, bodyColumns, placement, scroll: { offset: 0, bodyRows: 12 }, view: {} },

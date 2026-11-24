@@ -17,7 +17,7 @@
 // result. Its own answer then comes through call_wait and is read as the answer of the call it belongs to, but only
 // while no newer call of the same kind came: the answer is collected later than the call ran.
 
-import type { BuildState, CallKind, PanelView, PublishedRecord, ToolCall, Tone, WaitingCall } from '../types';
+import type { BuildState, CallKind, PanelView, PublishedRecord, ToolCall, Tone, WaitingCall } from '../../../types';
 
 export type { BuildState, CallKind, PanelView, PublishedRecord, ToolCall, Tone, WaitingCall };
 
