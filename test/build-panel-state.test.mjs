@@ -488,32 +488,33 @@ test('a publish.done that ongame refused leaves the address unverified', () => {
 });
 
 test('preview_start gives a local play link; a failed start or preview_stop takes it away', () => {
-  let v = view(fold([init(), previewOk()]), T0 + 2 * MIN);
+  // The preview serves the folder of this build's play_gate run; another folder's preview is the case further down.
+  let v = view(fold([init(), gate('awaiting_review'), previewOk()]), T0 + 2 * MIN);
   assert.deepEqual(v.links, [{ kind: 'local', url: 'http://localhost:5173/', label: 'Play here', note: 'works while this session runs' }]);
 
   // These failures come after the CLI stopped the last preview server (cli/src/preview.ts), so its link is gone.
   for (const code of ['port_in_use', 'bind_timeout', 'exited_early', 'spawn_failed', 'process_error']) {
-    v = view(fold([init(), previewOk(), previewFail(code)]), T0 + 3 * MIN);
+    v = view(fold([init(), gate('awaiting_review'), previewOk(), previewFail(code)]), T0 + 3 * MIN);
     assert.deepEqual(v.links, [], code);
   }
   // So does a start still running after 45 s: the last server is stopped, the new address is not known.
-  assert.deepEqual(view(fold([init(), previewOk(), call('preview_start', { gameDir: GAME_DIR }, pending('preview_start'))]), T0).links, []);
+  assert.deepEqual(view(fold([init(), gate('awaiting_review'), previewOk(), call('preview_start', { gameDir: GAME_DIR }, pending('preview_start'))]), T0).links, []);
   // A failure with no code the panel knows is read the same way: no link it cannot stand behind.
   assert.equal(fold([init(), previewOk(), call('preview_start', { gameDir: GAME_DIR }, { ok: false, reason: 'x' })]).preview, null);
 
-  v = view(fold([init(), previewOk(), call('preview_stop', {}, { ok: true })]), T0 + 3 * MIN);
+  v = view(fold([init(), gate('awaiting_review'), previewOk(), call('preview_stop', {}, { ok: true })]), T0 + 3 * MIN);
   assert.deepEqual(v.links, []);
 });
 
 test('a preview_start refused before anything was stopped keeps the running play link', () => {
   // The reviewer's case: a preview runs, then built=true is asked before dist/index.html exists. The CLI answers
   // no_dist before it stops anything, so the server and its link are still up.
-  const running = fold([init(), previewOk()]);
+  const running = fold([init(), previewOk(), gate('awaiting_review')]);
   const noDist = call('preview_start', { gameDir: GAME_DIR, built: true }, { ok: false, code: 'no_dist', reason: 'no_dist', fix: 'x' });
   const noProject = call('preview_start', { gameDir: '/games/unity-thing' }, { ok: false, code: 'no_npm_project', reason: "no package.json in '/games/unity-thing'", fix: 'x' });
   for (const refusal of [noDist, noProject]) {
     const s = observe(running, refusal, T0 + 2 * MIN);
-    assert.deepEqual(s.preview, { url: 'http://localhost:5173/', at: T0 + MIN }, refusal.output.code);
+    assert.deepEqual(s.preview, { url: 'http://localhost:5173/', at: T0 + MIN, gameDir: GAME_DIR }, refusal.output.code);
     assert.equal(view(s, T0 + 2 * MIN).links[0].url, 'http://localhost:5173/');
   }
   assert.equal(observe(fold([init()]), noDist, T0).preview, null, 'with no preview running there is still none');
@@ -526,6 +527,36 @@ test('a preview_start that a newer call overtook leaves the link to the newer ca
   assert.equal(fold([init(), previewOk(), newer, previewFail('superseded')]).preview.url, 'http://localhost:5174/', 'the newer server stays linked');
   assert.equal(fold([init(), previewOk(), previewFail('superseded'), previewFail('port_in_use')]).preview, null, 'the newer call failed');
   assert.equal(fold([init(), previewOk(), call('preview_stop', {}, { ok: true }), previewFail('superseded')]).preview, null, 'a stop overtook it');
+});
+
+test('a preview is this game\'s play link only when it serves the folder this build\'s play_gate played', () => {
+  // A preview names a folder, never a build (cli/src/local-registry.ts). The panel takes the build's folder from the
+  // play_gate run ongame recorded for it, so a preview of any other folder may be another game.
+  const urls = (calls) => view(fold(calls), T0 + 9 * MIN).links.map((l) => l.url);
+  const other = call('preview_start', { gameDir: '/games/other' }, { ok: true, url: 'http://localhost:5174/', pid: 42 });
+  assert.deepEqual(urls([init(), gate('awaiting_review'), other]), [], 'another folder\'s preview shows no link');
+  assert.deepEqual(urls([init(), other, gate('awaiting_review')]), [], 'whichever came first');
+  assert.deepEqual(urls([init(), other]), [], 'no play_gate yet: the folder is not known, so no link');
+  assert.deepEqual(urls([init(), gate('awaiting_review', { buildId: OTHER }), previewOk()]), [], 'another build\'s run names no folder of this one');
+  // The same folder's preview still shows, whichever came first, after any run ongame recorded for this build.
+  assert.deepEqual(urls([init(), gate('awaiting_review'), previewOk()]), ['http://localhost:5173/']);
+  assert.deepEqual(urls([init(), previewOk(), gate('blocked', { checks: FAILS })]), ['http://localhost:5173/']);
+  assert.deepEqual(urls([init(), gateAnswer({ status: 'ok', state: 'skipped', runId: RUN }), previewOk()]), ['http://localhost:5173/']);
+  // ongame keeps a build's folder only for a run it recorded (cli/src/play-gate.ts writeReport). A call refused, still
+  // running or unverified (`no_dist` also answers a folder that does not exist) records none: it moves no folder.
+  const refused = gateAnswer({ status: 'refused', reason: 'bad_waiver' }, { gameDir: '/games/other' });
+  const missing = gateAnswer({ status: 'unverified', reason: 'no_dist', next: 'x' }, { gameDir: '/games/fizlab' });
+  for (const unrecorded of [refused, missing, gateAnswer(pending('play_gate'), { gameDir: '/games/other' })]) {
+    const why = JSON.stringify(unrecorded.output).slice(0, 40);
+    assert.deepEqual(urls([init(), gate('awaiting_review'), previewOk(), unrecorded]), ['http://localhost:5173/'], why);
+    assert.deepEqual(urls([init(), unrecorded, previewOk()]), [], why);
+  }
+  // A later run of this build in another folder moves it: the earlier folder's preview no longer shows.
+  assert.deepEqual(urls([init(), gate('awaiting_review'), previewOk(), gate('awaiting_review', { gameDir: '/games/other' })]), []);
+  // A new build learns its folder from its own play_gate, even for the same game: until then its link does not show.
+  const next = fold([init(), gate('awaiting_review'), previewOk(), init('fizzlab', OTHER)]);
+  assert.deepEqual(view(next, T0 + 9 * MIN).links, []);
+  assert.deepEqual(view(observe(next, gate('awaiting_review', { buildId: OTHER }), T0 + 9 * MIN), T0 + 9 * MIN).links.map((l) => l.url), ['http://localhost:5173/']);
 });
 
 test('a link must be an http or https address with no control characters', () => {
@@ -565,6 +596,7 @@ test('a published link shows only after publish.done', () => {
 test('local and online links show together, local first', () => {
   const s = fold([
     init(),
+    gate('awaiting_review'),
     previewOk('http://127.0.0.1:4173/'),
     publish(),
     publishDone(),

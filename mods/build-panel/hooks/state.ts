@@ -41,6 +41,7 @@ export function emptyState(): BuildState {
     outcome: null,
     startedAt: null,
     check: null,
+    gameDir: null,
     preview: null,
     published: null,
     pendingPublish: null,
@@ -217,7 +218,9 @@ function takeCheck(s: BuildState, tool: string, input: Record<string, unknown>, 
   const state = out.state;
   if (state !== 'blocked' && state !== 'awaiting_review' && state !== 'skipped' && state !== 'passed') return s;
   const failed = Array.isArray(out.checks) ? out.checks.filter((c) => asRecord(c)?.status === 'fail').length : 0;
-  return { ...s, check: { result: state, failed, at: now, runId: str(out.runId), gameDir }, updatedAt: now };
+  // ongame recorded this run for the build, and with it the build's game folder (writeReport, gameDirOfBuild). An
+  // unverified or still running call records none, so of play_gate's answers only this one sets the build's folder.
+  return { ...s, check: { result: state, failed, at: now, runId: str(out.runId), gameDir }, gameDir, updatedAt: now };
 }
 
 function takeTrace(s: BuildState, input: Record<string, unknown>, out: Record<string, unknown>, now: number): BuildState {
@@ -264,7 +267,7 @@ function take(s: BuildState, tool: string, input: Record<string, unknown>, outpu
       if (output.ok !== true && typeof output.code === 'string' && PREVIEW_UNTOUCHED.has(output.code)) return s;
       // A start that got past its checks stopped the last preview server first, so a failed one leaves no link.
       const url = output.ok === true ? playUrl(output.url) : null;
-      return { ...s, preview: url ? { url, at: now } : null, updatedAt: now };
+      return { ...s, preview: url ? { url, at: now, gameDir: str(input.gameDir) } : null, updatedAt: now };
     }
     case 'preview_stop':
       return s.preview === null ? s : { ...s, preview: null, updatedAt: now };
@@ -474,7 +477,12 @@ export function view(s: BuildState, now: number): PanelView | null {
     status: isSuccess || s.completed.includes(name) ? ('done' as const) : name === s.currentPhase ? ('current' as const) : ('pending' as const),
   }));
   const links: PanelView['links'] = [];
-  if (s.preview) links.push({ kind: 'local', url: s.preview.url, label: 'Play here', note: 'works while this session runs' });
+  // A preview names a folder, never a game: it is this game's link only when it serves the build's folder, the one
+  // of the latest play_gate run ongame recorded for it. A preview of any other folder, or one before that run, may
+  // be another game's.
+  if (s.preview && s.preview.gameDir !== null && s.preview.gameDir === s.gameDir) {
+    links.push({ kind: 'local', url: s.preview.url, label: 'Play here', note: 'works while this session runs' });
+  }
   if (s.published) links.push({ kind: 'online', url: s.published.url, label: 'Play online', note: `published ${ago(s.published.at, now)}` });
   const updated = s.updatedAt !== null
     ? s.startedAt !== null && s.updatedAt === s.startedAt

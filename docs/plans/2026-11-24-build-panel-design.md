@@ -26,6 +26,10 @@ An answer moves the panel only when it says the thing happened, for this build o
 - An accepted `publish.done` names the game in its payload. It promotes the held publish of that game only.
 - `play_review` names a folder and a run, never a build. The panel matches it on the `runId` and `gameDir`
   of the `play_gate` run it holds for this build.
+- `preview_start` names a folder, never a build or a game. Its local link shows only when that folder is the
+  `gameDir` of the latest `play_gate` run ongame recorded for this build: a played or skipped run, the runs
+  ongame keeps the build's folder for. An `unverified` or still running call records none. Before such a run,
+  or for another folder, the preview shows no link. A new build learns its folder from its own `play_gate`.
 - A call slower than 45 s answers `{ ok: false, reason: call_pending, callId }` first. That is "not known
   yet". Its own answer then comes through `call_wait`, and the panel reads it as the answer of that call.
   On aws-w2, 29 of 76 real `play_gate` runs went pending (2026-11-21 to 2026-11-23, i_4rirhc58).

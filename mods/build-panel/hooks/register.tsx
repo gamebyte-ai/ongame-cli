@@ -43,7 +43,7 @@ const AMBER = '#f7ae5f';
 const TEAL = '#40b9b9';
 
 // Change the shape tag when BuildState's fields change: a value an earlier version stored outlives a reload.
-const build = atom({ plugin: 'ongame', key: 'build' } as const, emptyState(), { shape: 'build-3' });
+const build = atom({ plugin: 'ongame', key: 'build' } as const, emptyState(), { shape: 'build-4' });
 const isClosed = atom({ plugin: 'ongame', key: 'isClosed' } as const, false);
 const tick = atom({ plugin: 'ongame', key: 'tick' } as const, 0);
 
