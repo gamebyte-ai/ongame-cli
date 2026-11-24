@@ -139,7 +139,7 @@ test('the hooks module path names a file inside the plugin', () => {
 });
 
 // A mod's `$.state` values belong to the plugin that loads it. A value named for another plugin is refused at runtime
-// ("state.set: denied"), and Claude Code only logs that: the session looks fine and the panel never fills.
+// ("state.set: denied"). Claude Code only logs that and skips the hook, so the session still looks fine.
 // types/index.d.ts declares the values; Claude Code reads it at the plugin root without a manifest key.
 test("the hooks module keeps its state under this plugin's name, and types/index.d.ts declares it", () => {
   const source = fs.readFileSync(path.resolve(ROOT, 'hooks', hooks.modules[0]), 'utf8');
