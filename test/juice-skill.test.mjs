@@ -152,9 +152,7 @@ test('the constants agree with the tables', () => {
   // Layers switch on by step.
   assert.deepEqual([banner.fromStep, shake.fromStep, halo.fromStep], [1, 2, 4]);
   assert.ok(ladder.includes('banner at 1, shake at 2, halo at 4'));
-  // The order of the show is strictly rising.
-  const order = [0, shake.startMs, clear.soundOnMs, clear.beamOnMs, clear.particlesOnMs, banner.onMs, clear.scorePopOnMs];
-  for (let i = 1; i < order.length; i += 1) assert.ok(order[i] > order[i - 1], order.join(' < '));
+  // The order of the show, step by step, is in the next test: the sound's place in it depends on the step.
   assert.ok(banner.goneMs <= 1000 && halo.offMs <= 1100 && banner.scorePopFadeFromMs <= 1400);
   assert.ok(banner.scorePopOnMs > banner.goneMs, 'the score pop waits for the banner');
   // A big clear: three lines or more get the wind-up and the sweep, in rising order.
@@ -167,6 +165,57 @@ test('the constants agree with the tables', () => {
   assert.equal(place.snapMs, 17);
   assert.equal(place.scoreTickMs, 33);
   assert.ok(sections['Tier 0: the routine action'].includes('+1 point every 33 ms'));
+});
+
+test('the sound starts by combo step: with the beam on a plain clear, before the shake on early combo steps', () => {
+  const { clear, shake, banner, pitch, comboSound } = constants;
+  assert.ok(comboSound, 'the constants give the sound start per step');
+  const { onMsByStep, earlySteps, earlyMedianRangeMs: early, lateSteps, lateMedianRangeMs: late } = comboSound;
+  const list = (steps) => `${steps.slice(0, -1).join(', ')} and ${steps.at(-1)}`;
+  // The measured ranges in the constants are the ones in the ladder table, and the two groups cover every step once.
+  assert.ok(sections['Tier 2 and up: the combo ladder'].includes(
+    `median ${early[0]} to ${early[1]} ms at steps ${list(earlySteps)}; ${late[0]} to ${late[1]} ms at steps ${list(lateSteps)}`,
+  ), 'the ladder table gives the same two ranges');
+  assert.equal(onMsByStep.length, pitch.semitonesByStep.length);
+  assert.deepEqual([...earlySteps, ...lateSteps].sort((a, b) => a - b), onMsByStep.map((_, step) => step));
+  // Each starting value lies inside its group's measured range. Steps 0 and 1 use the measured Tier 1 median.
+  for (const step of earlySteps) assert.ok(onMsByStep[step] >= early[0] && onMsByStep[step] <= early[1], `step ${step}`);
+  for (const step of lateSteps) assert.ok(onMsByStep[step] >= late[0] && onMsByStep[step] <= late[1], `step ${step}`);
+  assert.deepEqual(onMsByStep.slice(0, 2), [clear.soundOnMs, clear.soundOnMs]);
+  assert.ok(sections['Tier 1: the small reward'].includes(`| Sound | starts at ${clear.soundOnMs} ms (61 to 111), together with the beam | M, n=18 |`));
+  // The show, step by step: every layer at its own time, in this order.
+  const show = (step) => {
+    const layers = [
+      ['result', 0],
+      ...(step >= shake.fromStep ? [['shake', shake.startMs]] : []),
+      ['sound', onMsByStep[step]], ['beam', clear.beamOnMs], ['particles', clear.particlesOnMs],
+      ...(step >= banner.fromStep ? [['banner', banner.onMs]] : []),
+      ['score pop', step >= banner.fromStep ? banner.scorePopOnMs : clear.scorePopOnMs],
+    ].sort((a, b) => a[1] - b[1]);
+    for (let i = 1; i < layers.length; i += 1) assert.ok(layers[i][1] > layers[i - 1][1], `step ${step}: ${layers.join(' ')}`);
+    return layers.map(([name]) => name).join(' < ');
+  };
+  // Base clear: the sound lands with the beam, within one frame.
+  assert.ok(clear.beamOnMs - clear.soundOnMs <= constants.frameMs);
+  assert.equal(show(0), 'result < sound < beam < particles < score pop');
+  assert.equal(show(1), 'result < sound < beam < particles < banner < score pop');
+  // Early combo steps: the sound comes with the result, before the shake. Steps 5, 8 and 9 measured late.
+  for (const step of [2, 3, 4, 6, 7]) {
+    assert.equal(show(step), 'result < sound < shake < beam < particles < banner < score pop', `step ${step}`);
+  }
+  for (const step of [5, 8, 9]) {
+    assert.equal(show(step), 'result < shake < sound < beam < particles < banner < score pop', `step ${step}`);
+  }
+  // Rule 2 says the same, and no longer gives one sound time for every clear.
+  const rule = flat(/^2\. \*\*Order the show\.\*\*[\s\S]+?(?=^3\. )/m.exec(sections.Rules)[0]);
+  assert.ok(!rule.includes('sound at 80 ms') && !rule.includes('Only the beam and its sound land together'), rule);
+  for (const needle of [
+    'At steps 0 and 1 it starts at 80 ms, with the beam.',
+    'At steps 2, 3, 4, 6 and 7 its median start is 4 to 19 ms, before the shake.',
+    'the medians of steps 0, 1, 5, 8 and 9 are 47 to 111 ms.',
+  ]) assert.ok(rule.includes(needle), needle);
+  // The note under the constants says which starting values were measured and which were chosen.
+  assert.ok(flat(skill).includes('The other values are chosen inside the measured median ranges'));
 });
 
 test('make-game and the polish phase point to the skill', () => {

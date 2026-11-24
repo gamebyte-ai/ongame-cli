@@ -99,7 +99,7 @@ adds one thing. When a combo ends was not measured.
 | Halo | the background 11 to 37 px under the grid frame gets 34% brighter on its brightest colour channel (31 to 36%); on at 350 ms, peak at 434 ms, off at 1060 ms; the top of the screen does not change | M, n=22 | One soft glow, the same at every step from 4 up |
 | Pitch | semitones over the base, steps 0 to 9: 0, 0, 1, 2, 3, 5, 6, 7, 8, 12 | M, n=57 | A small rise at each step is heard as a climb |
 | Loudness | the same at every step: all 56 clears are within 4 dB of each other | M, n=56 | A combo never becomes tiring to hear |
-| Sound delay | median 4 to 19 ms at steps 2, 3, 4, 6 and 7; 47 to 111 ms at steps 0, 1, 5, 8 and 9 | M, n=57 | From step 2 the sound lands with the shake |
+| Sound delay | median 4 to 19 ms at steps 2, 3, 4, 6 and 7; 47 to 111 ms at steps 0, 1, 5, 8 and 9 | M, n=57 | On 5 of the 8 steps from 2 up, the ear gets the hit with the result, before the shake |
 
 **Scale:** take the pitch for a step from the row above: it holds at step 1, rises one or two semitones (x1.0595
 each) per step from step 2 to step 8, and jumps to one octave (x2) at step 9. Raise the score number by the same
@@ -150,8 +150,10 @@ the same response for a repeat is inferred.
 
 1. **Respond in one frame.** The snap and the vanish take 1 frame. A delay belongs to the show, never to the
    response.
-2. **Order the show.** Result at 0 ms, shake at 33 ms, sound at 80 ms, beam from 83 ms, particles at 167 ms,
-   banner at 384 ms, score pop last. Only the beam and its sound land together.
+2. **Order the show.** Result at 0 ms, shake at 33 ms, beam from 83 ms, particles at 167 ms, banner at 384 ms,
+   score pop last. The sound's start depends on the combo step. At steps 0 and 1 it starts at 80 ms, with the beam.
+   At steps 2, 3, 4, 6 and 7 its median start is 4 to 19 ms, before the shake. At steps 5, 8 and 9 it came late
+   again: the medians of steps 0, 1, 5, 8 and 9 are 47 to 111 ms.
 3. **Add a layer; do not enlarge one.** Growth comes from switching layers on, from pitch and from the score number.
 4. **Shake has one size.** Keep the peak at 1.2% of the screen width. Change only the length: none, 190 ms, 300 ms.
 5. **Pitch climbs, loudness holds.** From step 2 to step 8 the pitch rises one or two semitones per step; step 9 is
@@ -187,6 +189,11 @@ the same response for a repeat is inferred.
     "sweepGoneMs": 325, "louderDb": 1.5
   },
   "pitch": { "baseHz": 261, "ratioPerSemitone": 1.0595, "semitonesByStep": [0, 0, 1, 2, 3, 5, 6, 7, 8, 12] },
+  "comboSound": {
+    "onMsByStep": [80, 80, 17, 17, 17, 80, 17, 17, 80, 80],
+    "earlySteps": [2, 3, 4, 6, 7], "earlyMedianRangeMs": [4, 19],
+    "lateSteps": [0, 1, 5, 8, 9], "lateMedianRangeMs": [47, 111]
+  },
   "gameOver": { "labelAfterMs": [80, 550], "fillStartsAfterLabelMs": [0, 67], "fillMs": [330, 430], "holdMs": [1900, 2000] },
   "refusedMove": { "returnMs": 17, "shake": false, "flash": false, "particles": false, "sound": false }
 }
@@ -195,6 +202,11 @@ the same response for a repeat is inferred.
 Shake offset in pixels is `peakShareOfWidth` times the screen width: 4.5 px on a 390 px screen as measured, and by
 the inferred size rule 8.8 px on a 768 px one. Pitch for a step is `baseHz * ratioPerSemitone ** semitonesByStep[step]`.
 No step past 9 was seen; staying on the octave there is inferred.
+
+A clear's sound starts at `comboSound.onMsByStep[step]`. Its 80 ms at steps 0 and 1 is the measured Tier 1 median.
+The other values are chosen inside the measured median ranges: 17 ms (one frame) inside 4 to 19 ms, and 80 ms
+inside 47 to 111 ms. The two ranges are measured; this skill does not give each step's own median. Past step 9,
+keeping step 9's value is inferred.
 
 ## Other genres
 
