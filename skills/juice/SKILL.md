@@ -14,6 +14,8 @@ below maps them onto any game.
 ## How to read the numbers
 
 - **Source:** play video at 59.92 fps, three play sessions, 343 s of play. One frame is 16.7 ms.
+- **The refused move and the pick-up sound** come from more play video of the same game: 2,198 s from the same
+  uploader, at 58.98 to 59.92 fps (one frame is 16.7 to 17.0 ms), with 5 refused moves.
 - **Error:** every measured time is within one frame: 17 ms at 60 fps. If you check your own game at 30 fps, your
   error is 33 ms.
 - **Basis:** `M, n=…` is measured, with the number of events behind it. `I` is inferred: a starting value to
@@ -35,6 +37,7 @@ A piece is picked up and placed, with no line cleared. The player does this ever
 | Layer | Value | Basis | What it is for |
 |---|---|---|---|
 | Pick-up scale | from 0.43x in the tray to 1.0x in 1 frame (17 ms) | M, n=1 | The piece is in the hand at once; no wind-up |
+| Pick-up sound | peaks 50 to 100 ms after the piece leaves the tray, on every pick-up | M, n=5 | The hand hears the piece taken before it is placed |
 | Snap into place | 1 frame (17 ms), no bounce | M, n=37 | Cause and effect read as one moment |
 | Shake, flash, particles | none; the largest screen offset was 0.03 px | M, n=17 | Routine stays quiet, so a reward stands out |
 | Score count starts | 67 to 83 ms after the snap (one at 100) | M, n=23 | The eye sees the piece land first, then the gain |
@@ -128,18 +131,20 @@ cold start land on step 2, so the shake arrives with them.
 **Scale:** the fill takes the same 330 to 430 ms for 18, 21 or 35 empty cells. Fix the length and let the speed per
 cell change.
 
-## A refused move: inferred, not measured
+## A refused move
 
-No refused move appeared in the 343 s of play video. These are starting values.
+A piece dropped where it does not fit goes back to its tray slot. Measured on 5 refused moves: 1 dropped over the
+grid on filled cells, 4 dropped below the grid. All 5 got the same response.
 
 | Layer | Value | Basis | What it is for |
 |---|---|---|---|
-| Piece returns to where it came from | 100 to 150 ms | I | Fast enough to try again at once |
-| Shake, flash, particles | none | I | A refusal stays below the smallest reward |
-| Sound | one short low sound at the base loudness, never pitched up | I | Tells a refusal apart from a placement by ear |
-| Input | never held | I | The player can pick the piece up again during the return |
+| Piece returns to where it came from | 1 frame (17 ms): on the next frame it rests in its tray slot at tray size; no flight, no shrink, no bounce | M, n=5 | The refusal reads at once, and the piece is ready for the next try |
+| Shake, flash, particles | none: the screen moved at most 0.047 px, its brightness changed by at most 0.63%, and nothing else moved | M, n=5 | A refusal stays below the smallest reward |
+| Sound | none at the release: silence until the next touch; the only sound of the move is the one its pick-up made | M, n=5 | Silence tells a refusal apart from a placement by ear |
+| Input | nothing to wait for: the piece is at rest on the next frame; twice the next piece was lifted 234 and 254 ms later | M, n=5 | The player can try again at once |
 
-**Scale:** nothing grows. A second refusal in a row gets the same response as the first. This is inferred too.
+**Scale:** nothing grows. Where the piece was dropped did not change the response. No two refusals came in a row, so
+the same response for a repeat is inferred.
 
 ## Rules
 
@@ -183,7 +188,7 @@ No refused move appeared in the 343 s of play video. These are starting values.
   },
   "pitch": { "baseHz": 261, "ratioPerSemitone": 1.0595, "semitonesByStep": [0, 0, 1, 2, 3, 5, 6, 7, 8, 12] },
   "gameOver": { "labelAfterMs": [80, 550], "fillStartsAfterLabelMs": [0, 67], "fillMs": [330, 430], "holdMs": [1900, 2000] },
-  "refusedMove": { "inferred": true, "returnMs": [100, 150] }
+  "refusedMove": { "returnMs": 17, "shake": false, "flash": false, "particles": false, "sound": false }
 }
 ```
 

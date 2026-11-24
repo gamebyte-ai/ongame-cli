@@ -32,7 +32,7 @@ const tables = (text) => {
 
 const TIERS = [
   'Tier 0: the routine action', 'Tier 1: the small reward', 'Tier 2 and up: the combo ladder',
-  'Big clears: two or more lines at once', 'The end: game over', 'A refused move: inferred, not measured',
+  'Big clears: two or more lines at once', 'The end: game over', 'A refused move',
 ];
 const constants = JSON.parse(/```json\n([\s\S]+?)\n```/.exec(skill)[1]);
 
@@ -99,16 +99,28 @@ test('every number is marked measured or inferred, and says what it is for', () 
   assert.ok(rows >= 40, `${rows} rows`);
 });
 
-test('the refused move is inferred in the tables and in the constants', () => {
-  const title = 'A refused move: inferred, not measured';
-  const rows = tables(sections[title]).flatMap((table) => table.rows.map((row) => row[table.head.indexOf('Basis')]));
-  assert.ok(rows.length >= 3);
-  for (const basis of rows) assert.equal(basis, 'I');
-  assert.ok(sections[title].includes('No refused move appeared'));
-  assert.equal(constants.refusedMove.inferred, true);
-  // No other tier borrows the inferred mark for a timing: the measured tiers are measured.
-  for (const other of TIERS.filter((name) => name !== title)) {
-    for (const table of tables(sections[other])) {
+test('the refused move is measured in the tables and in the constants', () => {
+  const section = sections['A refused move'];
+  const rows = tables(section).flatMap((table) => table.rows);
+  assert.deepEqual(rows.map((row) => row[0]), ['Piece returns to where it came from', 'Shake, flash, particles', 'Sound', 'Input']);
+  for (const row of rows) assert.equal(row[2], 'M, n=5', row.join(' | '));
+  assert.ok(section.includes('Measured on 5 refused moves'));
+  assert.ok(rows[0][1].startsWith('1 frame (17 ms)'));
+  assert.ok(flat(section).includes('so the same response for a repeat is inferred'), 'the repeat was not seen');
+  // Its one sound is the pick-up's, so the routine tier must list that sound.
+  assert.ok(rows[2][1].includes('the only sound of the move is the one its pick-up made'));
+  const pickUp = tables(sections['Tier 0: the routine action'])[0].rows.find((row) => row[0] === 'Pick-up sound');
+  assert.ok(pickUp, 'Tier 0 lists the pick-up sound');
+  assert.deepEqual(pickUp.slice(1, 3), ['peaks 50 to 100 ms after the piece leaves the tray, on every pick-up', 'M, n=5']);
+  // The constants say the same: back in one frame, nothing else plays.
+  const { refusedMove } = constants;
+  assert.equal(refusedMove.returnMs, 17);
+  assert.equal(refusedMove.returnMs, constants.place.snapMs);
+  assert.ok(!Object.hasOwn(refusedMove, 'inferred'));
+  for (const layer of ['shake', 'flash', 'particles', 'sound']) assert.equal(refusedMove[layer], false, layer);
+  // Every tier is now measured: no tier table carries the inferred mark.
+  for (const title of TIERS) {
+    for (const table of tables(sections[title])) {
       for (const row of table.rows) assert.notEqual(row[table.head.indexOf('Basis')], 'I', row.join(' | '));
     }
   }
