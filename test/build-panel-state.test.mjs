@@ -374,6 +374,23 @@ test('order: a build that started after a slow state_init went pending stays', (
   assert.deepEqual(observe(same, waited(init().output), T0 + 3 * MIN).phases, PLAN.phases);
 });
 
+test('order: a slow preview_start of one game shows no link after the panel moved to another game', () => {
+  // The Codex review's second case: a new game drops the running link, so it drops the late one too.
+  const late = previewOk('http://localhost:5174/').output;
+  const slow = fold([init(), call('preview_start', { gameDir: GAME_DIR }, pending('preview_start'))]);
+  const toAnother = [
+    observe(slow, init('another', OTHER), T0 + 2 * MIN),
+    fromMarker(slow, JSON.stringify({ buildId: OTHER, gameId: 'another', startedAtEpoch: (T0 + 2 * MIN) / 1000 }), T0 + 2 * MIN),
+  ];
+  for (const moved of toAnother) {
+    const s = observe(moved, waited(late), T0 + 3 * MIN);
+    assert.equal(s.gameId, 'another');
+    assert.equal(s.preview, null);
+  }
+  // A new build of the same game keeps it, as it keeps the running link.
+  assert.equal(observe(observe(slow, init('fizzlab', OTHER), T0 + 2 * MIN), waited(late), T0 + 3 * MIN).preview.url, 'http://localhost:5174/');
+});
+
 test('a call of another kind does not drop a slow call\'s late answer', () => {
   const slow = fold([init(), gateAnswer(pending('play_gate'))]);
   const between = [

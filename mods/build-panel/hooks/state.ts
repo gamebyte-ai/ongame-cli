@@ -156,7 +156,8 @@ function startBuild(s: BuildState, gameId: string | null, buildId: string, now: 
     preview: sameGame ? s.preview : null,
     published: sameGame ? s.published : null,
     pendingPublish: sameGame ? s.pendingPublish : null,
-    waiting: s.waiting,
+    // A held preview or publish follows its link: a late answer of another game is not this game's link.
+    waiting: sameGame ? s.waiting : without(without(s.waiting, 'preview'), 'publish'),
     updatedAt: now,
   };
 }
