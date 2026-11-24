@@ -410,9 +410,10 @@ test('a late answer passes the same checks as an answer given at once', () => {
   const late = gate('awaiting_review').output;
   // The build moved on: a late play check of the earlier build is not this build's.
   assert.equal(observe(observe(slow, init('fizzlab', OTHER), T0 + 3 * MIN), waited(late), T0 + 4 * MIN).check, null);
-  // A late failure, or an answer the CLI no longer holds, changes nothing and ends the wait.
+  // A late failure, or an answer the CLI no longer holds, changes nothing and ends the wait. A failed call_wait is
+  // not read even when its text looks like a run's answer.
   for (const ended of [
-    { ...waited({ error: 'x' }), isError: true },
+    { ...waited(late), isError: true },
     waited({ ok: false, reason: 'call_not_found', retryable: false, fix: 'x' }),
   ]) {
     const s = observe(slow, ended, T0 + 2 * MIN);
