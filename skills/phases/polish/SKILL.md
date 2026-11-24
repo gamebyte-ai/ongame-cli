@@ -66,6 +66,9 @@ from scratch; **compose** what's already in the engine.
    Sub-phase 10, every time. Skip it only when there is no runnable build to look at.
 
 **gamelabs primitive summary (the Lego to compose):**
+> On a 2D frame (`src/<Name>App.ts` imports `@gamebyte/gamelabsjs/core`) the ready-made `MainScreenBinding`,
+> `SettingsBinding` and `UIComponentsBinding` stop the boot. Build those screens from `ScreenView`/`PopupView`,
+> Pixi and the shell templates instead. Particles and the timeline work. See `framework`, "Two entries".
 - **Screen/menu:** `GamelabsApp`, `UIEvents.createScreen(id, transition)`, `ScreenView`,
   `PopupView`, ready-made `MainScreenBinding`/`MainScreenView` (+`MainScreenEvents`),
   `SettingsBinding`/`SettingsPopupView`, `SCREEN_TRANSITION_TYPES`.
@@ -155,8 +158,9 @@ hand-built path below, that is not a fault (same handling as Sub-phase 9.5).
 Add the modules: `addModule(new ParticlesBinding(budget?))` + `addModule(new TimelineBinding())`.
 Resolve `ParticleManager` and `TimelineManager` from DI and tick them in `onStep`. Give each listed moment a
 response: match explosion (particle
-burst), score pop-up + total-score punch, screenshake scaled to match size, impact (zoom punch / hit-stop) on big
-combos, glow/sparkle, cascade multiplier animation with rising sfx pitch.
+burst), score pop-up + total-score punch, screenshake of one size that never grows (a combo makes it longer, not
+stronger), impact (zoom punch, no hit-stop on a match) on big combos, glow/sparkle, cascade multiplier animation with
+rising sfx pitch.
 **Every burst, firework and confetti is rich and realistic, never flat primitive particles:** stack layers
 (glow, a burst of the game's own shapes, two-faced confetti, sparkle), with depth, light, varied size and spin, and
 physical motion. Praise words (Great!, Superb!) sit tilted together with their ribbon as one banner. Call

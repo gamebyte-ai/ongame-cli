@@ -1,10 +1,86 @@
 # Changelog
 
-## 1.7.90 — 2026-11-22
+## 1.7.98 — 2026-11-24
 
-- New skill `skills/juice/SKILL.md`: feedback timings in milliseconds for a placement, a line clear, a combo, a big clear and game over. They were measured frame by frame from 60 fps play video of a shipped grid puzzle game, with an error of one frame (17 ms). Each number is marked measured or inferred, says what it is for, and says how to scale it from a small event to a big one. The refused-move numbers are inferred: the video showed none.
-- `/make-game` and the polish phase, Sub-phase 5, point to the skill for timings and sizes.
+- New skill `skills/juice/SKILL.md`: feedback timings in milliseconds for a placement, a line clear, a combo, a big clear, game over and a refused move. They were measured frame by frame from 60 fps play video of a shipped grid puzzle game, with an error of one frame (17 ms). Each number is marked measured or inferred, says what it is for, and says how to scale it from a small event to a big one.
+- `/make-game` and the polish phase, Sub-phase 5, point to the skill for timings and sizes. Sub-phase 5 now asks for a screen shake of one size that never grows: a combo makes it longer, not stronger. It no longer asks for a hit-stop on a match.
 - `test/juice-skill.test.mjs` checks the marks, the scaling rules, the constants against the tables, the two links and this version. It also checks that the skill names no game.
+
+## 1.7.97 — 2026-11-24
+
+- The build panel's "Play here" link shows only for a preview of this build's game folder: the folder of its
+  latest recorded `play_gate` run. A preview of another folder, or one started before this build's first
+  recorded run, shows no link. Before, a preview of another game showed under this game's name.
+
+## 1.7.96 — 2026-11-24
+
+- A build panel in Claude Code shows the game being built: its name, its phase, the play check and the play link.
+  It reads only what ongame's own tools answered. During a build it opens by itself as a sidebar when the terminal
+  is at least 144 columns wide. On a narrower terminal, `/ongame-panel` opens it above the prompt.
+  `/ongame-panel off` turns it off for every later session, and `/ongame-panel on` turns it back on.
+- Claude Code 2.1.286 or later shows the panel where mods are allowed. An older Claude Code loads the plugin as
+  before, without the panel: measured on 2.1.50, 2.1.100, 2.1.150, 2.1.250 and 2.1.280.
+- `test/hooks-json.test.mjs` checks that the panel's module path stays inside the plugin, that its state belongs
+  to the ongame plugin, and that `plugin.json` keeps to keys Claude Code 2.0.15 to 2.1.75 accept.
+
+## 1.7.95 — 2026-11-24
+
+- `skills/gradients/check.mjs` reads a game's code as a parsed syntax tree, not as text. Its rules are unchanged. Spacing, comments, semicolons, quotes, regex literals, type casts and `!` no longer change what it finds. Before, each new way of writing the same code needed its own fix.
+- It parses with `@babel/parser` 7.29.14, bundled in `skills/gradients/vendor/` with its MIT license and listed in `NOTICE`. Nothing is installed: Node alone runs it.
+- It now also reads `do ... while` loops, a `for` loop whose counter is declared before it (`for (; i < 20; i++)`), and Canvas styles set with a string key (`ctx['globalAlpha'] = ...`).
+- A file it cannot parse is named and not checked. The run then exits 2, or 1 when it found a fade elsewhere. An unchecked file is never a pass.
+- `test/gradients-syntax-tree.test.mjs` holds 13 cases the text check got wrong. The old tests and fixtures pass unchanged.
+
+## 1.7.93 — 2026-11-24
+
+- New game plans default to no needed-item coin shortage before 12 completed sessions and three full elapsed days, without purchases or rewarded ads. The starting planning assumption is four 5–6 minute sessions a day, about 66 minutes across 12 sessions.
+- The shared economy runway checker rejects early shortages and insufficient simulation coverage for average and light players. A runnable example and tests cover both passing and failing plans.
+
+## 1.7.91 — 2026-11-22
+
+- The code phase asks the agent to pick a frame when it scaffolds a web game: `scaffold_materialize` takes `dimension`, `"2d"` or `"3d"`. A 2D game leaves three.js out. Measured on fresh scaffolds: 249.2 kB of gzipped JavaScript for 2D against 409.5 kB for 3D.
+- The code phase states the rule a 2D frame needs: every file imports the engine from the same entry as the game's App file. The polish and audio phases say which ready-made engine modules stop a 2D frame at boot, and what to build instead.
+- `dimension` needs the CLI release after `cli-v0.2.50`. An older CLI ignores it and writes the 3D frame, as before; the result then has no `dimension`.
+- `test/scaffold-dimension-text.test.mjs` checks these lines and this version.
+
+## 1.7.90 — 2026-11-21
+
+Six skills from games that shipped to the web, Google Play and the App Store. Each rule comes from a failure seen on a
+real release. Each script needs only Node and keeps one exit contract: 0 pass, 1 a finding, 2 bad usage or nothing
+readable. The checks read the game; `chroma-key.mjs key` writes only the output it is given (atomically, never over
+its input), and `line-check.mjs --fetch` updates remote-tracking refs, nothing else.
+
+- `store-build`: turns a finished web game into the uploadable native package — Capacitor shell, native settings, an
+  ad-free store build, the purchase key and package list, legal pages, an AAB and an emulator smoke run.
+  `store-check.mjs` is the pre-upload gate: placeholder icon, empty purchase key, a remote `server.url`, an invalid or
+  test-mode `build-info.json`, Android and iOS shipping different game files, target SDK below 36 (Play's requirement
+  as of 2026-11), a missing Gradle wrapper, a release signed with the debug key, a debuggable build.
+- `store-submit`: the review step. The agent never writes to a store; it prepares and the owner submits. Covers prices
+  proven on the reviewed build, first in-app purchases sent with the version, privacy forms that match every SDK, the
+  2.1 and 4.3 rejections, and click-by-click console steps. `check-text.mjs` fails a "no data collected" claim next
+  to an analytics, ads or purchases SDK found in `package.json` or the native projects, and warns on level counts that
+  go stale.
+- `game-verify`: proof before "done" — test counts before and after, a proof run with real input on the built page,
+  every screen at its fullest, a verdict only after the run ends. `line-check.mjs` finds local or remote branch work the
+  checkout and the default branch lack, and a checkout behind the default branch, before a publish; `live-diff.mjs` hashes every built file against the live game.
+- `mobile-ready`: the phone behaviour `/make-game`'s phone check does not list — pixel-ratio cap values, safe-area
+  values that arrive after load, pause, backgrounding, the Android back-key order. `check.mjs` reads the source for
+  what it can show.
+- `forge-assets`: measure a generated asset before it goes in — painted checkerboards instead of alpha (key a flat
+  magenta plate with `chroma-key.mjs`), sliced sprite sheets, the returned sound length, the character's pose and arm
+  joints before and after rigging.
+- `unity-port`: the release gates of a web-to-Unity port — visual and behaviour parity that block, save migration,
+  the minimum Android API, per-face colour before theories.
+- `/make-game` names `forge-assets`, `mobile-ready` and `game-verify` where their work starts; `/publish` runs
+  `line-check.mjs` before and `live-diff.mjs` after a publish; `store-prep` hands off to `store-build` and
+  `store-submit`; `unity` points to `unity-port`.
+- `/publish` step 3 now uploads with `publish_upload({gameDir, publishId})`, as the polish phase already did. It
+  told the agent to pass raw `uploads` and `source` by hand; on a build of about 100 files those slots are too large to
+  pass on, which led to uploading to the signed URLs directly and skipping the boot check and the source copy. The
+  slot form stays only for an older client that returns raw slots.
+- `test/shipped-lessons-skills.test.mjs` checks the six skills load, are named and this version;
+  `test/store-build-check.test.mjs`, `test/game-verify-scripts.test.mjs` and `test/check-scripts.test.mjs` hold each
+  script's pass, finding and unreadable cases on fixtures (temporary git repos and a localhost server, no network).
 
 ## 1.7.89 — 2026-11-20
 

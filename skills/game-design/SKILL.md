@@ -81,7 +81,16 @@ If the genre has none, write what was searched and skip to the next rule.
 Use the reference tools when they are available (`skills/reference/SKILL.md`). When nothing can be
 inspected, say the study is not done; do not fill the table from memory.
 
+## 7. Enjoy several days before coins run short
+
+Default: no needed-item coin shortage before **12 completed sessions AND 3 full elapsed days**. The planning
+assumption is four 5–6 minute sessions a day: 12 sessions are roughly 66 minutes at the midpoint. Days are elapsed
+time, never play minutes divided by a daily budget. Read [economy.md](economy.md) for the source/sink plan and
+run `economy-check.mjs` on the game simulation's individual runs, with purchases and rewarded ads declined.
+Wire its assertion into the game's normal economy tests; an early shortage or an untested horizon fails.
+Games without coins mark this rule not used. This rule applies before the economy is planned and whenever it changes.
+
 ## Done
 
-`docs/GAME_DESIGN.md` answers rules 1-6, and the tests named in rules 1, 2 and 4 pass. A rule that does not
+`docs/GAME_DESIGN.md` answers rules 1-7, and the tests named in rules 1, 2, 4 and 7 pass. A rule that does not
 fit this game is marked "not used" with the reason.

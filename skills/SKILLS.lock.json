@@ -1,5 +1,5 @@
 {
-  "pluginVersion": "1.7.90",
+  "pluginVersion": "1.7.98",
   "generatedAt": "2026-11-24",
   "skills": {
     "analytics": {
@@ -23,9 +23,14 @@
       "lines": 39
     },
     "difficulty-curve": {
-      "sha256": "53d93c873fb2334eb8f4f51984746e619f6f1c8291c07b78bc7a1ac839e5bcf6",
-      "bytes": 3197,
-      "lines": 48
+      "sha256": "7fd76a66f3688fcc97bcd9e7434a4571bad08ec723db7063f868ec5f753fbb36",
+      "bytes": 3625,
+      "lines": 53
+    },
+    "forge-assets": {
+      "sha256": "f2a62ee5176ad25ecc9e51c39c51af1b1381754ad95d0b202871eabfa36509b9",
+      "bytes": 4989,
+      "lines": 73
     },
     "game-code": {
       "sha256": "a6a4d8363a7b095884f662dbc95726d789c1ebb5070bdaafb6cbb716283b690f",
@@ -33,14 +38,19 @@
       "lines": 87
     },
     "game-concept": {
-      "sha256": "3c5205af44dc1e228d7346b55ea01c8a6342de3d80dad1840f57315176dcb34c",
-      "bytes": 3033,
-      "lines": 41
+      "sha256": "533f0ac3a2f0ec7367e4f4b3f7cbdc65400c5c2b93e911772e29a3dfc876331d",
+      "bytes": 3267,
+      "lines": 43
     },
     "game-design": {
-      "sha256": "93045e7728be657b860115bb38753cd70913cc5ee2e43a43c0562a56222c4b74",
-      "bytes": 5028,
-      "lines": 88
+      "sha256": "3f7a8c8fe3b47226ea3c3b587eb9da8542aaaf4f00fdee012fdd76e6f4d786c1",
+      "bytes": 5749,
+      "lines": 97
+    },
+    "game-verify": {
+      "sha256": "30037127955ffbbb144548797a75564d2ca890286fad299ef216ea28d8744638",
+      "bytes": 5453,
+      "lines": 76
     },
     "gradients": {
       "sha256": "7f435eeed457d5bbdcf2619c1a8d6df2338064896e2a57b734476d62c4396b21",
@@ -67,20 +77,25 @@
       "bytes": 8069,
       "lines": 122
     },
+    "mobile-ready": {
+      "sha256": "65beb36fbf2de1feec7eb50ee6ecd695b4a44c0a8c04efc5852172da7c057c42",
+      "bytes": 4413,
+      "lines": 55
+    },
     "phases/assets": {
       "sha256": "a901adb038e9e3f4234e3e0c9c1ada3cbb53ff6ce304548578be8a323c6000b0",
       "bytes": 43404,
       "lines": 559
     },
     "phases/audio": {
-      "sha256": "0c755f167eaf739408db13947668b4e66c28bea4f3b7f56ed0e1a1e6d9233e20",
-      "bytes": 12624,
-      "lines": 161
+      "sha256": "ea94a9f9c34afab5c828562de492829ac890aced901b85bda17fb03d9620ea8c",
+      "bytes": 12852,
+      "lines": 164
     },
     "phases/code": {
-      "sha256": "37d0d83189aa35a85d62238c5e3eef3dbea15920fdd7c8424fc0dfe4223ccaae",
-      "bytes": 41302,
-      "lines": 419
+      "sha256": "e394fd1b0fad6b8e353da3ef54484c21dc06e69dc0ecb282040e1c243862f8cf",
+      "bytes": 42378,
+      "lines": 428
     },
     "phases/concept": {
       "sha256": "6a6eb1f7233108ebcaed46ae2b7e7ce47a0fd5edaa6270aee580dfb927fc5119",
@@ -98,9 +113,9 @@
       "lines": 72
     },
     "phases/polish": {
-      "sha256": "9f197423e69f98cc8af226b8dc83dfb64269f1cc5d86675f1a148d6e5bc7d6e9",
-      "bytes": 50050,
-      "lines": 500
+      "sha256": "8da18016ba048f96213c7ed861264c48e0876c07fc2acbfddf92186f911dab4b",
+      "bytes": 50437,
+      "lines": 504
     },
     "phases/research": {
       "sha256": "6ee0d19bdc0c2faeeeb73e0658cb7d630bcc41f8ad8dac02a8004fb3c55dbb5c",
@@ -127,10 +142,20 @@
       "bytes": 1558,
       "lines": 25
     },
+    "store-build": {
+      "sha256": "6fd6c5da7bbd1cdf943ff5f9a3a25b454ffdb67b0c9b9fa645cd9e5109bbc238",
+      "bytes": 6343,
+      "lines": 96
+    },
     "store-prep": {
-      "sha256": "ffd68f014fb1b4b4ab92fe752c7728fbb57f8638230b12772eae147b66903747",
-      "bytes": 1551,
-      "lines": 24
+      "sha256": "273300c26bbeb146f866155afb0426551c1b1a8750fdced74a7f087ea47e35a6",
+      "bytes": 1737,
+      "lines": 26
+    },
+    "store-submit": {
+      "sha256": "4a70e49d6ef334e262ec7e778ca6fc837e765b71bccd0f734f9357d22ff3e2d4",
+      "bytes": 4923,
+      "lines": 68
     },
     "storyboard": {
       "sha256": "35472fdb1abd04b54ad371d96a7651ba3bdfaa591f6948e52df5fdab38bd6ccc",
@@ -143,9 +168,14 @@
       "lines": 103
     },
     "unity": {
-      "sha256": "1f5910173203b08be855fa5f2d8abd347134ac509dc5d46d17ef14b2db466d63",
-      "bytes": 18540,
-      "lines": 326
+      "sha256": "5008b4283a2aa5f50582f897255d3a159bbc1936d4c6e1ffb6391d2cb3839fa5",
+      "bytes": 18705,
+      "lines": 329
+    },
+    "unity-port": {
+      "sha256": "21e67d5e2e39864b1aa04062bb7929caa5fd912b14d6b3c4369f5f76e2d11a46",
+      "bytes": 4536,
+      "lines": 62
     }
   }
 }

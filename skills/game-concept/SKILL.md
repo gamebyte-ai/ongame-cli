@@ -35,6 +35,8 @@ reads them directly; the research, concept and docs phases point here.
 
 2. Generate a **light GDD** from CONCEPT.md: core loop, entities, controls, win/lose, screens (menu/play/gameover).
 3. Output: `docs/GAME_DESIGN.md` (short, actionable — the anchor for the code phase).
+   If it has coins, include the economy plan and runway proof from `skills/game-design/economy.md`: no needed-item
+   shortage before 12 completed sessions AND 3 full elapsed days. Check the plan with `economy-check.mjs` before code.
 3a. **Label every number.** Each number in GAME_DESIGN.md is marked measured, set by the user, or a starting guess with
    the range to tune within. An unlabeled number reads as measured, and nobody tunes it. Before writing the numbers,
    read `knowledge_get({ key: 'pattern:design-numbers' })`. Before step 4, check that no number is left unlabeled.

@@ -182,12 +182,19 @@ test('make-game and the polish phase point to the skill', () => {
   assert.ok(juice > -1 && link > juice && link < polish.indexOf('## Sub-phase 6'), 'the link is inside Sub-phase 5');
   // One source of juice numbers: the link follows the recipe call it takes precedence over.
   assert.ok(link > polish.indexOf('pattern:polish-juice-recipes" })` for the tuned juice/motion recipes (burst counts'));
+  // The moment list keeps the skill's one shake rule: the shake never grows, and a match gets no hit-stop.
+  const moments = flat(polish.slice(juice, link));
+  assert.ok(moments.includes('screenshake of one size that never grows (a combo makes it longer, not stronger), impact (zoom punch, no hit-stop on a match) on big combos'));
+  assert.ok(!moments.includes('screenshake scaled to match size'));
 });
 
 test('the plugin version and the changelog name the release that carries it', () => {
   const version = JSON.parse(read('.claude-plugin/plugin.json')).version;
-  assert.ok(version.localeCompare('1.7.90', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.90 or later`);
+  assert.ok(version.localeCompare('1.7.98', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.98 or later`);
   assert.equal(JSON.parse(read('skills/SKILLS.lock.json')).pluginVersion, version);
   assert.ok(Object.hasOwn(JSON.parse(read('skills/SKILLS.lock.json')).skills, 'juice'), 'the lock lists the skill');
-  assert.ok(read('CHANGELOG.md').includes('## 1.7.90 '));
+  const changelog = read('CHANGELOG.md');
+  const i = changelog.indexOf('## 1.7.98 ');
+  assert.ok(i > -1, 'the changelog has an entry for 1.7.98');
+  assert.ok(changelog.slice(i, changelog.indexOf('\n## ', i + 1)).includes('`skills/juice/SKILL.md`'));
 });
