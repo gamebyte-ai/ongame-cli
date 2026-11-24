@@ -26,7 +26,7 @@ export type BuildState = {
    *  with none, because nothing else ongame answers ties a folder to a build. */
   gameDir: string | null;
   /** A local preview server's address and the folder it serves; it lives as long as the agent session that started
-   *  it. It is shown only while `gameDir` is this build's game folder. */
+   *  it. It is shown only while its `gameDir` is the build's `gameDir` above. */
   preview: { url: string; at: number; gameDir: string | null } | null;
   /** The game's public address, once ongame recorded the publish as verified live. */
   published: { url: string; at: number } | null;

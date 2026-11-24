@@ -202,7 +202,7 @@ function takeCheck(s: BuildState, tool: string, input: Record<string, unknown>, 
   // ongame counts a run for a build only when the run names that build (cli/src/play-gate.ts playGateStatus). A run
   // that names another build, or none, is not this build's check.
   if (s.buildId === null || str(input.buildId) !== s.buildId) return s;
-  // Every answer below is a run ongame took up for this build, so the folder it names is this build's game folder.
+  // Each answer below that moves the check is a run ongame took up for this build: its folder is the build's folder.
   // A run that is still going has already deleted the last report (runPlayGate): the earlier result no longer stands.
   if (isPending(out)) return s.check === null && s.gameDir === gameDir ? s : { ...s, check: null, gameDir, updatedAt: now };
   if (out.status === 'unverified') return { ...s, check: { result: 'unverified', failed: 0, at: now, runId: null, gameDir }, gameDir, updatedAt: now };
