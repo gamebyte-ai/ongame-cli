@@ -9,6 +9,11 @@ const BUILD = 'b_0123456789abcdef';
 const CWD = '/games/fizzlab';
 const PLAN = { phases: ['concept', 'assets', 'code', 'levels', 'polish'] };
 const MARKER = JSON.stringify({ buildId: BUILD, gameId: 'fizzlab', startedAtEpoch: T0 / 1000 });
+const RUN = '3f6c1a52-9d0e-4b7a-8c11-5e2f0a9d7b31';
+const OTHER_RUN = '8b1d4e7f-2a35-4c69-9f02-6d7e1c3a5b48';
+/** trace_emit's answer to an accepted publish.done (ongame core/src/trace.ts). */
+const PUBLISHED = { ok: true, source: 'not_given', repo: 'not_given' };
+const MOMENTS = [{ run: 'desktop', frame: 1, saw: 'the start screen' }, { run: 'phone', frame: 1, saw: 'the start screen' }];
 const ongame = (name: string) => `mcp__plugin_ongame_ongame__${name}` as const;
 const SURFACES = ['terminal', 'desktop'] as const;
 /** A tool call by name. Which MCP tools the types know depends on the servers connected when the engine last laid
@@ -32,6 +37,7 @@ type Setup = {
   store?: Record<string, unknown>;
   /** The store refuses every write, as `$.store.set` does once the store would pass 4 MiB of JSON. */
   isStoreFull?: boolean;
+  /** ongame's answer by tool name: a value, or a function of the call's input when the answer depends on it. */
   answers?: Record<string, unknown>;
 };
 
@@ -75,7 +81,8 @@ function engine(on: On, setup: Setup = {}) {
   on('session.start', (_, e) => ({ cwd: e.cwd }));
   on('tool.call', (_, e) => {
     const name = String(e.tool);
-    const answer = setup.answers?.[name.slice(name.lastIndexOf('__') + 2)];
+    const given = setup.answers?.[name.slice(name.lastIndexOf('__') + 2)];
+    const answer = typeof given === 'function' ? (given as (input: unknown) => unknown)(e) : given;
     return { result: {}, text: JSON.stringify(answer ?? {}) };
   });
   return { seen, clock, store };
@@ -116,7 +123,7 @@ test('ongame tool answers move the panel: phase, play check and play link', asyn
     answers: {
       state_init: { buildId: BUILD, state: { currentPhase: null, completed: [], done: false, plan: PLAN } },
       state_advance: { buildId: BUILD, state: { currentPhase: 'code', completed: ['concept', 'assets'], done: false, plan: PLAN } },
-      play_gate: { status: 'ok', state: 'blocked', checks: [{ id: 'layout_fits', status: 'fail' }] },
+      play_gate: { status: 'ok', state: 'blocked', runId: RUN, checks: [{ id: 'layout_fits', status: 'fail', detail: 'x' }] },
       preview_start: { ok: true, url: 'http://localhost:5173/', pid: 7 },
     },
   });
@@ -127,7 +134,7 @@ test('ongame tool answers move the panel: phase, play check and play link', asyn
   expect(seen.opened.length).toBe(1); // a new build opens it by itself
   expect(ran.text).toBe(JSON.stringify({ buildId: BUILD, state: { currentPhase: null, completed: [], done: false, plan: PLAN } }));
   await $.tool.call(callOf(ongame('state_advance'), { buildId: BUILD }));
-  await $.tool.call(callOf(ongame('play_gate'), { gameDir: CWD }));
+  await $.tool.call(callOf(ongame('play_gate'), { gameDir: CWD, buildId: BUILD }));
   await $.tool.call(callOf(ongame('preview_start'), { gameDir: CWD }));
   expect(seen.opened.length).toBe(1); // the same build does not open it again
 
@@ -221,7 +228,7 @@ test('a verified online link is kept for the next session in this folder', async
 test('publish.done turns the publish address into a play link and keeps it', async ($, on) => {
   const { clock, store } = engine(on, {
     marker: MARKER,
-    answers: { publish_game: { publishId: 'p1', publicUrl: 'https://play.ongame.test/fizzlab/' }, trace_emit: { recorded: true } },
+    answers: { publish_game: { publishId: 'p1', publicUrl: 'https://play.ongame.test/fizzlab/' }, trace_emit: PUBLISHED },
   });
   await $.session.start(start);
   await $.tool.call(callOf(ongame('publish_game'), { gameId: 'fizzlab', files: [] }));
@@ -238,7 +245,7 @@ test('publish.done turns the publish address into a play link and keeps it', asy
 });
 
 test('a store that refuses a write leaves the tool result and the panel as they were', async ($, on) => {
-  const answer = { recorded: true };
+  const answer = PUBLISHED;
   engine(on, {
     marker: MARKER,
     isStoreFull: true,
@@ -251,5 +258,125 @@ test('a store that refuses a write leaves the tool result and the panel as they 
   expect(ran.isError).toBeUndefined();
   const ui = await $.ui.mount({ ...WIDE, surface: 'terminal' });
   expect((await ui.find({ type: 'Link' }))?.props.href).toBe('https://play.ongame.test/fizzlab/');
+  await ui.unmount();
+});
+
+test('a publish.done that ongame refused shows no link and keeps none', async ($, on) => {
+  // ongame refuses a publish.done whose payload does not name the build's game (core/src/trace.ts).
+  const refusal = { ok: false, reason: 'game_id_mismatch' };
+  const { store } = engine(on, {
+    marker: MARKER,
+    answers: { publish_game: { publishId: 'p1', publicUrl: 'https://play.ongame.test/fizzlab/' }, trace_emit: refusal },
+  });
+  await $.session.start(start);
+  await $.tool.call(callOf(ongame('publish_game'), { gameId: 'fizzlab', files: [] }));
+  const ran = await $.tool.call(callOf(ongame('trace_emit'), { buildId: BUILD, name: 'publish.done', payload: {} }));
+  expect(ran.text).toBe(JSON.stringify(refusal));
+  const ui = await $.ui.mount({ ...WIDE, surface: 'terminal' });
+  expect(await ui.find({ type: 'Link' })).toBeUndefined();
+  expect(await ui.find({ type: 'Button', key: 'copy' })).toBeUndefined();
+  await ui.unmount();
+  expect(store[`published:${CWD}`]).toBeUndefined();
+});
+
+test('the play check passes only on the review of its own run', async ($, on) => {
+  // play_review names a folder and a run, never a build (cli/src/local-registry.ts). This build's run is blocked;
+  // another game's run is reviewed and passes.
+  let mine: Record<string, unknown> = { status: 'ok', state: 'blocked', runId: RUN, checks: [{ id: 'layout_fits', status: 'fail', detail: 'x' }] };
+  engine(on, {
+    marker: MARKER,
+    answers: {
+      play_gate: (input: { buildId?: string }) => (input.buildId === BUILD ? mine : { status: 'ok', state: 'awaiting_review', runId: OTHER_RUN, checks: [] }),
+      play_review: { status: 'passed' },
+    },
+  });
+  await $.session.start(start);
+  await $.tool.call(callOf(ongame('play_gate'), { gameDir: CWD, buildId: BUILD }));
+  await $.tool.call(callOf(ongame('play_gate'), { gameDir: '/games/another', buildId: 'b_fedcba9876543210' }));
+  await $.tool.call(callOf(ongame('play_review'), { gameDir: '/games/another', runId: OTHER_RUN, review: 'It plays right.', moments: MOMENTS }));
+  let ui = await $.ui.mount({ ...WIDE, surface: 'terminal' });
+  expect((await ui.find({ type: 'Text', text: /Play check/ }))?.text).toBe('✗ Play check failed: 1 check');
+  await ui.unmount();
+
+  // Fixed and played again: the review of that run passes it.
+  mine = { status: 'ok', state: 'awaiting_review', runId: RUN, checks: [{ id: 'layout_fits', status: 'pass', detail: 'x' }] };
+  await $.tool.call(callOf(ongame('play_gate'), { gameDir: CWD, buildId: BUILD }));
+  ui = await $.ui.mount({ ...WIDE, surface: 'terminal' });
+  expect((await ui.find({ type: 'Text', text: /Play check/ }))?.text).toBe('· Play check waiting for review');
+  await ui.unmount();
+  await $.tool.call(callOf(ongame('play_review'), { gameDir: CWD, runId: RUN, review: 'It plays right.', moments: MOMENTS }));
+  ui = await $.ui.mount({ ...WIDE, surface: 'terminal' });
+  expect((await ui.find({ type: 'Text', text: /Play check/ }))?.text).toBe('✓ Play check passed');
+  await ui.unmount();
+});
+
+test('a build that ended failed shows as failed, with no success marks', async ($, on) => {
+  const { clock } = engine(on, {
+    answers: {
+      state_init: { buildId: BUILD, state: { currentPhase: 'code', completed: ['concept', 'assets'], done: false, plan: PLAN } },
+      trace_emit: (input: { payload?: { outcome?: string } }) => (input.payload?.outcome === 'refused-by-test' ? { ok: false } : { ok: true }),
+    },
+  });
+  await $.session.start(start);
+  await $.tool.call(callOf(ongame('state_init'), { gameId: 'fizzlab', plan: PLAN }));
+
+  // A build.done ongame did not accept leaves the build running.
+  await $.tool.call(callOf(ongame('trace_emit'), { buildId: BUILD, name: 'build.done', payload: { outcome: 'refused-by-test' } }));
+  const ui = await $.ui.mount({ ...WIDE, surface: 'terminal' });
+  expect((await ui.find({ type: 'Text', text: /Building/ }))?.text).toBe('● Building · code (3 of 5)');
+  await ui.unmount();
+
+  await clock.advance(MIN);
+  await $.tool.call(callOf(ongame('trace_emit'), { buildId: BUILD, name: 'build.done', payload: { outcome: 'failed' } }));
+  for (const surface of SURFACES) {
+    const shown = await $.ui.mount({ ...WIDE, surface });
+    expect((await shown.find({ type: 'Text', text: /Build failed/ }))?.text).toBe('✗ Build failed');
+    expect(await shown.find({ type: 'Text', text: /Build finished/ })).toBeUndefined();
+    expect((await shown.find({ type: 'Text', text: /concept/ }))?.text).toBe('✓ concept  ✓ assets  ○ code  ○ levels  ○ polish');
+    await shown.unmount();
+  }
+});
+
+test('a preview_start refused before it stopped anything keeps the play link', async ($, on) => {
+  // built=true before dist/index.html exists: the CLI answers no_dist and the running preview stays up.
+  engine(on, {
+    marker: MARKER,
+    answers: {
+      preview_start: (input: { built?: boolean }) =>
+        input.built === true ? { ok: false, code: 'no_dist', reason: 'no_dist', fix: 'x' } : { ok: true, url: 'http://localhost:5173/', pid: 7 },
+    },
+  });
+  await $.session.start(start);
+  await $.tool.call(callOf(ongame('preview_start'), { gameDir: CWD }));
+  await $.tool.call(callOf(ongame('preview_start'), { gameDir: CWD, built: true }));
+  const ui = await $.ui.mount({ ...WIDE, surface: 'terminal' });
+  expect((await ui.find({ type: 'Link' }))?.props.href).toBe('http://localhost:5173/');
+  await ui.unmount();
+});
+
+test('a play_gate still running after 45 s shows no earlier result', async ($, on) => {
+  // The CLI answers call_pending first (cli/src/call-jobs.ts). The run's own answer comes through call_wait, which
+  // the panel does not read.
+  let answer: Record<string, unknown> = { status: 'ok', state: 'blocked', runId: RUN, checks: [{ id: 'layout_fits', status: 'fail', detail: 'x' }] };
+  engine(on, {
+    marker: MARKER,
+    answers: {
+      play_gate: () => answer,
+      call_wait: { status: 'ok', state: 'awaiting_review', runId: OTHER_RUN, checks: [] },
+      play_review: { status: 'passed' },
+    },
+  });
+  await $.session.start(start);
+  await $.tool.call(callOf(ongame('play_gate'), { gameDir: CWD, buildId: BUILD }));
+  let ui = await $.ui.mount({ ...WIDE, surface: 'terminal' });
+  expect((await ui.find({ type: 'Text', text: /Play check/ }))?.text).toBe('✗ Play check failed: 1 check');
+  await ui.unmount();
+
+  answer = { ok: false, reason: 'call_pending', retryable: true, callId: 'c-1', tool: 'play_gate', fix: 'x' };
+  await $.tool.call(callOf(ongame('play_gate'), { gameDir: CWD, buildId: BUILD }));
+  await $.tool.call(callOf(ongame('call_wait'), { callId: 'c-1' }));
+  await $.tool.call(callOf(ongame('play_review'), { gameDir: CWD, runId: OTHER_RUN, review: 'It plays right.', moments: MOMENTS }));
+  ui = await $.ui.mount({ ...WIDE, surface: 'terminal' });
+  expect(await ui.find({ type: 'Text', text: /Play check/ })).toBeUndefined(); // not known: no line, and no pass
   await ui.unmount();
 });

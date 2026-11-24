@@ -9,6 +9,13 @@
 // (core/src/registry.ts, read the same way as desktop/src/progress.ts), the play check from cli/src/play-gate.ts,
 // the local link from cli/src/preview.ts and the online link from the publish steps in commands/publish.md.
 // These are structured fields and exact event names, never words whose meaning is judged.
+//
+// An answer counts only when it says the thing happened, for this build or this game. trace_emit answers `{ ok }`
+// (core/src/trace.ts traceEmit): `ok: false` is an event ongame refused or a build it does not know. play_review
+// names a folder and a run, never a build (cli/src/local-registry.ts). A call slower than 45 s answers
+// `{ ok: false, reason: 'call_pending' }` first (cli/src/call-jobs.ts): that is "not known yet", never a result. Its
+// own answer then comes through call_wait, which the panel does not read: what that call would have shown stays
+// empty until a later answer fills it.
 
 import type { BuildState, PanelView, PublishedRecord, ToolCall, Tone } from '../../../types';
 
@@ -31,6 +38,7 @@ export function emptyState(): BuildState {
     currentPhase: null,
     completed: [],
     isDone: false,
+    outcome: null,
     startedAt: null,
     check: null,
     preview: null,
@@ -147,6 +155,7 @@ function startBuild(s: BuildState, gameId: string | null, buildId: string, now: 
 
 /** The build state inside a state tool's answer: `{ buildId, state }` or the state itself. */
 function takeBuild(s: BuildState, tool: string, input: Record<string, unknown>, out: Record<string, unknown>, now: number): BuildState {
+  if (isPending(out)) return s;
   const inner = asRecord(out.state) ?? out;
   const id = str(out.buildId) ?? str(inner.buildId) ?? str(input.buildId);
   let next = s;
@@ -161,47 +170,78 @@ function takeBuild(s: BuildState, tool: string, input: Record<string, unknown>, 
   if (!('currentPhase' in inner) && !('completed' in inner) && !('done' in inner)) return { ...next, updatedAt: now };
   const plan = asRecord(inner.plan);
   const phases = plan && Array.isArray(plan.phases) ? strings(plan.phases) : next.phases;
+  const isDone = inner.done === true;
   return {
     ...next,
     phases,
     currentPhase: str(inner.currentPhase),
     completed: strings(inner.completed),
-    isDone: inner.done === true,
+    isDone,
+    // An outcome is how a build ended. A build that runs again (record_iteration re-opens it) has none.
+    outcome: isDone ? next.outcome : null,
     updatedAt: now,
   };
 }
 
+/** What a call still running after 45 s answers first: nothing about its result. */
+function isPending(out: Record<string, unknown>): boolean {
+  return out.ok === false && out.reason === 'call_pending';
+}
+
 function takeCheck(s: BuildState, tool: string, input: Record<string, unknown>, out: Record<string, unknown>, now: number): BuildState {
-  // A check of another build is not this build's check.
-  const buildId = str(input.buildId);
-  if (buildId !== null && s.buildId !== null && buildId !== s.buildId) return s;
+  const gameDir = str(input.gameDir);
   if (tool === 'play_review') {
-    return out.status === 'passed' ? { ...s, check: { result: 'passed', failed: 0, at: now }, updatedAt: now } : s;
+    // A review names a folder and a run. It passes this build's check only when it is the review of the run that
+    // check came from: a review of another game's run, or of an earlier run, says nothing about this build.
+    const check = s.check;
+    if (out.status !== 'passed' || check === null || check.runId === null || gameDir === null) return s;
+    if (str(input.runId) !== check.runId || gameDir !== check.gameDir) return s;
+    return { ...s, check: { ...check, result: 'passed', failed: 0, at: now }, updatedAt: now };
   }
-  if (out.status === 'unverified') return { ...s, check: { result: 'unverified', failed: 0, at: now }, updatedAt: now };
+  // ongame counts a run for a build only when the run names that build (cli/src/play-gate.ts playGateStatus). A run
+  // that names another build, or none, is not this build's check.
+  if (s.buildId === null || str(input.buildId) !== s.buildId) return s;
+  // A run that is still going has already deleted the last report (runPlayGate): the earlier result no longer stands.
+  if (isPending(out)) return s.check === null ? s : { ...s, check: null, updatedAt: now };
+  if (out.status === 'unverified') return { ...s, check: { result: 'unverified', failed: 0, at: now, runId: null, gameDir }, updatedAt: now };
   if (out.status !== 'ok') return s;
   const state = out.state;
   if (state !== 'blocked' && state !== 'awaiting_review' && state !== 'skipped' && state !== 'passed') return s;
   const failed = Array.isArray(out.checks) ? out.checks.filter((c) => asRecord(c)?.status === 'fail').length : 0;
-  return { ...s, check: { result: state, failed, at: now }, updatedAt: now };
+  return { ...s, check: { result: state, failed, at: now, runId: str(out.runId), gameDir }, updatedAt: now };
 }
 
-function takeTrace(s: BuildState, input: Record<string, unknown>, now: number): BuildState {
+function takeTrace(s: BuildState, input: Record<string, unknown>, out: Record<string, unknown>, now: number): BuildState {
+  // `ok: false` is an event ongame refused (publish.done: `game_id_mismatch`), a build it does not know, or a call
+  // still running. None of them happened on ongame's record.
+  if (out.ok !== true) return s;
   const buildId = str(input.buildId);
+  const payload = asRecord(input.payload);
   if (input.name === 'build.done') {
-    if (s.buildId === null || (buildId !== null && buildId !== s.buildId)) return s;
-    return { ...s, isDone: true, currentPhase: null, updatedAt: now };
+    if (s.buildId === null || buildId !== s.buildId) return s;
+    // The agent names `failed` or `abandoned` when the build did not succeed (core/src/registry.ts, trace_emit).
+    const named = payload?.outcome;
+    const outcome = named === 'failed' || named === 'abandoned' ? named : null;
+    return { ...s, isDone: true, outcome, currentPhase: null, updatedAt: now };
   }
   if (input.name === 'publish.done') {
+    // ongame accepts publish.done only when the payload names the build's own game, so an accepted one always names
+    // the game whose address is now live. It promotes the held publish of that game, and only on this game's panel.
     const pending = s.pendingPublish;
-    const gameId = str(asRecord(input.payload)?.gameId);
-    if (pending === null) return s;
-    if (gameId !== null && pending.gameId !== null && gameId !== pending.gameId) return s;
-    if (pending.gameId !== null && s.gameId !== null && pending.gameId !== s.gameId) return s;
+    const gameId = str(payload?.gameId);
+    if (pending === null || gameId === null || pending.gameId !== gameId) return s;
+    if (s.gameId !== null && s.gameId !== gameId) return s;
     return { ...s, published: { url: pending.url, at: now }, pendingPublish: null, updatedAt: now };
   }
   return s;
 }
+
+/**
+ * preview_start failures that leave the running preview alone. `no_npm_project` and `no_dist` are checked before
+ * anything is stopped. `superseded` is a call a newer one overtook: the newer call's own answer says what runs now.
+ * Every other failure comes after the last preview server was stopped (cli/src/preview.ts previewStart).
+ */
+const PREVIEW_UNTOUCHED = new Set(['no_npm_project', 'no_dist', 'superseded']);
 
 /** Folds one finished tool call into the state. A call that is not ongame's, or that failed, changes nothing. */
 export function observe(s: BuildState, call: ToolCall, now: number): BuildState {
@@ -210,12 +250,13 @@ export function observe(s: BuildState, call: ToolCall, now: number): BuildState 
   const { input, output } = call;
   switch (tool) {
     case 'trace_emit':
-      return takeTrace(s, input, now);
+      return takeTrace(s, input, output, now);
     case 'play_gate':
     case 'play_review':
       return takeCheck(s, tool, input, output, now);
     case 'preview_start': {
-      // A new start stops the last preview server first (cli/src/preview.ts), so a failed start leaves no link.
+      if (output.ok !== true && typeof output.code === 'string' && PREVIEW_UNTOUCHED.has(output.code)) return s;
+      // A start that got past its checks stopped the last preview server first, so a failed one leaves no link.
       const url = output.ok === true ? playUrl(output.url) : null;
       return { ...s, preview: url ? { url, at: now } : null, updatedAt: now };
     }
@@ -306,17 +347,23 @@ function checkLine(check: NonNullable<BuildState['check']>): { label: string; to
 export function view(s: BuildState, now: number): PanelView | null {
   if (s.gameId === null) return null;
   const state: PanelView['state'] = s.isDone
-    ? { label: 'Build finished', tone: 'done' }
+    ? s.outcome === 'failed'
+      ? { label: 'Build failed', tone: 'failed' }
+      : s.outcome === 'abandoned'
+        ? { label: 'Build abandoned', tone: 'muted' }
+        : { label: 'Build finished', tone: 'done' }
     : s.buildId !== null
       ? { label: 'Building', tone: 'active' }
       : { label: 'No build running', tone: 'muted' };
+  // A build that did not succeed gets no success marks: only the steps ongame reported complete are done.
+  const isSuccess = s.isDone && s.outcome === null;
   const index = s.currentPhase === null ? -1 : s.phases.indexOf(s.currentPhase);
   const phase = s.isDone || s.currentPhase === null
     ? null
     : { name: clean(s.currentPhase), index: index + 1, total: index >= 0 ? s.phases.length : 0 };
   const steps = s.phases.map((name) => ({
     name: clean(name),
-    status: s.isDone || s.completed.includes(name) ? ('done' as const) : name === s.currentPhase ? ('current' as const) : ('pending' as const),
+    status: isSuccess || s.completed.includes(name) ? ('done' as const) : name === s.currentPhase ? ('current' as const) : ('pending' as const),
   }));
   const links: PanelView['links'] = [];
   if (s.preview) links.push({ kind: 'local', url: s.preview.url, label: 'Play here', note: 'works while this session runs' });

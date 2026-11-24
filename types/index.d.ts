@@ -15,9 +15,13 @@ export type BuildState = {
   currentPhase: string | null;
   completed: string[];
   isDone: boolean;
+  /** How the build ended when its `build.done` said it did not succeed; null while it runs, and when it succeeded. */
+  outcome: 'failed' | 'abandoned' | null;
   /** When the build started (the marker's time, or when its state_init answered), ms since the epoch. */
   startedAt: number | null;
-  check: { result: PlayCheckResult; failed: number; at: number } | null;
+  /** This build's latest play check. `runId` and `gameDir` name the play_gate run it came from: a review counts
+   *  only for that run. `runId` is null when no run was recorded (`unverified`). */
+  check: { result: PlayCheckResult; failed: number; at: number; runId: string | null; gameDir: string | null } | null;
   /** A local preview server's address; it lives as long as the agent session that started it. */
   preview: { url: string; at: number } | null;
   /** The game's public address, once ongame recorded the publish as verified live. */

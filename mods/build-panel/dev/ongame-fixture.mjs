@@ -8,12 +8,16 @@
 //     {"command":"node","args":["mods/build-panel/dev/ongame-fixture.mjs"]}}}'
 //
 // Run it from the repo root: the panel ships inside the ongame plugin (hooks/hooks.json "modules").
-// Then ask Claude to call state_init, state_advance, play_gate, play_review and preview_start.
+// Then ask Claude to call state_init, state_advance, play_gate (with the buildId state_init returned), play_review
+// (with the runId play_gate returned) and preview_start.
+import { randomUUID } from 'node:crypto';
 import { createInterface } from 'node:readline';
 
 const BUILD_ID = 'b_0123456789abcdef';
 let plan = { phases: [] };
 let step = -1;
+/** The latest play_gate run. As in the CLI, play_review passes only for that run, in the folder it played. */
+let run = null;
 
 const state = () => ({
   currentPhase: step >= 0 && step < plan.phases.length ? plan.phases[step] : null,
@@ -45,14 +49,28 @@ const TOOLS = {
     },
   },
   play_gate: {
-    description: 'Play the built game on record.',
-    inputSchema: { type: 'object', properties: { gameDir: { type: 'string' } }, required: ['gameDir'] },
-    run: () => ({ status: 'ok', state: 'awaiting_review', runId: 'fixture', checks: [{ id: 'reaches_goal', status: 'pass', detail: 'fixture' }] }),
+    description: 'Play the built game on record. Pass gameDir and the buildId state_init returned. Returns { state, runId, checks }.',
+    inputSchema: { type: 'object', properties: { gameDir: { type: 'string' }, buildId: { type: 'string' } }, required: ['gameDir'] },
+    run: (args) => {
+      run = { runId: randomUUID(), gameDir: String(args.gameDir) };
+      return {
+        status: 'ok', state: 'awaiting_review', runId: run.runId, checks: [{ id: 'reaches_goal', status: 'pass', detail: 'fixture' }],
+        next: `Call play_review({gameDir, runId: "${run.runId}", review, moments}).`,
+      };
+    },
   },
   play_review: {
-    description: 'Record the review of the play footage.',
-    inputSchema: { type: 'object', properties: { buildId: { type: 'string' }, review: { type: 'string' } }, required: ['buildId'] },
-    run: () => ({ status: 'passed' }),
+    description: 'Record the review of the play footage. Pass the same gameDir and the runId play_gate returned.',
+    inputSchema: {
+      type: 'object',
+      properties: { gameDir: { type: 'string' }, runId: { type: 'string' }, review: { type: 'string' }, moments: { type: 'array', items: { type: 'object' } } },
+      required: ['gameDir', 'runId', 'review', 'moments'],
+    },
+    run: (args) => {
+      if (run === null || run.gameDir !== String(args.gameDir)) return { status: 'refused', reason: 'no_run', next: 'Call play_gate first.' };
+      if (run.runId !== args.runId) return { status: 'refused', reason: 'stale_run', next: `The latest play_gate run is ${run.runId}. Review that one.` };
+      return { status: 'passed' };
+    },
   },
   preview_start: {
     description: 'Serve the game locally and return its address.',
