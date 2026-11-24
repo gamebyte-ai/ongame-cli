@@ -74,8 +74,9 @@ It reads a syntax tree, with the `@babel/parser` the gradients check already ven
 
 - **Boot module:** the first `<script type="module" src>` in `index.html` that points at a local file. With none,
   `src/main.ts`.
-- **The setConsent names:** from that module's imports of a `telemetry` module: `setConsent`, an alias of it, or
-  `T.setConsent` through `import * as T`.
+- **The setConsent names:** from that module's imports of the shim: `setConsent`, an alias of it, or
+  `T.setConsent` through `import * as T`. An import counts as the shim's the way the upgrade already decides it
+  (`pointsAtShim`): an alias such as `@/telemetry` counts, a game helper such as `./utils/telemetry` does not.
 - **The walk:** the module's top-level statements, in order, as the browser runs them. A function declaration is
   not run where it stands. A call to a function declared in the same module (a declaration, or a `const` arrow or
   function) is followed into its body. An immediately called function is followed too.
@@ -87,7 +88,9 @@ It reads a syntax tree, with the `@babel/parser` the gradients check already ven
   `setConsent(true)` at start is not the player's answer. The check cannot tell a right condition from a wrong one,
   so the skill gives the one safe form.
 - **Imports:** every game file the boot module imports by a relative path, followed through further imports, is read
-  for a top-level `await`. `import type`, dynamic `import()`, packages and path aliases are not followed.
+  for a top-level `await`. `import type`, an import whose names are all `type`, dynamic `import()`, packages and
+  path aliases are not followed. TypeScript drops a type-only import from the build, as the template compiles it
+  (no `verbatimModuleSyntax`).
 
 Not followed: functions imported from other modules, methods, and class constructors. A game that applies the
 answer only inside one of those fails. The message says to call `setConsent` in the boot module itself, which is
@@ -101,6 +104,8 @@ always possible. A false failure costs one line; a false pass would send a playe
 - A children's game: neither check runs. It sends nothing.
 - The shim is not v2: only the existing not-v2 line is shown; exit 4 stays as it was.
 - A file the boot module imports cannot be parsed: `--check` names it.
+- A game that turns on `verbatimModuleSyntax` keeps `import { type A } from './a'` as a load of `./a`. A top-level
+  `await` there is then missed. The template does not turn it on.
 - Accepted gaps, each a false pass that needs unusual code: a call only in a `catch` block, or under a test such as
   `import.meta.env.DEV`. False failures, each fixed with one line in the boot module: a call inside a `new Promise`
   executor or a class `static` block.

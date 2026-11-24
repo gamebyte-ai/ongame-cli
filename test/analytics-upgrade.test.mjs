@@ -400,13 +400,28 @@ test('a top-level await in a module the boot imports fails --check: the boot run
   save(dir, 'src/store/db.ts', "export const db = new Map<string, string>();\nexport async function load(): Promise<void> { await Promise.resolve(); }\n");
   save(dir, 'src/types.ts', 'export type Saved = { analytics: boolean };\nawait Promise.resolve();\n');
   save(dir, 'src/later.ts', 'await Promise.resolve();\nexport const later = 1;\n');
-  fs.appendFileSync(path.join(dir, 'src/main.ts'), "import type { Saved } from './types';\nexport const s: Saved | null = null;\nexport const later = () => import('./later');\n");
+  save(dir, 'src/kinds.ts', 'export type Kind = string;\nawait Promise.resolve();\n');
+  fs.appendFileSync(path.join(dir, 'src/main.ts'), "import type { Saved } from './types';\nimport { type Kind } from './kinds';\n" +
+    "export const s: Saved | null = null;\nexport const k: Kind = '';\nexport const later = () => import('./later');\n");
   assert.equal(check(dir).status, 0, check(dir).stdout);
   // A module it imports that cannot be read is no pass.
   save(dir, 'src/store/db.ts', 'export const db = new Map<string, string>(;\n');
   const u = check(dir);
   assert.equal(u.status, 1);
   assert.match(u.stdout, /src\/store\/db\.ts cannot be read as code/);
+});
+
+test('a setConsent from a game helper named telemetry is not the shim\'s, at boot either', () => {
+  const main = BOOT().replace("import { setConsent, watchTaps } from './telemetry';", "import { watchTaps } from './telemetry';\nimport { setConsent } from './utils/telemetry';");
+  const { dir } = switchGame(main);
+  fs.mkdirSync(path.join(dir, 'src/utils'));
+  fs.writeFileSync(path.join(dir, 'src/utils/telemetry.ts'), 'export function setConsent(on: boolean): void { console.log(on); }\n');
+  const r = check(dir);
+  assert.equal(r.status, 1, r.stdout);
+  assert.match(r.stdout, BOOT_LINE);
+  // The shim itself under an alias such as '@/telemetry' still counts.
+  fs.writeFileSync(path.join(dir, 'src/main.ts'), main.replace("from './utils/telemetry'", "from '@/telemetry'"));
+  assert.equal(check(dir).status, 0, check(dir).stdout);
 });
 
 test('an upgrade never swaps a shim that keeps the early no for one that drops it', () => {

@@ -244,6 +244,8 @@ const TS_CODE = new Set(['TSAsExpression', 'TSSatisfiesExpression', 'TSNonNullEx
   'TSExportAssignment']);
 const NOT_CODE = new Set(['loc', 'extra', 'leadingComments', 'trailingComments', 'innerComments', 'comments', 'tokens', 'errors']);
 const FUNCTION_VALUE = new Set(['FunctionExpression', 'ArrowFunctionExpression']);
+// A specifier whose last part is telemetry, as TELEMETRY_SPEC reads it.
+const TELEMETRY_MODULE = /(?:^|\/)telemetry(?:\.[jt]s)?$/;
 
 /**
  * True when the module, as the browser runs it, calls the shim's setConsent with an answer before the code reaches an
@@ -251,9 +253,10 @@ const FUNCTION_VALUE = new Set(['FunctionExpression', 'ArrowFunctionExpression']
  * its own first await; the caller then goes on, since the rest of that function runs later. A top-level await ends it
  * all. Every branch of an if, a loop or a try is read in source order: a call in one counts, and an await in one ends
  * the walk there. A literal setConsent(true) is not the player's answer. Imported functions, methods and constructors
- * are not followed, so a call made only inside one of them does not count.
+ * are not followed, so a call made only inside one of them does not count. `isShim(spec)` says whether an import
+ * names the shim; a game's own helper named telemetry is not it.
  */
-export function appliesAnswerAtBoot(ast) {
+export function appliesAnswerAtBoot(ast, isShim = (spec) => TELEMETRY_MODULE.test(spec)) {
   const names = new Set(); // what this module calls the shim's setConsent
   const spaces = new Set(); // `import * as T` of the shim: T.setConsent
   const declared = new Map(); // a name declared once in this module as a function → that function
@@ -261,7 +264,7 @@ export function appliesAnswerAtBoot(ast) {
   const declare = (name, fn) => { if (declared.has(name)) twice.add(name); else declared.set(name, fn); };
   const scan = (node) => {
     if (!node || typeof node.type !== 'string') return;
-    if (node.type === 'ImportDeclaration' && node.importKind !== 'type' && /(?:^|\/)telemetry(?:\.[jt]s)?$/.test(node.source.value)) {
+    if (node.type === 'ImportDeclaration' && node.importKind !== 'type' && isShim(node.source.value)) {
       for (const s of node.specifiers) {
         if (s.type === 'ImportNamespaceSpecifier') spaces.add(s.local.name);
         else if (s.type === 'ImportSpecifier' && s.importKind !== 'type' && (s.imported.name ?? s.imported.value) === 'setConsent') names.add(s.local.name);
@@ -350,7 +353,11 @@ function awaitedImports(bootFile, bootAst) {
     const ast = queue.shift();
     const dir = dirs.shift();
     for (const node of ast.program.body) {
-      const typeOnly = node.importKind === 'type' || node.exportKind === 'type';
+      // `import type`, and an import whose names are all types: TypeScript drops them from the build, as the template
+      // compiles it (no verbatimModuleSyntax), so they load nothing.
+      const names = node.specifiers ?? [];
+      const typeOnly = node.importKind === 'type' || node.exportKind === 'type' ||
+        (names.length > 0 && names.every((n) => n.importKind === 'type' || n.exportKind === 'type'));
       const spec = /^(?:Import|ExportNamed|ExportAll)Declaration$/.test(node.type) && !typeOnly ? node.source?.value : undefined;
       const file = spec && resolveModule(dir, spec);
       if (!file || seen.has(file)) continue;
@@ -386,9 +393,10 @@ export function bootAnswerProblems(gameDir, shim) {
     problems.push(`${shown} cannot be read as code (${String(e.message).split('\n')[0]}), so the saved Analytics answer at boot cannot be checked`);
     return problems;
   }
-  if (!appliesAnswerAtBoot(ast)) {
+  const srcDir = join(gameDir, 'src');
+  if (!appliesAnswerAtBoot(ast, (spec) => TELEMETRY_MODULE.test(spec) && pointsAtShim(spec, boot, srcDir))) {
     problems.push(`${shown} does not apply the saved Analytics answer before its first await. Read the saved answer there and, ` +
-      'when it is off, call setConsent(false) before the first await (in the template, before `await app.initialize()`).');
+      "when it is off, call the shim's setConsent(false) before the first await (in the template, before `await app.initialize()`).");
   }
   for (const { file, error } of awaitedImports(boot, ast)) {
     const dep = shownPath(gameDir, file);
