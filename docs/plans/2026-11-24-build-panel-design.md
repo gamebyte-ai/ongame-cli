@@ -10,12 +10,25 @@ The panel shows only what an ongame tool or file has said. It never guesses a st
 | Line | Source | Rule |
 | --- | --- | --- |
 | Game name | `gameId` from `state_init`'s input, or `.ongame/active-build.json` | No game: no panel. |
-| Build state | `state_init` / `state_advance` / `state_get` / `record_iteration` / `approve_phase` answers (`currentPhase`, `completed`, `done`, `plan.phases`); `trace_emit` `build.done` | A marker older than 36 h counts as no build, as the status line does. |
-| Play check | `play_gate` (`blocked`, `awaiting_review`, `passed`, `skipped`, `unverified`) and `play_review` (`passed`) | A refused call, or a check of another build, changes nothing. |
-| Play link | `preview_start` `{ ok: true, url }` (local, ends with the session); `publish_game` `publicUrl` held as pending until `trace_emit` `publish.done` | A link shows only with an `http:` or `https:` address and no control characters. A pending publish, or one of another game, shows no link. |
+| Build state | `state_init` / `state_advance` / `state_get` / `record_iteration` / `approve_phase` answers (`currentPhase`, `completed`, `done`, `plan.phases`); `trace_emit` `build.done` answered `{ ok: true }` | A marker older than 36 h counts as no build, as the status line does. A `build.done` whose payload names `outcome: failed` or `abandoned` shows "Build failed" or "Build abandoned", and marks no step done that ongame did not report complete. |
+| Play check | `play_gate` (`blocked`, `awaiting_review`, `passed`, `skipped`, `unverified`) and `play_review` (`passed`) | Only a `play_gate` that names this build's `buildId` counts. Its `runId` and `gameDir` are kept; a `play_review` passes the check only when it names that run and that folder. A refused call changes nothing. |
+| Play link | `preview_start` `{ ok: true, url }` (local, ends with the session); `publish_game` `publicUrl` held as pending until `trace_emit` `publish.done` answers `{ ok: true }` for this game | A link shows only with an `http:` or `https:` address and no control characters. A pending publish, or one of another game, shows no link. A `preview_start` refused with `no_npm_project`, `no_dist` or `superseded` leaves the link as it was; every other failure removes it. |
 | Updated | the time of the last fact above | "Started 2 min ago" while the build's start is the last fact, else "Updated 2 min ago". |
 
 There is no "next step" line. ongame does not save one, so the panel leaves it out.
+
+## Which answers count
+
+An answer moves the panel only when it says the thing happened, for this build or this game.
+
+- `trace_emit` answers `{ ok }`. `ok: false` is an event ongame refused (`publish.done` with
+  `reason: game_id_mismatch`) or a build it does not know. It changes nothing.
+- An accepted `publish.done` names the game in its payload. It promotes the held publish of that game only.
+- `play_review` names a folder and a run, never a build. The panel matches it on the `runId` and `gameDir`
+  of the `play_gate` run it holds for this build.
+- A call slower than 45 s answers `{ ok: false, reason: call_pending, callId }` first. That is "not known
+  yet". The panel remembers the call and reads the answer `call_wait` brings as that call's own answer.
+  Until then a slow `play_gate` shows no play check line, and a slow `preview_start` shows no local link.
 
 ## Parts
 
@@ -44,6 +57,7 @@ Claude Code then seats it inline above the prompt. A pane the maker closes stays
   `claude` command, which CI does not install.
 - In a real session without an ongame account: `mods/build-panel/dev/ongame-fixture.mjs` answers five ongame
   tools with the CLI's answer shapes. Its header has the `claude --plugin-dir ... --mcp-config ...` line.
+  Its `play_review` takes `gameDir` and `runId`, as the CLI's does, and passes only the latest run.
 
 ## Limits kept
 
