@@ -13,13 +13,13 @@
 // An answer counts only when it says the thing happened, for this build or this game. trace_emit answers `{ ok }`
 // (core/src/trace.ts traceEmit): `ok: false` is an event ongame refused or a build it does not know. play_review
 // names a folder and a run, never a build (cli/src/local-registry.ts). A call slower than 45 s answers
-// `{ ok: false, reason: 'call_pending' }` first (cli/src/call-jobs.ts): that is "not known yet", never a result. Its
-// own answer then comes through call_wait, which the panel does not read: what that call would have shown stays
-// empty until a later answer fills it.
+// `{ ok: false, reason: 'call_pending', callId }` first (cli/src/call-jobs.ts): that is "not known yet", never a
+// result. Its own answer then comes through call_wait and is read as the answer of the call it belongs to, but only
+// while no newer call of the same kind came: the answer is collected later than the call ran.
 
-import type { BuildState, PanelView, PublishedRecord, ToolCall, Tone } from '../types';
+import type { BuildState, CallKind, PanelView, PublishedRecord, ToolCall, Tone, WaitingCall } from '../types';
 
-export type { BuildState, PanelView, PublishedRecord, ToolCall, Tone };
+export type { BuildState, CallKind, PanelView, PublishedRecord, ToolCall, Tone, WaitingCall };
 
 /** The marker counts as abandoned after this long: the CLI's status line and inject hook use the same 36 h. */
 export const MARKER_TTL_MS = 36 * 3600 * 1000;
@@ -44,6 +44,7 @@ export function emptyState(): BuildState {
     preview: null,
     published: null,
     pendingPublish: null,
+    waiting: {},
     updatedAt: null,
   };
 }
@@ -61,6 +62,7 @@ export const WATCHED = new Set([
   'preview_start',
   'preview_stop',
   'publish_game',
+  'call_wait',
 ]);
 
 /**
@@ -75,6 +77,11 @@ export function ongameTool(name: string): string | null {
   if (i <= prefix.length) return null; // no server name between the prefix and the tool name
   const server = name.slice(prefix.length, i).toLowerCase();
   return server.includes('ongame') ? name.slice(i + 2) : null;
+}
+
+/** The server part of a full tool name: `mcp__plugin_ongame_ongame` of `mcp__plugin_ongame_ongame__state_init`. */
+function serverOf(name: string): string {
+  return name.slice(0, name.lastIndexOf('__'));
 }
 
 function asRecord(v: unknown): Record<string, unknown> | null {
@@ -149,6 +156,8 @@ function startBuild(s: BuildState, gameId: string | null, buildId: string, now: 
     preview: sameGame ? s.preview : null,
     published: sameGame ? s.published : null,
     pendingPublish: sameGame ? s.pendingPublish : null,
+    // A held preview or publish follows its link: a late answer of another game is not this game's link.
+    waiting: sameGame ? s.waiting : without(without(s.waiting, 'preview'), 'publish'),
     updatedAt: now,
   };
 }
@@ -243,11 +252,8 @@ function takeTrace(s: BuildState, input: Record<string, unknown>, out: Record<st
  */
 const PREVIEW_UNTOUCHED = new Set(['no_npm_project', 'no_dist', 'superseded']);
 
-/** Folds one finished tool call into the state. A call that is not ongame's, or that failed, changes nothing. */
-export function observe(s: BuildState, call: ToolCall, now: number): BuildState {
-  const tool = ongameTool(call.tool);
-  if (tool === null || call.isError || !WATCHED.has(tool)) return s;
-  const { input, output } = call;
+/** One watched tool's answer, folded into the state. */
+function take(s: BuildState, tool: string, input: Record<string, unknown>, output: Record<string, unknown>, now: number): BuildState {
   switch (tool) {
     case 'trace_emit':
       return takeTrace(s, input, output, now);
@@ -272,6 +278,108 @@ export function observe(s: BuildState, call: ToolCall, now: number): BuildState 
     default:
       return takeBuild(s, tool, input, output, now);
   }
+}
+
+const KINDS: readonly CallKind[] = ['build', 'check', 'review', 'preview', 'publish'];
+
+/**
+ * The part of the panel a call's answer moves, or null for a call that moves none. A play_review is its own kind: it
+ * passes only the run whose runId it names, so a late one can never pass a newer run.
+ */
+function kindOf(tool: string, input: Record<string, unknown>): CallKind | null {
+  switch (tool) {
+    case 'state_init':
+    case 'state_advance':
+    case 'state_get':
+    case 'record_iteration':
+    case 'approve_phase':
+      return 'build';
+    case 'trace_emit':
+      return input.name === 'build.done' ? 'build' : input.name === 'publish.done' ? 'publish' : null;
+    case 'play_gate':
+      return 'check';
+    case 'play_review':
+      return 'review';
+    case 'preview_start':
+    case 'preview_stop':
+      return 'preview';
+    case 'publish_game':
+      return 'publish';
+    default:
+      return null;
+  }
+}
+
+/**
+ * The input fields the adapter reads, and no others. Every call goes through this, the ones answered at once and the
+ * ones held for call_wait, so both read the same fields and a play script or a file list is never kept.
+ */
+function kept(input: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const key of ['gameId', 'buildId', 'gameDir', 'runId', 'name', 'callId']) {
+    const v = str(input[key]);
+    if (v !== null) out[key] = v;
+  }
+  const payload = asRecord(input.payload);
+  if (payload !== null) {
+    const part: Record<string, unknown> = {};
+    for (const key of ['gameId', 'outcome']) {
+      const v = str(payload[key]);
+      if (v !== null) part[key] = v;
+    }
+    out.payload = part;
+  }
+  return out;
+}
+
+function without(waiting: BuildState['waiting'], kind: CallKind): BuildState['waiting'] {
+  const { [kind]: _gone, ...rest } = waiting;
+  return rest;
+}
+
+/**
+ * call_wait: the late answer of the call held under that callId on the same server. An id the panel does not hold
+ * (unknown, or dropped for a newer call of its kind) and an answer that is still pending change nothing. A failed call
+ * and one the CLI no longer holds (`call_not_found`) end the wait with nothing to show.
+ */
+function takeWait(s: BuildState, call: ToolCall, input: Record<string, unknown>, now: number): BuildState {
+  const callId = str(input.callId);
+  const kind = KINDS.find((k) => {
+    const held = s.waiting[k];
+    return held !== undefined && held.callId === callId && serverOf(held.tool) === serverOf(call.tool);
+  });
+  if (kind === undefined) return s;
+  const { output } = call;
+  if (!call.isError && isPending(output)) return s;
+  const held = s.waiting[kind] as WaitingCall;
+  const rest = { ...s, waiting: without(s.waiting, kind) };
+  if (call.isError || (output.ok === false && output.reason === 'call_not_found')) return rest;
+  const tool = ongameTool(held.tool);
+  if (tool === null) return rest;
+  // state_init starts whatever build it names, so it gets the marker's rule: a build that started after this call
+  // went pending (a newer marker) is the newer one. Its own build's answer still fills that build.
+  const id = str(output.buildId) ?? str(asRecord(output.state)?.buildId);
+  if (tool === 'state_init' && rest.startedAt !== null && rest.startedAt > held.at && id !== rest.buildId) return rest;
+  return take(rest, tool, held.input, output, now);
+}
+
+/**
+ * Folds one finished tool call into the state. A call that is not ongame's, or that failed, changes nothing, except
+ * that any call of a kind, whatever it answered, ends the wait for an older call of that kind: that call's late
+ * answer would be replayed after it.
+ */
+export function observe(s: BuildState, call: ToolCall, now: number): BuildState {
+  const tool = ongameTool(call.tool);
+  if (tool === null || !WATCHED.has(tool)) return s;
+  const input = kept(call.input);
+  if (tool === 'call_wait') return takeWait(s, call, input, now);
+  const kind = kindOf(tool, input);
+  const fresh = kind !== null && s.waiting[kind] !== undefined ? { ...s, waiting: without(s.waiting, kind) } : s;
+  if (call.isError) return fresh;
+  const next = take(fresh, tool, input, call.output, now);
+  const callId = str(call.output.callId);
+  if (kind === null || callId === null || !isPending(call.output)) return next;
+  return { ...next, waiting: { ...next.waiting, [kind]: { callId, tool: call.tool, input, at: now } } };
 }
 
 /**
