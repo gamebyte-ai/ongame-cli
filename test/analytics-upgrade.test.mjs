@@ -333,6 +333,8 @@ test('a game with a switch fails --check when its boot applies the answer late, 
     'a .then callback': BOOT('').replace("void boot().catch((err: unknown) => {", "void boot().then(() => setConsent(loadSettings().analytics)).catch((err: unknown) => {"),
     'a setTimeout callback': BOOT('  setTimeout(() => setConsent(loadSettings().analytics), 0);\n'),
     'a for loop update after an awaiting body': BOOT('  for (let i = 0; i < 1; setConsent(loadSettings().analytics), i++) { await app.initialize(); }\n'),
+    'a parameter that shadows setConsent': BOOT('  apply(console.log);\n').replace('async function boot', 'function apply(setConsent: (on: boolean) => void): void {\n  setConsent(false);\n}\n\nasync function boot'),
+    'a local variable that shadows the namespace': BOOT('  { const T = { setConsent: (on: boolean) => on }; T.setConsent(false); }\n').replace("import { setConsent, watchTaps } from './telemetry';", "import * as T from './telemetry';\nconst watchTaps = T.watchTaps;"),
     'a generator that is only created': BOOT('  apply();\n').replace('async function boot', 'function* apply(): Generator<void> {\n  setConsent(loadSettings().analytics);\n}\n\nasync function boot'),
     'a setConsent from another module': BOOT('  setConsent(loadSettings().analytics);\n').replace("import { setConsent, watchTaps } from './telemetry';", "import { watchTaps } from './telemetry';\nimport { setConsent } from './settings';"),
   };

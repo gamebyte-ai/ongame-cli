@@ -1,9 +1,9 @@
 # A saved Analytics off at boot
 
-A web game with an **Analytics** switch stores the player's answer itself. Before this change it applied that
-answer after `await app.initialize()`. The page runs the game's module first and the SDK's `sdk.js` after it. While
-the SDK starts, it sends what an earlier visit could not deliver. So a player's saved "off" could reach the SDK
-only after that send.
+A web game with an **Analytics** switch stores the player's answer itself. Before this change the skill did not say
+where to apply that answer at boot, so a game could apply it after `await app.initialize()`. The page runs the game's
+module first and the SDK's `sdk.js` after it. While the SDK starts, it sends what an earlier visit could not deliver.
+So a player's saved "off" could reach the SDK only after that send.
 
 onGame PR 1350 (merged 2026-11-24, commit `ef48b04`) fixed the two onGame halves:
 

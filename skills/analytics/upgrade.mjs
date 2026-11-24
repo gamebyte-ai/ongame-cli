@@ -272,10 +272,18 @@ export function appliesAnswerAtBoot(ast, isShim = (spec) => TELEMETRY_MODULE.tes
     }
     if (node.type === 'FunctionDeclaration' && node.id) declare(node.id.name, node);
     if (node.type === 'VariableDeclarator' && node.id.type === 'Identifier' && FUNCTION_VALUE.has(node.init?.type)) declare(node.id.name, node.init);
+    // Every other name this module binds: a parameter, a variable, a function, a class or a caught error.
+    if (node.params) for (const p of node.params) bindings(p, bound);
+    if (node.type === 'VariableDeclarator') bindings(node.id, bound);
+    if (node.type === 'CatchClause' && node.param) bindings(node.param, bound);
+    if (/^(?:Function|Class)(?:Declaration|Expression)$/.test(node.type) && node.id) bound.add(node.id.name);
     for (const child of children(node)) scan(child);
   };
+  const bound = new Set();
   scan(ast.program);
   for (const name of twice) declared.delete(name);
+  // A name bound again somewhere in the module may not be the shim where it is called: it does not count.
+  for (const name of bound) { names.delete(name); spaces.delete(name); }
 
   const isSetConsent = (callee) => (callee.type === 'Identifier' && names.has(callee.name)) ||
     ((callee.type === 'MemberExpression' || callee.type === 'OptionalMemberExpression') && callee.object.type === 'Identifier' &&
@@ -310,6 +318,17 @@ export function appliesAnswerAtBoot(ast, isShim = (spec) => TELEMETRY_MODULE.tes
     if (r) return r === 'found';
   }
   return false;
+}
+
+/** Adds the names a binding pattern (`a`, `{ a, b: c }`, `[a, ...b]`, `a = 1`) declares. */
+function bindings(pattern, out) {
+  if (!pattern) return;
+  if (pattern.type === 'Identifier') out.add(pattern.name);
+  else if (pattern.type === 'ObjectPattern') for (const p of pattern.properties) bindings(p.type === 'RestElement' ? p.argument : p.value, out);
+  else if (pattern.type === 'ArrayPattern') for (const e of pattern.elements) bindings(e, out);
+  else if (pattern.type === 'AssignmentPattern') bindings(pattern.left, out);
+  else if (pattern.type === 'RestElement') bindings(pattern.argument, out);
+  else if (pattern.type === 'TSParameterProperty') bindings(pattern.parameter, out);
 }
 
 /** A node's children that are nodes, in source order. */
