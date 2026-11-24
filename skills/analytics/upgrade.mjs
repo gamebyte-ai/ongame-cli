@@ -17,6 +17,10 @@
  *    site root, so it is served at /privacy.html). A privacy.html the maker wrote, with no onGame marker, is kept.
  *    The page promises an analytics switch only when the maker said the player has one (--opt-out yes, kept in
  *    .ongame/analytics.json). A setConsent call alone is no switch: a game may call setConsent(true) at start.
+ * 5. A game with that switch must apply the player's saved answer before the deployed SDK starts, because the SDK
+ *    sends what an earlier visit left queued while it starts. That needs a shim that keeps a setConsent(false) made
+ *    before the SDK exists, and a setConsent(<saved answer>) in the boot module before its first await. The run
+ *    names what is missing in a note; --check fails on it.
  *
  * Exit codes: 0 done (or --check passed), 1 --check failed, 2 refused (nothing written), 3 audience unknown,
  * 4 the shim is not v2 (the audience and privacy page are still saved; the shim is left as it was),
@@ -25,7 +29,8 @@
  */
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { join, dirname, basename, resolve, relative, sep } from 'node:path';
+import { join, dirname, basename, resolve, relative, sep, extname } from 'node:path';
+import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -186,6 +191,160 @@ export function callsSetConsent(srcDir) {
   });
 }
 
+// ---- The saved Analytics answer at boot ----
+
+/**
+ * The global the shim keeps a "no" in while the SDK does not exist yet; the SDK reads it before it sends anything.
+ * Its name is shared with the onGame scaffold's src/telemetry.ts and the SDK.
+ */
+const EARLY_NO = '__ongameConsent';
+
+/** The shim keeps a setConsent(false) made before the SDK starts. A comment that names the global is not code. */
+export const keepsEarlyNo = (shim) => withoutComments(shim).includes(EARLY_NO);
+
+/**
+ * The module the page starts the game with: the first `<script type="module" src>` in index.html that names a file of
+ * the game. A script from another origin, such as the deployed sdk.js, is not the game. With none, src/main.ts.
+ */
+export function bootModule(gameDir) {
+  const indexPath = join(gameDir, 'index.html');
+  const html = existsSync(indexPath) ? readFileSync(indexPath, 'utf8').replace(/<!--[\s\S]*?-->/g, '') : '';
+  for (const tag of html.matchAll(/<script\b([^>]*)>/gi)) {
+    const attr = (name) => {
+      const m = tag[1].match(new RegExp(String.raw`(?:^|\s)${name}\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))`, 'i'));
+      return m ? (m[1] ?? m[2] ?? m[3]) : undefined;
+    };
+    const src = attr('src');
+    if (attr('type')?.toLowerCase() !== 'module' || !src || /^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(src)) continue;
+    return join(gameDir, src.split(/[?#]/)[0].replace(/^\//, ''));
+  }
+  return join(gameDir, 'src', 'main.ts');
+}
+
+let babelParse;
+/** The module's syntax tree, read with the parser the gradients check vendors. Throws when the code cannot be read. */
+function syntaxTree(src, file) {
+  // @babel/parser 7.29.14, MIT: see skills/gradients/vendor/README.md.
+  babelParse ??= createRequire(import.meta.url)('../gradients/vendor/babel-parser.cjs').parse;
+  const ext = extname(file);
+  const tries = ext === '.ts' || ext === '.mts' ? [['typescript']] : ext === '.tsx' ? [['typescript', 'jsx']] : [['jsx'], ['typescript', 'jsx']];
+  let first;
+  for (const plugins of tries) {
+    try { return babelParse(src, { sourceType: 'module', plugins: [...plugins, 'decorators-legacy'] }); } catch (e) { first ??= e; }
+  }
+  throw first;
+}
+
+// Nodes whose body does not run where they stand: it runs when something calls it, if ever.
+const DEFERRED = new Set(['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression', 'ObjectMethod',
+  'ClassDeclaration', 'ClassExpression', 'ClassMethod', 'ClassPrivateMethod']);
+// TypeScript nodes that hold run-time code; every other TS node is a type and runs nothing.
+const TS_CODE = new Set(['TSAsExpression', 'TSSatisfiesExpression', 'TSNonNullExpression', 'TSTypeAssertion',
+  'TSInstantiationExpression', 'TSEnumDeclaration', 'TSEnumMember', 'TSModuleDeclaration', 'TSModuleBlock',
+  'TSExportAssignment']);
+const NOT_CODE = new Set(['loc', 'extra', 'leadingComments', 'trailingComments', 'innerComments', 'comments', 'tokens', 'errors']);
+const FUNCTION_VALUE = new Set(['FunctionExpression', 'ArrowFunctionExpression']);
+
+/**
+ * True when the module, as the browser runs it, calls the shim's setConsent with an answer before the code reaches an
+ * await. The top level runs in order. A function declared in this module is followed into when it is called, up to
+ * its own first await; the caller then goes on, since the rest of that function runs later. A top-level await ends it
+ * all. Every branch of an if, a loop or a try is read in source order: a call in one counts, and an await in one ends
+ * the walk there. A literal setConsent(true) is not the player's answer. Imported functions, methods and constructors
+ * are not followed, so a call made only inside one of them does not count.
+ */
+export function appliesAnswerAtBoot(ast) {
+  const names = new Set(); // what this module calls the shim's setConsent
+  const spaces = new Set(); // `import * as T` of the shim: T.setConsent
+  const declared = new Map(); // a name declared once in this module as a function → that function
+  const twice = new Set();
+  const declare = (name, fn) => { if (declared.has(name)) twice.add(name); else declared.set(name, fn); };
+  const scan = (node) => {
+    if (!node || typeof node.type !== 'string') return;
+    if (node.type === 'ImportDeclaration' && node.importKind !== 'type' && /(?:^|\/)telemetry(?:\.[jt]s)?$/.test(node.source.value)) {
+      for (const s of node.specifiers) {
+        if (s.type === 'ImportNamespaceSpecifier') spaces.add(s.local.name);
+        else if (s.type === 'ImportSpecifier' && s.importKind !== 'type' && (s.imported.name ?? s.imported.value) === 'setConsent') names.add(s.local.name);
+      }
+    }
+    if (node.type === 'FunctionDeclaration' && node.id) declare(node.id.name, node);
+    if (node.type === 'VariableDeclarator' && node.id.type === 'Identifier' && FUNCTION_VALUE.has(node.init?.type)) declare(node.id.name, node.init);
+    for (const child of children(node)) scan(child);
+  };
+  scan(ast.program);
+  for (const name of twice) declared.delete(name);
+
+  const isSetConsent = (callee) => (callee.type === 'Identifier' && names.has(callee.name)) ||
+    ((callee.type === 'MemberExpression' || callee.type === 'OptionalMemberExpression') && callee.object.type === 'Identifier' &&
+      spaces.has(callee.object.name) && (callee.computed ? callee.property.value : callee.property.name) === 'setConsent');
+  const isAnswer = (args) => args.length > 0 && !(args[0].type === 'BooleanLiteral' && args[0].value === true);
+
+  const following = new Set();
+  // 'found' once setConsent(answer) runs, 'await' when an await comes first, undefined when neither happened.
+  const visit = (node) => {
+    if (!node || typeof node.type !== 'string' || DEFERRED.has(node.type)) return undefined;
+    if (node.type.startsWith('TS') && !TS_CODE.has(node.type)) return undefined;
+    if (node.type === 'AwaitExpression') return visit(node.argument) ?? 'await';
+    if (node.type === 'ForOfStatement' && node.await) return 'await';
+    for (const child of children(node)) {
+      const r = visit(child);
+      if (r) return r;
+    }
+    if (node.type !== 'CallExpression' && node.type !== 'OptionalCallExpression') return undefined;
+    if (isSetConsent(node.callee) && isAnswer(node.arguments)) return 'found';
+    const fn = FUNCTION_VALUE.has(node.callee.type) ? node.callee : node.callee.type === 'Identifier' ? declared.get(node.callee.name) : undefined;
+    if (!fn || following.has(fn)) return undefined;
+    following.add(fn);
+    const r = visit(fn.body);
+    following.delete(fn);
+    return r === 'found' ? 'found' : undefined; // an await ends only that function; its caller goes on
+  };
+  for (const statement of ast.program.body) {
+    const r = visit(statement);
+    if (r) return r === 'found';
+  }
+  return false;
+}
+
+/** A node's children that are nodes, in source order. */
+function children(node) {
+  const out = [];
+  for (const key of Object.keys(node)) {
+    if (NOT_CODE.has(key)) continue;
+    const v = node[key];
+    for (const c of Array.isArray(v) ? v : [v]) if (c && typeof c.type === 'string') out.push(c);
+  }
+  return out.sort((a, b) => (a.start ?? 0) - (b.start ?? 0));
+}
+
+/**
+ * What a general game with an Analytics switch still lacks to apply the saved answer at boot, as lines for the maker's
+ * agent. Empty when the shim keeps an early no and the boot module applies the answer before its first await.
+ */
+export function bootAnswerProblems(gameDir, shim) {
+  const problems = [];
+  if (!keepsEarlyNo(shim)) {
+    problems.push('src/telemetry.ts drops a setConsent(false) made before analytics starts: it comes from an older scaffold. ' +
+      'Take src/telemetry.ts from a fresh scaffold (/analytics add, steps 1-2). The onGame CLI after cli-v0.2.50 has it.');
+  }
+  const boot = bootModule(gameDir);
+  const shown = shownPath(gameDir, boot);
+  if (!existsSync(boot)) {
+    problems.push(`${shown}, the boot module, is missing, so the saved Analytics answer at boot cannot be checked`);
+    return problems;
+  }
+  let ast;
+  try { ast = syntaxTree(readFileSync(boot, 'utf8'), boot); } catch (e) {
+    problems.push(`${shown} cannot be read as code (${String(e.message).split('\n')[0]}), so the saved Analytics answer at boot cannot be checked`);
+    return problems;
+  }
+  if (!appliesAnswerAtBoot(ast)) {
+    problems.push(`${shown} does not apply the saved Analytics answer before its first await. Read the saved answer and call ` +
+      'setConsent(<it>) there, before the first await (in the template, before `await app.initialize()`).');
+  }
+  return problems;
+}
+
 export function renderPrivacy(title, audience, optOut) {
   let collection;
   if (audience === 'children') {
@@ -282,6 +441,8 @@ export function run(argv, log = console.log) {
       const html = existsSync(join(gameDir, 'index.html')) ? readFileSync(join(gameDir, 'index.html'), 'utf8') : '';
       if (settings.audience === 'children' && hasTelemetry(html)) problems.push('index.html still holds telemetry, but the game is for children');
       if (!own && page !== renderPrivacy(gameTitle(gameDir, settings.title), settings.audience, settings.optOut === true)) problems.push('public/privacy.html is missing or out of date');
+      // The page promises that turning analytics off stops all sending: at boot, too.
+      if (settings.audience === 'general' && settings.optOut === true && !missing.length) problems.push(...bootAnswerProblems(gameDir, shim));
     }
     for (const p of problems) log(`check: ${p}`);
     log(problems.length ? 'check: FAIL' : 'check: ok');
@@ -355,6 +516,11 @@ export function run(argv, log = console.log) {
     if (audience === 'general' && settings.optOut === undefined && callsSetConsent(join(gameDir, 'src'))) {
       log("note: the game calls setConsent, but the privacy page promises no analytics switch yet. If the game's settings let the player turn analytics off, run again with --opt-out yes; if not, with --opt-out no.");
     }
+  }
+
+  // A switch the player can use must also hold at boot, before the SDK sends what an earlier visit queued.
+  if (audience === 'general' && settings.optOut === true && !notV2) {
+    for (const p of bootAnswerProblems(gameDir, nextShim ?? current ?? '')) log(`note: ${p}`);
   }
 
   const changed = settingsChanged || telemetryRemoved || nextShim !== null || privacyState === 'added' || privacyState === 'updated';

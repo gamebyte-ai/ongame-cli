@@ -40,6 +40,29 @@ export function trackLevelStart(level: number, extra?: Meta): void {}
 export function trackLevelComplete(level: number, extra?: Meta): void {}
 export function trackLevelFail(level: number, extra?: Meta): void {}
 `;
+// The scaffold's shim from the onGame CLI release after cli-v0.2.50: a setConsent(false) made before the SDK starts is
+// kept in globalThis.__ongameConsent, and the SDK reads it before it sends anything.
+const SHIM_BOOT = SHIM_V2.replace('export function setConsent(analytics: boolean): void {}', `export function setConsent(analytics: boolean): void {
+  const g = globalThis as { __ongameConsent?: false };
+  if (analytics === true) delete g.__ongameConsent; else g.__ongameConsent = false;
+}`) + 'export function watchTaps(pixiApp: unknown): void {}\n';
+// The template's src/main.ts, cut down: \`apply\` is what the game runs before \`await app.initialize()\`.
+const BOOT = (apply = '  setConsent(loadSettings().analytics);\n', after = '', top = '') => `import { MyGameApp } from './MyGameApp';
+import { setConsent, watchTaps } from './telemetry';
+import { loadSettings } from './settings';
+
+async function boot(): Promise<void> {
+  const stage = document.getElementById('stage');
+  if (!stage) throw new Error('#stage mount element is missing from index.html');
+  const app = new MyGameApp(stage);
+${apply}  await app.initialize();
+${after}  watchTaps(app.pixiApp);
+}
+
+${top}void boot().catch((err: unknown) => {
+  console.error('[game] boot failed', err);
+});
+`;
 const MAIN = `import { trackLevelStart, trackLevelComplete as won } from './telemetry';
 import * as T from '../src/telemetry.ts';
 trackLevelStart(1); won(1); T.trackLevelFail(2);
@@ -233,7 +256,8 @@ test('an import from a game helper named telemetry is not an import from the shi
 });
 
 test('the page promises an opt-out only when the maker says the player has a switch', () => {
-  const dir = game({ shim: SHIM_V2 });
+  const dir = game({ shim: SHIM_BOOT });
+  fs.writeFileSync(path.join(dir, 'src/main.ts'), BOOT());
   run(dir, '--audience', 'general');
   const page = () => fs.readFileSync(path.join(dir, 'public/privacy.html'), 'utf8');
   const settings = () => JSON.parse(fs.readFileSync(path.join(dir, '.ongame/analytics.json'), 'utf8'));
@@ -261,6 +285,121 @@ test('the page promises an opt-out only when the maker says the player has a swi
   assert.equal(settings().optOut, false);
   assert.ok(!page().includes('turn analytics off'));
   assert.equal(run(dir, '--opt-out', 'maybe').status, 2);
+});
+
+// A general game whose maker said it has an Analytics switch, with the given boot module and shim.
+function switchGame(main, { shim = SHIM_BOOT, file = 'src/main.ts' } = {}) {
+  const dir = game({ shim });
+  if (main !== null) fs.writeFileSync(path.join(dir, file), main);
+  const r = run(dir, '--audience', 'general', '--opt-out', 'yes');
+  assert.ok(r.status === 0, r.stdout);
+  return { dir, upgrade: r };
+}
+const check = (dir) => run('--check', dir);
+const BOOT_LINE = /does not apply the saved Analytics answer before its first await/;
+
+test('a game with a switch passes --check when its boot applies the saved answer before the first await', () => {
+  const { dir, upgrade } = switchGame(BOOT());
+  assert.doesNotMatch(upgrade.stdout, /note: .*(Analytics answer|fresh scaffold)/);
+  const c = check(dir);
+  assert.equal(c.status, 0, c.stdout);
+  // The same call, written in the other ways a game writes it.
+  const passes = {
+    'a branch': BOOT('  if (!loadSettings().analytics) setConsent(false);\n'),
+    'an alias': BOOT('  consent(loadSettings().analytics);\n').replace('import { setConsent, watchTaps }', 'import { setConsent as consent, watchTaps }'),
+    'a namespace import': BOOT('  T.setConsent(loadSettings().analytics);\n').replace("import { setConsent, watchTaps } from './telemetry';", "import * as T from './telemetry';\nconst watchTaps = T.watchTaps;"),
+    'a helper in main.ts called before the await': BOOT('  applySaved();\n').replace('async function boot', 'function applySaved(): void {\n  setConsent(loadSettings().analytics);\n}\n\nasync function boot'),
+    'a const arrow helper': BOOT('  applySaved();\n').replace('async function boot', 'const applySaved = () => setConsent(loadSettings().analytics);\n\nasync function boot'),
+    'a top-level call before boot()': BOOT('', '', 'setConsent(loadSettings().analytics);\n'),
+    'a top-level call after void boot()': BOOT('') + 'setConsent(loadSettings().analytics);\n',
+    'an immediately called function': BOOT('  (() => { setConsent(loadSettings().analytics); })();\n'),
+    'code without semicolons': BOOT().replace(/;\n/g, '\n'),
+  };
+  for (const [name, main] of Object.entries(passes)) {
+    const r = check(switchGame(main).dir);
+    assert.equal(r.status, 0, `${name}: ${r.stdout}`);
+  }
+});
+
+test('a game with a switch fails --check when its boot applies the answer late, or not at all', () => {
+  const fails = {
+    'after the await': BOOT('', '  setConsent(loadSettings().analytics);\n'),
+    'only setConsent(true)': BOOT('  setConsent(true);\n'),
+    'no argument': BOOT('  setConsent();\n'),
+    'no call at all': BOOT(''),
+    'a helper called only after the await': BOOT('', '  applySaved();\n').replace('async function boot', 'function applySaved(): void {\n  setConsent(loadSettings().analytics);\n}\n\nasync function boot'),
+    'an await in a branch before the call': BOOT('  if (stage.dataset.slow) await new Promise((r) => setTimeout(r, 0));\n  setConsent(loadSettings().analytics);\n'),
+    'a top-level await before the call': BOOT('').replace("void boot().catch", "await new Promise((r) => setTimeout(r, 0));\nsetConsent(loadSettings().analytics);\nvoid boot().catch"),
+    'a .then callback': BOOT('').replace("void boot().catch((err: unknown) => {", "void boot().then(() => setConsent(loadSettings().analytics)).catch((err: unknown) => {"),
+    'a setTimeout callback': BOOT('  setTimeout(() => setConsent(loadSettings().analytics), 0);\n'),
+    'a setConsent from another module': BOOT('  setConsent(loadSettings().analytics);\n').replace("import { setConsent, watchTaps } from './telemetry';", "import { watchTaps } from './telemetry';\nimport { setConsent } from './settings';"),
+  };
+  for (const [name, main] of Object.entries(fails)) {
+    const { dir, upgrade } = switchGame(main);
+    assert.match(upgrade.stdout, /note: src\/main\.ts does not apply the saved Analytics answer/, `${name}: the upgrade run names it`);
+    const r = check(dir);
+    assert.equal(r.status, 1, `${name}: ${r.stdout}`);
+    assert.match(r.stdout, BOOT_LINE, name);
+  }
+});
+
+test('the boot check reads the module index.html starts, and fails when it is missing or unreadable', () => {
+  // index.html starts src/boot.ts; the deployed SDK tag after it is another origin and is not the game.
+  const { dir } = switchGame(BOOT(), { file: 'src/boot.ts' });
+  const html = '<!DOCTYPE html><html><head><title>Pebble Path</title></head><body>\n<script type="module" src="/src/boot.ts"></script>\n'
+    + '<script type="module" src="https://telemetry.example/sdk.js"></script>\n</body></html>\n';
+  fs.writeFileSync(path.join(dir, 'index.html'), html);
+  assert.equal(check(dir).status, 0, check(dir).stdout);
+  fs.writeFileSync(path.join(dir, 'src/boot.ts'), BOOT(''));
+  assert.match(check(dir).stdout, /src\/boot\.ts does not apply the saved Analytics answer/);
+
+  const missing = switchGame(null).dir;
+  const m = check(missing);
+  assert.equal(m.status, 1);
+  assert.match(m.stdout, /src\/main\.ts, the boot module, is missing/);
+
+  const broken = switchGame('import { setConsent } from "./telemetry";\nsetConsent(saved;\n').dir;
+  const b = check(broken);
+  assert.equal(b.status, 1);
+  assert.match(b.stdout, /src\/main\.ts cannot be read as code/);
+});
+
+test('a game with a switch and a shim from before the boot fix fails --check, naming a fresh scaffold', () => {
+  const { dir, upgrade } = switchGame(BOOT(), { shim: SHIM_V2 });
+  assert.match(upgrade.stdout, /note: src\/telemetry\.ts drops a setConsent\(false\) made before analytics starts/);
+  const r = check(dir);
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /src\/telemetry\.ts drops a setConsent\(false\) made before analytics starts/);
+  assert.match(r.stdout, /fresh scaffold/);
+  assert.doesNotMatch(r.stdout, BOOT_LINE);
+  // A comment that names the global is not the code that keeps it.
+  const commented = switchGame(BOOT(), { shim: `// keeps globalThis.__ongameConsent\n${SHIM_V2}` }).dir;
+  assert.equal(check(commented).status, 1);
+  // The fresh scaffold's shim fixes it: the upgrade takes it, and --check passes.
+  const f = path.join(tmp('analytics-shim-'), 'telemetry.ts');
+  fs.writeFileSync(f, SHIM_BOOT);
+  const up = run(dir, '--shim', f);
+  assert.equal(up.status, 0, up.stdout);
+  assert.equal(summary(up).shim, 'upgraded');
+  assert.equal(check(dir).status, 0);
+});
+
+test('the boot checks apply only to a general game whose maker said it has a switch', () => {
+  // No switch on file: neither check runs, whatever the shim and the boot.
+  const plain = game({ shim: SHIM_V2 });
+  fs.writeFileSync(path.join(plain, 'src/main.ts'), BOOT(''));
+  assert.equal(run(plain, '--audience', 'general', '--opt-out', 'no').status, 0);
+  assert.equal(check(plain).status, 0, check(plain).stdout);
+  // A children's game sends nothing, so it has no boot answer to apply.
+  const kids = game({ shim: SHIM_V2 });
+  assert.equal(run(kids, '--audience', 'children', '--opt-out', 'yes').status, 0);
+  assert.equal(check(kids).status, 0, check(kids).stdout);
+  // A v1 shim gets only its own not-v2 line.
+  const old = game();
+  assert.equal(run(old, '--audience', 'general', '--opt-out', 'yes').status, 4);
+  const c = check(old);
+  assert.match(c.stdout, /is not v2/);
+  assert.doesNotMatch(c.stdout, /drops a setConsent|Analytics answer/);
 });
 
 test('a children\'s game loses the telemetry block, and --check fails while any tag is left', () => {
