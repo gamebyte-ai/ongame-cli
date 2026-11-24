@@ -27,8 +27,9 @@ An answer moves the panel only when it says the thing happened, for this build o
 - `play_review` names a folder and a run, never a build. The panel matches it on the `runId` and `gameDir`
   of the `play_gate` run it holds for this build.
 - `preview_start` names a folder, never a build or a game. Its local link shows only when that folder is the
-  `gameDir` of this build's latest `play_gate` run. Before that run, or for another folder, it shows no link.
-  A new build learns its folder from its own `play_gate`: no other ongame answer ties a folder to a build.
+  `gameDir` of the latest `play_gate` run ongame recorded for this build: a played or skipped run, the runs
+  ongame keeps the build's folder for. An `unverified` or still running call records none. Before such a run,
+  or for another folder, the preview shows no link. A new build learns its folder from its own `play_gate`.
 - A call slower than 45 s answers `{ ok: false, reason: call_pending }` first. That is "not known yet".
   Its own answer then comes through `call_wait`, which the panel does not read. So after a slow `play_gate`
   the panel shows no play check line, and after a slow `preview_start` no local link, until a later call

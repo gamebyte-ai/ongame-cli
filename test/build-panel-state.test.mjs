@@ -364,15 +364,19 @@ test('a preview is this game\'s play link only when it serves the folder this bu
   assert.deepEqual(urls([init(), other, gate('awaiting_review')]), [], 'whichever came first');
   assert.deepEqual(urls([init(), other]), [], 'no play_gate yet: the folder is not known, so no link');
   assert.deepEqual(urls([init(), gate('awaiting_review', { buildId: OTHER }), previewOk()]), [], 'another build\'s run names no folder of this one');
-  // The same folder's preview still shows, whichever came first, and after any run of this build that ongame started.
+  // The same folder's preview still shows, whichever came first, after any run ongame recorded for this build.
   assert.deepEqual(urls([init(), gate('awaiting_review'), previewOk()]), ['http://localhost:5173/']);
   assert.deepEqual(urls([init(), previewOk(), gate('blocked', { checks: FAILS })]), ['http://localhost:5173/']);
-  assert.deepEqual(urls([init(), gateAnswer(pending('play_gate')), previewOk()]), ['http://localhost:5173/'], 'a run still going');
-  assert.deepEqual(urls([init(), gateAnswer({ status: 'unverified', reason: 'browser_unavailable' }), previewOk()]), ['http://localhost:5173/']);
-  // A refused call played nothing, so it does not move the folder.
+  assert.deepEqual(urls([init(), gateAnswer({ status: 'ok', state: 'skipped', runId: RUN }), previewOk()]), ['http://localhost:5173/']);
+  // ongame keeps a build's folder only for a run it recorded (cli/src/play-gate.ts writeReport). A call refused, still
+  // running or unverified (`no_dist` also answers a folder that does not exist) records none: it moves no folder.
   const refused = gateAnswer({ status: 'refused', reason: 'bad_waiver' }, { gameDir: '/games/other' });
-  assert.deepEqual(urls([init(), gate('awaiting_review'), refused, previewOk()]), ['http://localhost:5173/']);
-  assert.deepEqual(urls([init(), refused, other]), []);
+  const missing = gateAnswer({ status: 'unverified', reason: 'no_dist', next: 'x' }, { gameDir: '/games/fizlab' });
+  for (const unrecorded of [refused, missing, gateAnswer(pending('play_gate'), { gameDir: '/games/other' })]) {
+    const why = JSON.stringify(unrecorded.output).slice(0, 40);
+    assert.deepEqual(urls([init(), gate('awaiting_review'), previewOk(), unrecorded]), ['http://localhost:5173/'], why);
+    assert.deepEqual(urls([init(), unrecorded, previewOk()]), [], why);
+  }
   // A later run of this build in another folder moves it: the earlier folder's preview no longer shows.
   assert.deepEqual(urls([init(), gate('awaiting_review'), previewOk(), gate('awaiting_review', { gameDir: '/games/other' })]), []);
   // A new build learns its folder from its own play_gate, even for the same game: until then its link does not show.

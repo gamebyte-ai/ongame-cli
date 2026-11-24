@@ -22,8 +22,9 @@ export type BuildState = {
   /** This build's latest play check. `runId` and `gameDir` name the play_gate run it came from: a review counts
    *  only for that run. `runId` is null when no run was recorded (`unverified`). */
   check: { result: PlayCheckResult; failed: number; at: number; runId: string | null; gameDir: string | null } | null;
-  /** This build's game folder: the one its latest play_gate run named. Null until such a run; a new build starts
-   *  with none, because nothing else ongame answers ties a folder to a build. */
+  /** This build's game folder: the one named by the latest play_gate run ongame recorded for this build (a played or
+   *  skipped run). Null until such a run; a new build starts with none, because no other ongame answer ties a folder
+   *  to a build. */
   gameDir: string | null;
   /** A local preview server's address and the folder it serves; it lives as long as the agent session that started
    *  it. It is shown only while its `gameDir` is the build's `gameDir` above. */

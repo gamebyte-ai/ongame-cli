@@ -202,14 +202,15 @@ function takeCheck(s: BuildState, tool: string, input: Record<string, unknown>, 
   // ongame counts a run for a build only when the run names that build (cli/src/play-gate.ts playGateStatus). A run
   // that names another build, or none, is not this build's check.
   if (s.buildId === null || str(input.buildId) !== s.buildId) return s;
-  // Each answer below that moves the check is a run ongame took up for this build: its folder is the build's folder.
   // A run that is still going has already deleted the last report (runPlayGate): the earlier result no longer stands.
-  if (isPending(out)) return s.check === null && s.gameDir === gameDir ? s : { ...s, check: null, gameDir, updatedAt: now };
-  if (out.status === 'unverified') return { ...s, check: { result: 'unverified', failed: 0, at: now, runId: null, gameDir }, gameDir, updatedAt: now };
+  if (isPending(out)) return s.check === null ? s : { ...s, check: null, updatedAt: now };
+  if (out.status === 'unverified') return { ...s, check: { result: 'unverified', failed: 0, at: now, runId: null, gameDir }, updatedAt: now };
   if (out.status !== 'ok') return s;
   const state = out.state;
   if (state !== 'blocked' && state !== 'awaiting_review' && state !== 'skipped' && state !== 'passed') return s;
   const failed = Array.isArray(out.checks) ? out.checks.filter((c) => asRecord(c)?.status === 'fail').length : 0;
+  // ongame recorded this run for the build, and with it the build's game folder (writeReport, gameDirOfBuild). An
+  // unverified or still running call records none, so only this answer tells the panel which folder is the build's.
   return { ...s, check: { result: state, failed, at: now, runId: str(out.runId), gameDir }, gameDir, updatedAt: now };
 }
 
