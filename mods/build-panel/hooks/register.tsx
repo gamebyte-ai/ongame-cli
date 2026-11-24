@@ -208,10 +208,9 @@ export const register: Register = (on) => {
         {v.links.map((link) =>
           isNarrow ? (
             <Box key={`link-${link.kind}`} flexDirection="column">
-              <Text>
-                ▶ {link.label} <Text dimColor>({link.note})</Text>
-              </Text>
+              <Text>▶ {link.label}</Text>
               <Link href={link.url} />
+              <Text dimColor>{link.note}</Text>
             </Box>
           ) : (
             <Box key={`link-${link.kind}`} flexDirection="column">

@@ -37,6 +37,14 @@ Claude Code places a pane that opens by itself only from 144 terminal columns (1
 opened it), as a sidebar. Below that width the panel waits until the maker types `/ongame-panel`;
 Claude Code then seats it inline above the prompt. A pane the maker closes stays closed for the session.
 
+## Try it and test it
+
+- Adapter: `node --test test/build-panel-state.test.mjs` (also runs in the repo's CI).
+- Panel: `claude plugin test mods/build-panel` and `claude plugin validate mods/build-panel`. These need the
+  `claude` command, which CI does not install.
+- In a real session without an ongame account: `mods/build-panel/dev/ongame-fixture.mjs` answers five ongame
+  tools with the CLI's answer shapes. Its header has the `claude --plugin-dir ... --mcp-config ...` line.
+
 ## Limits kept
 
 - Claude Code is not modified. The mod uses only the documented mod API of Claude Code 2.1.331.

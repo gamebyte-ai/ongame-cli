@@ -1,7 +1,7 @@
 // The build panel, run by Claude Code's own test kit: `claude plugin test mods/build-panel`.
 // Each hook a test registers stands for the engine beneath the panel; a call on `$` is answered `{ value }`.
 import { expect, mock, test } from 'claude-code/testing';
-import type { On } from 'claude-code';
+import type { On, ToolCallArgs } from 'claude-code';
 
 const T0 = Date.parse('2026-11-24T09:00:00Z');
 const MIN = 60_000;
@@ -11,6 +11,9 @@ const PLAN = { phases: ['concept', 'assets', 'code', 'levels', 'polish'] };
 const MARKER = JSON.stringify({ buildId: BUILD, gameId: 'fizzlab', startedAtEpoch: T0 / 1000 });
 const ongame = (name: string) => `mcp__plugin_ongame_ongame__${name}` as const;
 const SURFACES = ['terminal', 'desktop'] as const;
+/** A tool call by name. Which MCP tools the types know depends on the servers connected when the engine last laid
+ *  them, so the input is given loosely. */
+const callOf = (tool: string, args: Record<string, unknown>) => ({ tool, ...args }) as unknown as ToolCallArgs;
 
 function pane(bodyColumns: number, placement: 'dock' | 'inline') {
   return {
@@ -111,12 +114,12 @@ test('ongame tool answers move the panel: phase, play check and play link', asyn
   await $.session.start(start);
   expect(seen.opened.length).toBe(0);
 
-  const ran = await $.tool.call({ tool: ongame('state_init'), gameId: 'fizzlab', plan: PLAN });
+  const ran = await $.tool.call(callOf(ongame('state_init'), { gameId: 'fizzlab', plan: PLAN }));
   expect(seen.opened.length).toBe(1); // a new build opens it by itself
   expect(ran.text).toBe(JSON.stringify({ buildId: BUILD, state: { currentPhase: null, completed: [], done: false, plan: PLAN } }));
-  await $.tool.call({ tool: ongame('state_advance'), buildId: BUILD });
-  await $.tool.call({ tool: ongame('play_gate'), gameDir: CWD });
-  await $.tool.call({ tool: ongame('preview_start'), gameDir: CWD });
+  await $.tool.call(callOf(ongame('state_advance'), { buildId: BUILD }));
+  await $.tool.call(callOf(ongame('play_gate'), { gameDir: CWD }));
+  await $.tool.call(callOf(ongame('preview_start'), { gameDir: CWD }));
   expect(seen.opened.length).toBe(1); // the same build does not open it again
 
   for (const surface of SURFACES) {
@@ -139,12 +142,13 @@ test('on a narrow screen the link gets its own row and a long step list is left 
     },
   });
   await $.session.start(start);
-  await $.tool.call({ tool: ongame('state_init'), gameId: 'fizzlab', plan: PLAN });
-  await $.tool.call({ tool: ongame('preview_start'), gameDir: CWD });
+  await $.tool.call(callOf(ongame('state_init'), { gameId: 'fizzlab', plan: PLAN }));
+  await $.tool.call(callOf(ongame('preview_start'), { gameDir: CWD }));
   const ui = await $.ui.mount({ ...NARROW, surface: 'terminal' });
   expect((await ui.find({ type: 'Text', text: /Building/ }))?.text).toBe('● Building · polish (5 of 5)');
   expect(await ui.find({ type: 'Text', text: /levels/ })).toBeUndefined();
-  expect((await ui.find({ type: 'Text', text: /Play here/ }))?.text).toBe('▶ Play here (works while this session runs)');
+  expect((await ui.find({ type: 'Text', text: /Play here/ }))?.text).toBe('▶ Play here');
+  expect((await ui.find({ type: 'Text', text: /works while/ }))?.text).toBe('works while this session runs');
   expect((await ui.find({ type: 'Link' }))?.props.href).toBe('http://localhost:5173/');
   await ui.unmount();
 });
@@ -154,7 +158,7 @@ test('a non-ongame tool call changes nothing and its result goes back as it came
   engine(on, { answers: { state_init: answer } });
   await $.session.start(start);
   // Another server's tool with ongame's tool name: not ongame's build.
-  const other = await $.tool.call({ tool: 'mcp__other__state_init', gameId: 'not-ours' });
+  const other = await $.tool.call(callOf('mcp__other__state_init', { gameId: 'not-ours' }));
   expect(other.text).toBe(JSON.stringify(answer));
   const ui = await $.ui.mount({ ...WIDE, surface: 'desktop' });
   expect((await ui.find({ type: 'Text', text: /No ongame build/ }))?.text).toBe('No ongame build in this folder yet.');
@@ -211,13 +215,13 @@ test('publish.done turns the publish address into a play link and keeps it', asy
     answers: { publish_game: { publishId: 'p1', publicUrl: 'https://play.ongame.test/fizzlab/' }, trace_emit: { recorded: true } },
   });
   await $.session.start(start);
-  await $.tool.call({ tool: ongame('publish_game'), gameId: 'fizzlab', files: [] });
+  await $.tool.call(callOf(ongame('publish_game'), { gameId: 'fizzlab', files: [] }));
   let ui = await $.ui.mount({ ...WIDE, surface: 'terminal' });
   expect(await ui.find({ type: 'Link' })).toBeUndefined(); // not verified live yet
   await ui.unmount();
 
   await clock.advance(MIN);
-  await $.tool.call({ tool: ongame('trace_emit'), buildId: BUILD, name: 'publish.done', payload: { gameId: 'fizzlab' } });
+  await $.tool.call(callOf(ongame('trace_emit'), { buildId: BUILD, name: 'publish.done', payload: { gameId: 'fizzlab' } }));
   ui = await $.ui.mount({ ...WIDE, surface: 'terminal' });
   expect((await ui.find({ type: 'Link' }))?.props.href).toBe('https://play.ongame.test/fizzlab/');
   await ui.unmount();
