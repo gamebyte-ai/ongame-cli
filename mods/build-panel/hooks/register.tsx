@@ -135,6 +135,8 @@ export const register: Register = (on) => {
       const now = await $.clock.now();
       const before = await read($, build);
       const call = { tool: name, input, output: readOutput(ran.text, ran.result), isError: ran.isError === true };
+      // The session's state first, the store after: a store that refuses the write costs the next session its
+      // kept link, never this session's panel.
       await update($, build, (s) => observe(s, call, now));
       const after = await read($, build);
       const record = publishedRecord(after);

@@ -27,13 +27,22 @@ const WIDE = pane(60, 'dock');
 const NARROW = pane(40, 'inline');
 
 /** The engine beneath the panel: a session in CWD, a clock at T0, a store, and ongame's answers by tool. */
-function engine(on: On, setup: { marker?: string | null; store?: Record<string, unknown>; answers?: Record<string, unknown> } = {}) {
+type Setup = {
+  marker?: string | null;
+  store?: Record<string, unknown>;
+  /** The store refuses every write, as a full disk or a store over its 4 MiB would. */
+  isStoreFull?: boolean;
+  answers?: Record<string, unknown>;
+};
+
+function engine(on: On, setup: Setup = {}) {
   const seen = { opened: [] as unknown[], closed: [] as string[], toasts: [] as string[], copied: [] as string[] };
   const clock = mock.clock(on, { now: T0 });
   // The store in memory, kept here so a test can read what the panel wrote.
   const store: Record<string, unknown> = { ...(setup.store ?? {}) };
   on('store.get', (_, e) => ({ value: store[e.key] }));
   on('store.set', (_, e) => {
+    if (setup.isStoreFull) throw new Error('store full');
     store[e.key] = e.value;
     return { value: undefined };
   });
@@ -226,4 +235,21 @@ test('publish.done turns the publish address into a play link and keeps it', asy
   expect((await ui.find({ type: 'Link' }))?.props.href).toBe('https://play.ongame.test/fizzlab/');
   await ui.unmount();
   expect(store[`published:${CWD}`]).toEqual({ gameId: 'fizzlab', url: 'https://play.ongame.test/fizzlab/', at: T0 + MIN });
+});
+
+test('a store that refuses a write leaves the tool result and the panel as they were', async ($, on) => {
+  const answer = { recorded: true };
+  engine(on, {
+    marker: MARKER,
+    isStoreFull: true,
+    answers: { publish_game: { publishId: 'p1', publicUrl: 'https://play.ongame.test/fizzlab/' }, trace_emit: answer },
+  });
+  await $.session.start(start);
+  await $.tool.call(callOf(ongame('publish_game'), { gameId: 'fizzlab', files: [] }));
+  const ran = await $.tool.call(callOf(ongame('trace_emit'), { buildId: BUILD, name: 'publish.done', payload: { gameId: 'fizzlab' } }));
+  expect(ran.text).toBe(JSON.stringify(answer));
+  expect(ran.isError).toBeUndefined();
+  const ui = await $.ui.mount({ ...WIDE, surface: 'terminal' });
+  expect((await ui.find({ type: 'Link' }))?.props.href).toBe('https://play.ongame.test/fizzlab/');
+  await ui.unmount();
 });
