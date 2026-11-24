@@ -379,9 +379,8 @@ test('a preview of another folder is not shown as this game\'s play link', async
   }
 });
 
-test('a play_gate still running after 45 s shows no earlier result', async ($, on) => {
-  // The CLI answers call_pending first (cli/src/call-jobs.ts). The run's own answer comes through call_wait, which
-  // the panel does not read.
+test('a slow play_gate shows its play check once call_wait brings it', async ($, on) => {
+  // The CLI answers call_pending first (cli/src/call-jobs.ts); the run's own answer comes later through call_wait.
   let answer: Record<string, unknown> = { status: 'ok', state: 'blocked', runId: RUN, checks: [{ id: 'layout_fits', status: 'fail', detail: 'x' }] };
   engine(on, {
     marker: MARKER,
@@ -399,9 +398,45 @@ test('a play_gate still running after 45 s shows no earlier result', async ($, o
 
   answer = { ok: false, reason: 'call_pending', retryable: true, callId: 'c-1', tool: 'play_gate', fix: 'x' };
   await $.tool.call(callOf(ongame('play_gate'), { gameDir: CWD, buildId: BUILD }));
+  ui = await $.ui.mount({ ...WIDE, surface: 'terminal' });
+  expect(await ui.find({ type: 'Text', text: /Play check/ })).toBeUndefined(); // not known yet: no line
+  await ui.unmount();
+
   await $.tool.call(callOf(ongame('call_wait'), { callId: 'c-1' }));
+  ui = await $.ui.mount({ ...WIDE, surface: 'terminal' });
+  expect((await ui.find({ type: 'Text', text: /Play check/ }))?.text).toBe('· Play check waiting for review');
+  await ui.unmount();
+
   await $.tool.call(callOf(ongame('play_review'), { gameDir: CWD, runId: OTHER_RUN, review: 'It plays right.', moments: MOMENTS }));
   ui = await $.ui.mount({ ...WIDE, surface: 'terminal' });
-  expect(await ui.find({ type: 'Text', text: /Play check/ })).toBeUndefined(); // not known: no line, and no pass
+  expect((await ui.find({ type: 'Text', text: /Play check/ }))?.text).toBe('✓ Play check passed');
+  await ui.unmount();
+});
+
+test('a preview_stop after a slow preview_start keeps the stopped server off the panel', async ($, on) => {
+  // The order the Codex review found on PR 153: the late answer of the start comes after the stop.
+  engine(on, {
+    marker: MARKER,
+    answers: {
+      play_gate: { status: 'ok', state: 'awaiting_review', runId: RUN, checks: [] },
+      preview_start: { ok: false, reason: 'call_pending', retryable: true, callId: 'c-2', tool: 'preview_start', fix: 'x' },
+      preview_stop: { ok: true },
+      call_wait: { ok: true, url: 'http://localhost:5174/', pid: 7 },
+    },
+  });
+  await $.session.start(start);
+  await $.tool.call(callOf(ongame('play_gate'), { gameDir: CWD, buildId: BUILD }));
+  // The control: with no stop in between, the late answer's link shows.
+  await $.tool.call(callOf(ongame('preview_start'), { gameDir: CWD }));
+  await $.tool.call(callOf(ongame('call_wait'), { callId: 'c-2' }));
+  let ui = await $.ui.mount({ ...WIDE, surface: 'terminal' });
+  expect((await ui.find({ type: 'Link' }))?.props.href).toBe('http://localhost:5174/');
+  await ui.unmount();
+
+  await $.tool.call(callOf(ongame('preview_start'), { gameDir: CWD }));
+  await $.tool.call(callOf(ongame('preview_stop'), {}));
+  await $.tool.call(callOf(ongame('call_wait'), { callId: 'c-2' }));
+  ui = await $.ui.mount({ ...WIDE, surface: 'terminal' });
+  expect(await ui.find({ type: 'Link' })).toBeUndefined();
   await ui.unmount();
 });

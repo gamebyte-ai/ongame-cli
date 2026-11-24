@@ -4,7 +4,7 @@
 // the marker from cli/src/hooks/build-marker-write.ts, the state tools from core/src/registry.ts, trace_emit from
 // core/src/trace.ts (traceEmit), play_gate and play_review from cli/src/local-registry.ts and cli/src/play-gate.ts,
 // preview_start from cli/src/preview.ts, publish_game from cli/src/publish-session.ts, and the `call_pending` answer of
-// a call slower than 45 s from cli/src/call-jobs.ts.
+// a call slower than 45 s and its later answer through call_wait from cli/src/call-jobs.ts.
 //
 // Run: node --test test/build-panel-state.test.mjs   (Node strips the TypeScript types itself.)
 import { test } from 'node:test';
@@ -73,7 +73,11 @@ const publish = (gameId = 'fizzlab', url = `https://play.ongame.test/${gameId}/`
   call('publish_game', { gameId, files: [{ path: 'index.html', size: 512 }] }, { publishId: 'f0a1b2c3-0000-4000-8000-000000000001', publicUrl: url, signing: 'v4', fileCount: 1, source: { status: 'ready', key: 'k' } });
 
 /** What any call slower than 45 s answers first; its own answer then comes through call_wait. */
-const pending = (tool) => ({ ok: false, reason: 'call_pending', retryable: true, callId: '5d2c9c1e-7a44-4e0b-b6a3-0c1d2e3f4a5b', tool, fix: 'x' });
+const CALL_ID = '5d2c9c1e-7a44-4e0b-b6a3-0c1d2e3f4a5b';
+const SECOND_CALL = 'a7e3f1d0-4b2c-4e8a-9d61-3f0b5c2e1a74';
+const pending = (tool, callId = CALL_ID) => ({ ok: false, reason: 'call_pending', retryable: true, callId, tool, fix: 'x' });
+/** call_wait answers the held call's own answer once it finished, or call_pending again (cli/src/call-jobs.ts wait). */
+const waited = (output, callId = CALL_ID) => call('call_wait', { callId }, output);
 const previewFail = (code) => call('preview_start', { gameDir: GAME_DIR }, { ok: false, code, reason: 'x', fix: 'x' });
 const previewOk = (url = 'http://localhost:5173/') => call('preview_start', { gameDir: GAME_DIR }, { ok: true, url, pid: 42 });
 
@@ -248,7 +252,7 @@ test('only a play_gate that names this build is this build\'s check', () => {
 
 test('a play_gate still running after 45 s leaves no earlier result on the panel', () => {
   // The CLI deletes the last report when a run starts (runPlayGate), so the earlier result no longer stands. The new
-  // one comes through call_wait, which the panel does not read: it shows no play check line until the next run.
+  // one comes later through call_wait: until then the panel shows no play check line.
   const s = fold([init(), gate('blocked', { checks: FAILS }), gateAnswer(pending('play_gate'))]);
   assert.equal(s.check, null);
   assert.equal(view(s, T0 + 3 * MIN).check, null);
@@ -258,19 +262,189 @@ test('a play_gate still running after 45 s leaves no earlier result on the panel
   assert.equal(other.check.result, 'blocked');
 });
 
-test('a call still running after 45 s is never read as its answer', () => {
-  // The answer that comes later through call_wait is not read: call_wait is not a watched tool.
-  const waited = (output) => call('call_wait', { callId: '5d2c9c1e-7a44-4e0b-b6a3-0c1d2e3f4a5b' }, output);
-  const slowGate = fold([init(), gateAnswer(pending('play_gate'))]);
-  assert.deepEqual(observe(slowGate, waited(gate('awaiting_review').output), T0), slowGate);
+test('a call_pending answer is never read as the call\'s result', () => {
   // A build that registers slowly is not started by the pending answer.
   assert.equal(fold([call('state_init', { gameId: 'fizzlab', plan: PLAN }, pending('state_init'))]).buildId, null);
   // A slow state call is not an update: the phase and the panel's time stay.
   const before = fold([init(), advance('code', ['concept'])]);
   const after = observe(before, call('state_get', { buildId: BUILD }, pending('state_get')), T0 + 9 * MIN);
-  assert.deepEqual(after, before);
+  assert.deepEqual(view(after, T0 + 9 * MIN), view(before, T0 + 9 * MIN));
+  assert.equal(after.updatedAt, before.updatedAt);
   // A slow publish holds no address.
   assert.equal(fold([init(), call('publish_game', { gameId: 'fizzlab', files: [] }, pending('publish_game'))]).pendingPublish, null);
+});
+
+test('a slow play_gate shows its play check once call_wait brings its answer', () => {
+  const slow = fold([init(), gate('blocked', { checks: FAILS }), gateAnswer(pending('play_gate'))]);
+  const s = observe(slow, waited(gate('awaiting_review').output), T0 + 5 * MIN);
+  assert.deepEqual(s.check, { result: 'awaiting_review', failed: 0, at: T0 + 5 * MIN, runId: RUN, gameDir: GAME_DIR });
+  assert.deepEqual(view(s, T0 + 5 * MIN).check, { label: 'Play check waiting for review', tone: 'active' });
+  // The review of that run passes it, as after a run that answered at once.
+  const passed = observe(s, review(), T0 + 6 * MIN);
+  assert.equal(passed.check.result, 'passed');
+  // The answer is read once: the same call_wait again cannot take the pass back.
+  assert.equal(observe(passed, waited(gate('awaiting_review').output), T0 + 7 * MIN).check.result, 'passed');
+
+  // call_wait still pending after another 45 s keeps the wait; the next call_wait brings the answer.
+  const again = observe(slow, waited(pending('play_gate')), T0 + 2 * MIN);
+  assert.equal(again.check, null);
+  assert.equal(observe(again, waited(gate('blocked', { checks: FAILS }).output), T0 + 3 * MIN).check.failed, 2);
+});
+
+test('order: a preview_stop after a slow preview_start keeps the stopped server\'s link away', () => {
+  // The Codex review's case on PR 153: preview_start goes pending, preview_stop runs, then call_wait brings the
+  // address of the server that was stopped.
+  const slow = fold([init(), previewOk(), call('preview_start', { gameDir: GAME_DIR }, pending('preview_start'))]);
+  const late = { ok: true, url: 'http://localhost:5174/', pid: 43 };
+  const stopped = observe(slow, call('preview_stop', {}, { ok: true }), T0 + 3 * MIN);
+  const s = observe(stopped, waited(late), T0 + 4 * MIN);
+  assert.equal(s.preview, null);
+  assert.deepEqual(view(s, T0 + 4 * MIN).links, []);
+  // A newer preview_start wins too.
+  const newer = observe(slow, previewOk('http://localhost:5175/'), T0 + 3 * MIN);
+  assert.equal(observe(newer, waited(late), T0 + 4 * MIN).preview.url, 'http://localhost:5175/');
+  // With no newer call in between, the slow start's link shows.
+  assert.equal(observe(slow, waited(late), T0 + 4 * MIN).preview.url, 'http://localhost:5174/');
+});
+
+test('order: a newer play_gate wins over the late answer of a slow one', () => {
+  const slow = fold([init(), gateAnswer(pending('play_gate'))]);
+  const late = gate('awaiting_review').output;
+  const newer = gate('blocked', { runId: OTHER_RUN, checks: FAILS });
+  // The newer run answers at once.
+  let s = observe(observe(slow, newer, T0 + 3 * MIN), waited(late), T0 + 4 * MIN);
+  assert.deepEqual([s.check.result, s.check.runId], ['blocked', OTHER_RUN]);
+  // Both runs slow: only the newer run's answer counts, in whichever order call_wait brings them.
+  const both = observe(slow, gateAnswer(pending('play_gate', SECOND_CALL)), T0 + 3 * MIN);
+  s = observe(both, waited(late), T0 + 4 * MIN);
+  assert.equal(s.check, null, 'the older run\'s answer is not this build\'s latest check');
+  s = observe(s, waited(newer.output, SECOND_CALL), T0 + 5 * MIN);
+  assert.deepEqual([s.check.result, s.check.runId], ['blocked', OTHER_RUN]);
+  s = observe(observe(both, waited(newer.output, SECOND_CALL), T0 + 4 * MIN), waited(late), T0 + 5 * MIN);
+  assert.deepEqual([s.check.result, s.check.runId], ['blocked', OTHER_RUN]);
+  // A newer run that was refused or failed outright still makes the slow run's answer stale: the panel shows nothing.
+  const refused = gateAnswer({ status: 'refused', reason: 'bad_waiver', next: 'x' });
+  for (const unread of [refused, { ...refused, output: {}, isError: true }]) {
+    assert.equal(observe(observe(slow, unread, T0 + 3 * MIN), waited(late), T0 + 4 * MIN).check, null, JSON.stringify(unread.output));
+  }
+});
+
+test('order: a build re-opened after a slow build.done stays open', () => {
+  const ALL = ['concept', 'assets', 'code', 'levels'];
+  const slow = fold([init(), advance('polish', ALL), buildDone({ path: 'production' }, pending('trace_emit'))]);
+  assert.equal(slow.isDone, false);
+  const reopened = observe(slow, call('record_iteration', { buildId: BUILD }, doc(BUILD, 'fizzlab', 'polish', ALL)), T0 + 5 * MIN);
+  const s = observe(reopened, waited({ ok: true }), T0 + 6 * MIN);
+  assert.equal(s.isDone, false);
+  assert.equal(view(s, T0 + 6 * MIN).state.label, 'Building');
+  // With no newer state call in between, the late build.done finishes the build; one ongame refused does not.
+  assert.equal(view(observe(slow, waited({ ok: true }), T0 + 6 * MIN), T0 + 6 * MIN).state.label, 'Build finished');
+  assert.equal(observe(slow, waited({ ok: false }), T0 + 6 * MIN).isDone, false);
+});
+
+test('order: a newer state answer wins over the late answer of a slow state call', () => {
+  const slow = fold([init(), advance('code', ['concept', 'assets']), call('state_get', { buildId: BUILD }, pending('state_get'))]);
+  const newer = observe(slow, advance('levels', ['concept', 'assets', 'code']), T0 + 5 * MIN);
+  const s = observe(newer, waited(doc(BUILD, 'fizzlab', 'code', ['concept', 'assets'])), T0 + 6 * MIN);
+  assert.equal(s.currentPhase, 'levels');
+  assert.deepEqual(s.completed, ['concept', 'assets', 'code']);
+  // With no newer state call in between, the late state shows.
+  assert.equal(observe(slow, waited(doc(BUILD, 'fizzlab', 'levels', ['concept', 'assets', 'code'])), T0 + 6 * MIN).currentPhase, 'levels');
+  // A slow state_init starts the build once its answer comes.
+  const slowInit = fold([call('state_init', { gameId: 'fizzlab', plan: PLAN }, pending('state_init'))]);
+  const started = observe(slowInit, waited(init().output), T0 + MIN);
+  assert.deepEqual([started.gameId, started.buildId], ['fizzlab', BUILD]);
+  // The marker of a build that started later is newer than the slow call: its answer for the old build is ignored.
+  const marked = fromMarker(slow, JSON.stringify({ buildId: OTHER, gameId: 'fizzlab', startedAtEpoch: (T0 + 5 * MIN) / 1000 }), T0 + 5 * MIN);
+  assert.equal(observe(marked, waited(doc(BUILD, 'fizzlab', 'levels', [])), T0 + 6 * MIN).buildId, OTHER);
+});
+
+test('order: a build that started after a slow state_init went pending stays', () => {
+  // The Codex review's case on this card: the marker names a newer build, then call_wait brings the old registration.
+  const slowInit = fold([call('state_init', { gameId: 'fizzlab', plan: PLAN }, pending('state_init'))]);
+  const marker = (buildId, gameId, at) => JSON.stringify({ buildId, gameId, startedAtEpoch: at / 1000 });
+  const newer = fromMarker(slowInit, marker(OTHER, 'newgame', T0 + 2 * MIN), T0 + 2 * MIN);
+  const s = observe(newer, waited(init().output), T0 + 3 * MIN);
+  assert.deepEqual([s.gameId, s.buildId], ['newgame', OTHER]);
+  // A marker of a build that started before the call went pending is older: the late answer starts its build.
+  const older = fromMarker(slowInit, marker(OTHER, 'fizzlab', T0 - 10 * MIN), T0 + 2 * MIN);
+  assert.equal(observe(older, waited(init().output), T0 + 3 * MIN).buildId, BUILD);
+  // A late answer for the build the marker names fills that build's steps.
+  const same = fromMarker(slowInit, marker(BUILD, 'fizzlab', T0 + 2 * MIN), T0 + 2 * MIN);
+  assert.deepEqual(observe(same, waited(init().output), T0 + 3 * MIN).phases, PLAN.phases);
+});
+
+test('order: a slow preview_start of one game shows no link after the panel moved to another game', () => {
+  // The Codex review's second case: a new game drops the running link, so it drops the late one too.
+  const late = previewOk('http://localhost:5174/').output;
+  const slow = fold([init(), call('preview_start', { gameDir: GAME_DIR }, pending('preview_start'))]);
+  const toAnother = [
+    observe(slow, init('another', OTHER), T0 + 2 * MIN),
+    fromMarker(slow, JSON.stringify({ buildId: OTHER, gameId: 'another', startedAtEpoch: (T0 + 2 * MIN) / 1000 }), T0 + 2 * MIN),
+  ];
+  for (const moved of toAnother) {
+    const s = observe(moved, waited(late), T0 + 3 * MIN);
+    assert.equal(s.gameId, 'another');
+    assert.equal(s.preview, null);
+  }
+  // A new build of the same game keeps it, as it keeps the running link.
+  assert.equal(observe(observe(slow, init('fizzlab', OTHER), T0 + 2 * MIN), waited(late), T0 + 3 * MIN).preview.url, 'http://localhost:5174/');
+});
+
+test('a call of another kind does not drop a slow call\'s late answer', () => {
+  const slow = fold([init(), gateAnswer(pending('play_gate'))]);
+  const between = [
+    advance('code', ['concept', 'assets']),
+    previewOk(),
+    call('preview_stop', {}, { ok: true }),
+    publish(),
+    review({}, { status: 'refused', reason: 'no_run', next: 'Call play_gate first.' }),
+    trace('phase.start', { phase: 'code' }, { ok: true }),
+  ];
+  const moved = between.reduce((acc, c, i) => observe(acc, c, T0 + (i + 3) * MIN), slow);
+  assert.equal(observe(moved, waited(gate('awaiting_review').output), T0 + 10 * MIN).check.result, 'awaiting_review');
+});
+
+test('a late answer passes the same checks as an answer given at once', () => {
+  const slow = fold([init(), gateAnswer(pending('play_gate'))]);
+  const late = gate('awaiting_review').output;
+  // The build moved on: a late play check of the earlier build is not this build's.
+  assert.equal(observe(observe(slow, init('fizzlab', OTHER), T0 + 3 * MIN), waited(late), T0 + 4 * MIN).check, null);
+  // A late failure, or an answer the CLI no longer holds, changes nothing and ends the wait. A failed call_wait is
+  // not read even when its text looks like a run's answer.
+  for (const ended of [
+    { ...waited(late), isError: true },
+    waited({ ok: false, reason: 'call_not_found', retryable: false, fix: 'x' }),
+  ]) {
+    const s = observe(slow, ended, T0 + 2 * MIN);
+    assert.equal(s.check, null);
+    assert.equal(observe(s, waited(late), T0 + 3 * MIN).check, null, 'the wait has ended');
+  }
+  // A callId the panel does not wait on, or a call_wait of another server, is not this call's answer.
+  for (const other of [
+    waited(late, 'b0b0b0b0-0000-4000-8000-000000000000'),
+    waited(late, '__proto__'),
+    waited(late, 'check'),
+    call('call_wait', {}, late),
+    { ...waited(late), tool: 'mcp__plugin_ongame-cli_ongame-local__call_wait' },
+    { ...waited(late), tool: 'mcp__github__call_wait' },
+  ]) {
+    assert.equal(observe(slow, other, T0 + 2 * MIN).check, null, JSON.stringify(other));
+  }
+  assert.equal(observe(slow, waited(late), T0 + 2 * MIN).check.result, 'awaiting_review', 'the control: its own call_wait');
+});
+
+test('a slow call is held with only the input fields the panel reads', () => {
+  // Never a play script, a waiver or a file list: the state is kept across reloads.
+  const script = [{ key: 'ArrowRight', frames: 30 }];
+  const s = fold([
+    init(),
+    call('play_gate', { gameDir: GAME_DIR, buildId: BUILD, desktop: script, phone: script, waive: [{ check: 'layout_fits', reason: 'secret-waiver' }] }, pending('play_gate')),
+    call('publish_game', { gameId: 'fizzlab', files: [{ path: 'secret-file.js', size: 512 }] }, pending('publish_game', SECOND_CALL)),
+  ]);
+  const kept = JSON.stringify(s);
+  for (const word of ['ArrowRight', 'secret-waiver', 'secret-file.js']) assert.equal(kept.includes(word), false, word);
+  assert.equal(observe(s, waited(gate('awaiting_review').output), T0 + 3 * MIN).check.result, 'awaiting_review');
 });
 
 test('a publish of another game is not this game\'s link', () => {
