@@ -41,6 +41,33 @@ function talk(lines, expectIds) {
   });
 }
 
+/** A fixture kept open, for a talk whose next request needs the last answer. `ask` resolves with the answer to one
+ *  request, or rejects at the deadline; `close` stops the fixture. */
+function open() {
+  const child = spawn(process.execPath, [FIXTURE], { stdio: ['pipe', 'pipe', 'pipe'] });
+  const waiting = new Map();
+  let stderr = '';
+  child.stderr.on('data', (d) => (stderr += d));
+  createInterface({ input: child.stdout }).on('line', (line) => {
+    const msg = JSON.parse(line);
+    waiting.get(msg.id)?.(msg);
+    waiting.delete(msg.id);
+  });
+  return {
+    ask(request) {
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error(`no answer for ${request.id} within ${DEADLINE_MS} ms; stderr: ${stderr}`)), DEADLINE_MS);
+        waiting.set(request.id, (msg) => {
+          clearTimeout(timer);
+          resolve(msg);
+        });
+        child.stdin.write(`${JSON.stringify(request)}\n`);
+      });
+    },
+    close: () => child.kill(),
+  };
+}
+
 const rpc = (id, method, params) => ({ jsonrpc: '2.0', id, method, params });
 const callTool = (id, name, args) => rpc(id, 'tools/call', { name, arguments: args });
 const answerOf = (msg) => JSON.parse(msg.result.content[0].text);
@@ -59,17 +86,41 @@ test('the fixture answers with the CLI answer shapes and walks the plan', async 
     callTool(2, 'state_advance', { buildId: 'b_0123456789abcdef' }),
     callTool(3, 'state_advance', { buildId: 'b_0123456789abcdef' }),
     callTool(4, 'state_advance', { buildId: 'b_0123456789abcdef' }),
-    callTool(5, 'play_gate', { gameDir: '.' }),
-    callTool(6, 'play_review', { buildId: 'b_0123456789abcdef' }),
+    callTool(5, 'play_gate', { gameDir: '.', buildId: 'b_0123456789abcdef' }),
     callTool(7, 'preview_start', { gameDir: '.' }),
-  ], [1, 2, 3, 4, 5, 6, 7]);
+  ], [1, 2, 3, 4, 5, 7]);
   assert.deepEqual(answerOf(a.get(1)), { buildId: 'b_0123456789abcdef', state: { currentPhase: null, completed: [], done: false, plan } });
   assert.equal(answerOf(a.get(2)).state.currentPhase, 'concept');
   assert.deepEqual(answerOf(a.get(3)).state.completed, ['concept']);
   assert.equal(answerOf(a.get(4)).state.done, true);
+  assert.equal(answerOf(a.get(5)).status, 'ok');
   assert.equal(answerOf(a.get(5)).state, 'awaiting_review');
-  assert.deepEqual(answerOf(a.get(6)), { status: 'passed' });
+  assert.match(answerOf(a.get(5)).runId, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/, 'a run id of its own, as the CLI mints one');
   assert.equal(answerOf(a.get(7)).url, 'http://localhost:5173/');
+});
+
+test('play_review takes a folder and a run, and passes only the latest run in its folder', async () => {
+  // The real tool has no buildId (ongame cli/src/local-registry.ts). The run id is only known once play_gate
+  // answered, so this talks to one fixture step by step.
+  const moments = [{ run: 'desktop', frame: 1, saw: 'the start screen' }, { run: 'phone', frame: 1, saw: 'the start screen' }];
+  const reviewOf = (gameDir, runId) => ({ gameDir, runId, review: 'The player reaches the goal on both sizes.', moments });
+  const fixture = open();
+  try {
+    const tools = (await fixture.ask(rpc(1, 'tools/list'))).result.tools;
+    const schema = tools.find((t) => t.name === 'play_review').inputSchema;
+    assert.deepEqual(schema.required, ['gameDir', 'runId', 'review', 'moments']);
+    assert.equal('buildId' in schema.properties, false);
+
+    assert.deepEqual(answerOf(await fixture.ask(callTool(2, 'play_review', reviewOf('game', 'x')))), { status: 'refused', reason: 'no_run', next: 'Call play_gate first.' });
+    const first = answerOf(await fixture.ask(callTool(3, 'play_gate', { gameDir: 'game', buildId: 'b_0123456789abcdef' })));
+    const second = answerOf(await fixture.ask(callTool(4, 'play_gate', { gameDir: 'game', buildId: 'b_0123456789abcdef' })));
+    assert.notEqual(first.runId, second.runId);
+    assert.equal(answerOf(await fixture.ask(callTool(5, 'play_review', reviewOf('game', first.runId)))).reason, 'stale_run', 'an earlier run');
+    assert.equal(answerOf(await fixture.ask(callTool(6, 'play_review', reviewOf('other-game', second.runId)))).reason, 'no_run', 'another folder');
+    assert.deepEqual(answerOf(await fixture.ask(callTool(7, 'play_review', reviewOf('game', second.runId)))), { status: 'passed' });
+  } finally {
+    fixture.close();
+  }
 });
 
 test('a broken line, a notification and an unknown tool leave the fixture answering', async () => {
