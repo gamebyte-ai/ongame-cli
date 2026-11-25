@@ -1,6 +1,6 @@
 {
-  "pluginVersion": "1.7.99",
-  "generatedAt": "2026-11-24",
+  "pluginVersion": "1.7.101",
+  "generatedAt": "2026-11-25",
   "skills": {
     "analytics": {
       "sha256": "c374432a518b90f5c56f567f9e0797519e6fcbc3e7232d3c305b989dbfa1ac3d",
@@ -62,6 +62,11 @@
       "bytes": 16734,
       "lines": 209
     },
+    "juice": {
+      "sha256": "6f6b20eb3974afed815fc77acbdc2f7b85ae3f8064fab84c4f9a444c3852a21f",
+      "bytes": 17513,
+      "lines": 232
+    },
     "level-design": {
       "sha256": "b25a09d0f6e791280790081ebf5446100f38062158319fd183e94e1c8b4bf21a",
       "bytes": 1685,
@@ -83,14 +88,14 @@
       "lines": 559
     },
     "phases/audio": {
-      "sha256": "ea94a9f9c34afab5c828562de492829ac890aced901b85bda17fb03d9620ea8c",
-      "bytes": 12852,
+      "sha256": "e60eaeb6ff53e7cf12f823e7c8c7af1bbec1a4522a89092a04775edcc4c3835e",
+      "bytes": 12822,
       "lines": 164
     },
     "phases/code": {
-      "sha256": "e394fd1b0fad6b8e353da3ef54484c21dc06e69dc0ecb282040e1c243862f8cf",
-      "bytes": 42378,
-      "lines": 428
+      "sha256": "7c606d4ad50cb37f16a25681704e51032912871d9f3bb8177c79f9f5fe708e2b",
+      "bytes": 42426,
+      "lines": 430
     },
     "phases/concept": {
       "sha256": "6a6eb1f7233108ebcaed46ae2b7e7ce47a0fd5edaa6270aee580dfb927fc5119",
@@ -108,9 +113,9 @@
       "lines": 72
     },
     "phases/polish": {
-      "sha256": "6df9a782fc8b2a270d0b69cdc68388ca38daf286bbb13ac7991d2ca7e9ed06b0",
-      "bytes": 50236,
-      "lines": 501
+      "sha256": "79a233235b00881921f6ba4f032b35ee47ec21569e092e95506bb199ef5a3d17",
+      "bytes": 50640,
+      "lines": 505
     },
     "phases/research": {
       "sha256": "6ee0d19bdc0c2faeeeb73e0658cb7d630bcc41f8ad8dac02a8004fb3c55dbb5c",
@@ -138,19 +143,19 @@
       "lines": 25
     },
     "store-build": {
-      "sha256": "6fd6c5da7bbd1cdf943ff5f9a3a25b454ffdb67b0c9b9fa645cd9e5109bbc238",
-      "bytes": 6343,
-      "lines": 96
+      "sha256": "82048a048128d37df1dbb19b2256d689ad9f3cca04c016b85b84a2ad8897ba2a",
+      "bytes": 6483,
+      "lines": 99
     },
     "store-prep": {
-      "sha256": "273300c26bbeb146f866155afb0426551c1b1a8750fdced74a7f087ea47e35a6",
-      "bytes": 1737,
-      "lines": 26
+      "sha256": "90a2b19fc4643ba98b929f59abbe5fc66a764baf45de0b10a7eb7889c024524e",
+      "bytes": 1885,
+      "lines": 29
     },
     "store-submit": {
-      "sha256": "4a70e49d6ef334e262ec7e778ca6fc837e765b71bccd0f734f9357d22ff3e2d4",
-      "bytes": 4923,
-      "lines": 68
+      "sha256": "b4b4be61310484d2ea43ac4f164797f50688ff9d4c1e4e11d8e37af3c0f0229e",
+      "bytes": 5100,
+      "lines": 71
     },
     "storyboard": {
       "sha256": "35472fdb1abd04b54ad371d96a7651ba3bdfaa591f6948e52df5fdab38bd6ccc",

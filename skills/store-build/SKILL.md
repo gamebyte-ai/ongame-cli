@@ -9,6 +9,9 @@ prompt are `store-prep`. Review, the privacy forms and pacing are `store-submit`
 gate passes. Source-level phone behaviour (Android back key, pause on background, haptics, safe area) is
 `mobile-ready`; run its check first.
 
+onGame team: if `playbook catalog` lists `ongame-game-launch`, read its integrations and play-console phases; the
+limits above still hold.
+
 ## 0. Find the right line
 
 - **Build from the game's latest line**: `game-verify` section 5 (the line check) before anything else.

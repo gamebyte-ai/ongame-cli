@@ -132,8 +132,8 @@ and sets up the **AudioService bridge**: `sfx` toggle → `setSfxMute(!v)`, `mus
 this.addModule(new SettingsBinding({ audioFields: true }));
 ```
 
-On a 2D frame (`src/<Name>App.ts` imports `@gamebyte/gamelabsjs/core`) `SettingsBinding` stops the boot: keep the
-same four fields in the game's own settings state and call the same `AudioService` setters (`pattern:settings`).
+On a 2D frame (`src/<Name>App.ts` imports `@gamebyte/gamelabsjs/core`) import `SettingsBinding` from
+`@gamebyte/gamelabsjs`. It needs gamelabs.js 4.2.4 or later there (`framework`, "Two entries").
 
 This way sound is fully **opt-in/opt-out**: when the toggle is off, `playSfx`/`playMusic` calls
 pass through a mute gain (the code is still called, no sound comes out). If Settings is not yet in the game, it stays

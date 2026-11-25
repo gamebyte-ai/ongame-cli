@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.7.99 — 2026-11-24
+## 1.7.101 — 2026-11-25
 
 - A game with an **Analytics** switch applies a saved "off" at boot: `if (saved === 'off') setConsent(false);` in
   `src/main.ts`, before the first `await`. The deployed SDK starts after the game's code and sends what an earlier
@@ -16,6 +16,28 @@
   new one from a newer CLI. An upgrade never swaps the new shim for an older one.
 - `test/analytics-upgrade.test.mjs` covers the call before and after the `await`, helpers, branches, callbacks,
   top-level `await` in the boot module and in what it imports, the boot module `index.html` names, and both shims.
+
+## 1.7.100 — 2026-11-25
+
+- A 2D web game can use the engine's ready-made main screen, settings popup, UI components and on-screen controls, and stay on the 2D frame with no three.js. The code, polish and audio phases no longer send such a game to the 3D frame. Its App file keeps `GamelabsApp` from `@gamebyte/gamelabsjs/core`; the modules are imported from `@gamebyte/gamelabsjs`.
+- This needs gamelabs.js 4.2.4 or later, where the two entries share one copy of each class. On an older engine the phases say to upgrade first. New games get 4.2.4 from the CLI release that carries ongame PR 1356.
+- `test/scaffold-dimension-text.test.mjs` checks the new text in the three phases, and that the old one-entry rule is gone.
+
+## 1.7.99 — 2026-11-25
+
+- `store-prep`, `store-build` and `store-submit` each get one line for onGame team members: when `playbook catalog`
+  lists `ongame-game-launch`, the team's Google Play launch cycle, read the phase that matches the step (creatives;
+  integrations and play-console; play-console and qa). Nothing from that skill is copied here. Without the `playbook`
+  command, or before the skill is listed, the line does nothing. `store-build` and `store-submit` keep their limits:
+  the agent still uploads nothing and never writes to a store.
+- `test/launch-skill-pointer.test.mjs` checks the three lines, that each is conditional on the catalog, and this
+  version.
+
+## 1.7.98 — 2026-11-24
+
+- New skill `skills/juice/SKILL.md`: feedback timings in milliseconds for a placement, a line clear, a combo, a big clear, game over and a refused move. They were measured frame by frame from 60 fps play video of a shipped grid puzzle game, with an error of one frame (17 ms). Each number is marked measured or inferred, says what it is for, and says how to scale it from a small event to a big one.
+- `/make-game` and the polish phase, Sub-phase 5, point to the skill for timings and sizes. Sub-phase 5 now asks for a screen shake of one size that never grows: a combo makes it longer, not stronger. It no longer asks for a hit-stop on a match.
+- `test/juice-skill.test.mjs` checks the marks, the scaling rules, the constants against the tables, the two links and this version. It also checks that the skill names no game.
 
 ## 1.7.97 — 2026-11-24
 
