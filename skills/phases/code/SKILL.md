@@ -110,8 +110,9 @@ zombie report. This lock guards WRITES only — reading/analysis needs no lock.
   (find by bare name `scaffold_materialize` via ToolSearch). `engine` defaults to `"gamelabs"`, so a Unity build must
   pass `engine="unity"` explicitly. **On gamelabs, pass `dimension` every time — you decide it from
   `GAME_DESIGN.md`.** `"2d"` is the frame for a game drawn only in the 2D HUD: it leaves three.js out, about 40%
-  less JavaScript for the player to download. `"3d"` is the frame for a game with a 3D world, and for a 2D game that wants the
-  engine's ready-made main screen, settings popup, UI components or on-screen controls. Left out, it is `"3d"`.
+  less JavaScript for the player to download. A 2D game stays `"2d"` when it uses the engine's ready-made main
+  screen, settings popup, UI components or on-screen controls. `"3d"` is the frame for a game with a 3D world.
+  Left out, it is `"3d"`.
   Unity ignores it. It copies the bundled baseplate for that engine into `gameDir` and renames every
   `MyGame*` identifier → PascalCase(`gameName`) across file contents **and** file names — on gamelabs that is
   `MyGameApp`/`MyGameConfig`/`MyGameUIIds` + the enum value + the package `"name"`; on Unity it is the C# namespaces
@@ -119,10 +120,11 @@ zombie report. This lock guards WRITES only — reading/analysis needs no lock.
   `{ written:[...], renamedTo, engine, dimension }` — `renamedTo` is the PascalCase identifier the App/Config/UIIds were renamed
   to (use it when you reference the App class below). `dimension` is the frame you
   got; a gamelabs result without it came from an older CLI and is the 3D frame.
-- **One engine entry per game.** The frame you picked fixes where every file imports the engine from: the same
-  specifier as `src/<renamedTo>App.ts` (`@gamebyte/gamelabsjs` on 3D, `@gamebyte/gamelabsjs/core` on 2D). A file on
-  the other one typechecks clean and stops the game at boot. `knowledge_get(key="framework")`, "Two entries", has
-  the one exception and the boot errors that name this mistake. On a continuation, read that line first.
+- **The App file holds the frame.** `src/<renamedTo>App.ts` imports `GamelabsApp` from `@gamebyte/gamelabsjs` on 3D
+  and from `@gamebyte/gamelabsjs/core` on 2D; keep that line. On a 2D frame the other files may import the full
+  entry's modules, on gamelabs.js 4.2.4 or later. On an older engine they typecheck clean and stop the game at boot.
+  `knowledge_get(key="framework")`, "Two entries", has the upgrade and the boot errors. On a continuation, read the
+  engine version first.
 - Then **`deps_install(gameDir=<gameDir>)`** — gamelabs only; the Unity scaffold has no npm step. Use it
   instead of a shell `npm install`: a sandboxed agent (Codex by default) has no network, and the tool runs outside it.
   On `ok:false` follow its `fix`; never write the game without its installed engine.

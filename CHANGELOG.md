@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.100 — 2026-11-25
+
+- A 2D web game can use the engine's ready-made main screen, settings popup, UI components and on-screen controls, and stay on the 2D frame with no three.js. The code, polish and audio phases no longer send such a game to the 3D frame. Its App file keeps `GamelabsApp` from `@gamebyte/gamelabsjs/core`; the modules are imported from `@gamebyte/gamelabsjs`.
+- This needs gamelabs.js 4.2.4 or later, where the two entries share one copy of each class. On an older engine the phases say to upgrade first. New games get 4.2.4 from the CLI release that carries ongame PR 1356.
+- `test/scaffold-dimension-text.test.mjs` checks the new text in the three phases, and that the old one-entry rule is gone.
+
 ## 1.7.99 — 2026-11-25
 
 - `store-prep`, `store-build` and `store-submit` each get one line for onGame team members: when `playbook catalog`
