@@ -10,6 +10,9 @@ everything a person needs to upload; it uploads nothing and submits nothing.
 native package (Capacitor shell, store build, the pre-upload gate) is `skills/store-build`; review, privacy forms and
 the owner's console steps are `skills/store-submit`.
 
+onGame team: if `playbook catalog` lists `ongame-game-launch`, run `playbook skill ongame-game-launch` and read its
+creatives phase before step 2.
+
 1. Find the game the same way `/publish` does: look where you are, then `games_list`, then ask.
 2. Call `knowledge_get({ key: "pattern:store-prep" })` and follow the returned procedure. It names the
    agents, their order and every check.

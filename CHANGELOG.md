@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.7.99 — 2026-11-25
+
+- `store-prep`, `store-build` and `store-submit` each get one line for onGame team members: when `playbook catalog`
+  lists `ongame-game-launch`, the team's Google Play launch cycle, read the phase that matches the step (creatives;
+  integrations and play-console; play-console and qa). Nothing from that skill is copied here. Without the `playbook`
+  command, or before the skill is listed, the line does nothing. `store-build` and `store-submit` keep their limits:
+  the agent still uploads nothing and never writes to a store.
+- `test/launch-skill-pointer.test.mjs` checks the three lines, that each is conditional on the catalog, and this
+  version.
+
 ## 1.7.98 — 2026-11-24
 
 - New skill `skills/juice/SKILL.md`: feedback timings in milliseconds for a placement, a line clear, a combo, a big clear, game over and a refused move. They were measured frame by frame from 60 fps play video of a shipped grid puzzle game, with an error of one frame (17 ms). Each number is marked measured or inferred, says what it is for, and says how to scale it from a small event to a big one.
