@@ -249,6 +249,11 @@ game-rule code, and carry it into later work and re-runs:
 6. **Rival study, applied:** the looks, on-screen sizes and economy of at least three popular games in the
    genre, in one table, and where each finding changed this game.
 
+**Economy default:** before planning coins or monetization, apply `skills/game-design/economy.md`: no needed-item
+coin shortage before **12 completed sessions AND 3 full elapsed days** (four 5–6 minute sessions/day is the starting
+assumption). Run its `economy-check.mjs` against individual no-purchase, no-rewarded-ad simulation runs and put the
+assertion in the game's normal economy test. This applies in direct work and docs-only planning too.
+
 ## Work and verify
 
 Work towards the confirmed brief, choose the necessary tools and implementation approach, and keep the scope
@@ -305,6 +310,11 @@ tag out of `index.html`; exit 5 → remove the telemetry scripts it names and ru
 ribbon shading is never a stack of rings, bands, strips or discs: each step shows as a band. Read
 `skills/gradients/SKILL.md` before drawing the first one, in a new game or a change to a finished one. It has the
 PixiJS v8 `FillGradient` code and a source check.
+
+**Feedback starts from measured timings.** A snap, a score tick, particles, a sound cue, screen shake, a combo
+effect or a game-over beat takes its numbers from `skills/juice/SKILL.md`. Read it before adding the first one, in a
+new game or a change to a finished one. A routine action answers in one frame and stays quiet; a reward adds one
+layer per combo step.
 
 Verify the behavior the user asked for in the relevant runtime. A preview URL, clean compile or empty console
 alone is not proof that a game works. Inspect actual rendering and interaction in a browser or the engine.

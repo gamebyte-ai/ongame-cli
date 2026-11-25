@@ -21,6 +21,9 @@ arrives, not only how hard each level is. From `arrow-escape/7`, `arrow-escape/8
 
 **principles/3 — Protect the first sessions.** No interstitial ads and no feature clutter in the first levels;
 unlock features one by one. From `arrow-escape/9`.
+The default coin runway is 12 completed sessions AND 3 full elapsed days without a needed-item shortage, even
+when purchases and rewarded ads are declined. Four 5–6 minute sessions/day is a planning assumption; follow
+`skills/game-design/economy.md` and its executable check before tuning later purchase pressure.
 
 **principles/4 — Lower what the player must scan.** Reveal big boards in parts and make untappable pieces look
 untappable. From `arrow-escape/4`, `arrow-escape/5`.

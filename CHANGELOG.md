@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.7.92 — 2026-11-23
+## 1.7.99 — 2026-11-25
 
 - `store-prep`, `store-build` and `store-submit` each get one line for onGame team members: when `playbook catalog`
   lists `ongame-game-launch`, the team's Google Play launch cycle, read the phase that matches the step (creatives;
@@ -9,6 +9,42 @@
   the agent still uploads nothing and never writes to a store.
 - `test/launch-skill-pointer.test.mjs` checks the three lines, that each is conditional on the catalog, and this
   version.
+
+## 1.7.98 — 2026-11-24
+
+- New skill `skills/juice/SKILL.md`: feedback timings in milliseconds for a placement, a line clear, a combo, a big clear, game over and a refused move. They were measured frame by frame from 60 fps play video of a shipped grid puzzle game, with an error of one frame (17 ms). Each number is marked measured or inferred, says what it is for, and says how to scale it from a small event to a big one.
+- `/make-game` and the polish phase, Sub-phase 5, point to the skill for timings and sizes. Sub-phase 5 now asks for a screen shake of one size that never grows: a combo makes it longer, not stronger. It no longer asks for a hit-stop on a match.
+- `test/juice-skill.test.mjs` checks the marks, the scaling rules, the constants against the tables, the two links and this version. It also checks that the skill names no game.
+
+## 1.7.97 — 2026-11-24
+
+- The build panel's "Play here" link shows only for a preview of this build's game folder: the folder of its
+  latest recorded `play_gate` run. A preview of another folder, or one started before this build's first
+  recorded run, shows no link. Before, a preview of another game showed under this game's name.
+
+## 1.7.96 — 2026-11-24
+
+- A build panel in Claude Code shows the game being built: its name, its phase, the play check and the play link.
+  It reads only what ongame's own tools answered. During a build it opens by itself as a sidebar when the terminal
+  is at least 144 columns wide. On a narrower terminal, `/ongame-panel` opens it above the prompt.
+  `/ongame-panel off` turns it off for every later session, and `/ongame-panel on` turns it back on.
+- Claude Code 2.1.286 or later shows the panel where mods are allowed. An older Claude Code loads the plugin as
+  before, without the panel: measured on 2.1.50, 2.1.100, 2.1.150, 2.1.250 and 2.1.280.
+- `test/hooks-json.test.mjs` checks that the panel's module path stays inside the plugin, that its state belongs
+  to the ongame plugin, and that `plugin.json` keeps to keys Claude Code 2.0.15 to 2.1.75 accept.
+
+## 1.7.95 — 2026-11-24
+
+- `skills/gradients/check.mjs` reads a game's code as a parsed syntax tree, not as text. Its rules are unchanged. Spacing, comments, semicolons, quotes, regex literals, type casts and `!` no longer change what it finds. Before, each new way of writing the same code needed its own fix.
+- It parses with `@babel/parser` 7.29.14, bundled in `skills/gradients/vendor/` with its MIT license and listed in `NOTICE`. Nothing is installed: Node alone runs it.
+- It now also reads `do ... while` loops, a `for` loop whose counter is declared before it (`for (; i < 20; i++)`), and Canvas styles set with a string key (`ctx['globalAlpha'] = ...`).
+- A file it cannot parse is named and not checked. The run then exits 2, or 1 when it found a fade elsewhere. An unchecked file is never a pass.
+- `test/gradients-syntax-tree.test.mjs` holds 13 cases the text check got wrong. The old tests and fixtures pass unchanged.
+
+## 1.7.93 — 2026-11-24
+
+- New game plans default to no needed-item coin shortage before 12 completed sessions and three full elapsed days, without purchases or rewarded ads. The starting planning assumption is four 5–6 minute sessions a day, about 66 minutes across 12 sessions.
+- The shared economy runway checker rejects early shortages and insufficient simulation coverage for average and light players. A runnable example and tests cover both passing and failing plans.
 
 ## 1.7.91 — 2026-11-22
 

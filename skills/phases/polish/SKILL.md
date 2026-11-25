@@ -158,14 +158,18 @@ hand-built path below, that is not a fault (same handling as Sub-phase 9.5).
 Add the modules: `addModule(new ParticlesBinding(budget?))` + `addModule(new TimelineBinding())`.
 Resolve `ParticleManager` and `TimelineManager` from DI and tick them in `onStep`. Give each listed moment a
 response: match explosion (particle
-burst), score pop-up + total-score punch, screenshake scaled to match size, impact (zoom punch / hit-stop) on big
-combos, glow/sparkle, cascade multiplier animation with rising sfx pitch.
+burst), score pop-up + total-score punch, screenshake of one size that never grows (a combo makes it longer, not
+stronger), impact (zoom punch, no hit-stop on a match) on big combos, glow/sparkle, cascade multiplier animation with
+rising sfx pitch.
 **Every burst, firework and confetti is rich and realistic, never flat primitive particles:** stack layers
 (glow, a burst of the game's own shapes, two-faced confetti, sparkle), with depth, light, varied size and spin, and
 physical motion. Praise words (Great!, Superb!) sit tilted together with their ribbon as one banner. Call
 `knowledge_get({ key: "pattern:celebration-and-reward-art" })` for the layers and the frozen-frame check. If it
 returns empty, continue with your own judgment.
 Call `knowledge_get({ key: "pattern:polish-juice-recipes" })` for the tuned juice/motion recipes (burst counts, durations, easings, amplitudes, mobile-safe glow). If it returns empty, continue with your own judgment.
+**Timings and sizes start from `skills/juice/SKILL.md`.** Read it before the first effect. It gives each response in
+milliseconds, measured frame by frame, and says how it grows from a small event to a big one: by adding a layer per
+combo step, not by enlarging one. Where a recipe and that skill give different numbers, start from the skill's.
 
 > All these effects are triggered in the **Controller** (when Board state changes), the **View** only renders.
 > The effect does NOT BLOCK input — the input lock already exists in the code phase during cascade resolving.
