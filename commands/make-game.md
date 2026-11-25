@@ -311,6 +311,11 @@ ribbon shading is never a stack of rings, bands, strips or discs: each step show
 `skills/gradients/SKILL.md` before drawing the first one, in a new game or a change to a finished one. It has the
 PixiJS v8 `FillGradient` code and a source check.
 
+**Feedback starts from measured timings.** A snap, a score tick, particles, a sound cue, screen shake, a combo
+effect or a game-over beat takes its numbers from `skills/juice/SKILL.md`. Read it before adding the first one, in a
+new game or a change to a finished one. A routine action answers in one frame and stays quiet; a reward adds one
+layer per combo step.
+
 Verify the behavior the user asked for in the relevant runtime. A preview URL, clean compile or empty console
 alone is not proof that a game works. Inspect actual rendering and interaction in a browser or the engine.
 If verification is unavailable, state what remains unverified. Do not mark a native goal complete without that

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.98 — 2026-11-24
+
+- New skill `skills/juice/SKILL.md`: feedback timings in milliseconds for a placement, a line clear, a combo, a big clear, game over and a refused move. They were measured frame by frame from 60 fps play video of a shipped grid puzzle game, with an error of one frame (17 ms). Each number is marked measured or inferred, says what it is for, and says how to scale it from a small event to a big one.
+- `/make-game` and the polish phase, Sub-phase 5, point to the skill for timings and sizes. Sub-phase 5 now asks for a screen shake of one size that never grows: a combo makes it longer, not stronger. It no longer asks for a hit-stop on a match.
+- `test/juice-skill.test.mjs` checks the marks, the scaling rules, the constants against the tables, the two links and this version. It also checks that the skill names no game.
+
 ## 1.7.97 — 2026-11-24
 
 - The build panel's "Play here" link shows only for a preview of this build's game folder: the folder of its
