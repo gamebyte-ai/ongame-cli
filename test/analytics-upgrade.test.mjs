@@ -40,7 +40,7 @@ export function trackLevelStart(level: number, extra?: Meta): void {}
 export function trackLevelComplete(level: number, extra?: Meta): void {}
 export function trackLevelFail(level: number, extra?: Meta): void {}
 `;
-// The scaffold's shim from the onGame CLI release after cli-v0.2.50: a setConsent(false) made before the SDK starts is
+// The scaffold's shim from the onGame CLI release after cli-v0.2.51: a setConsent(false) made before the SDK starts is
 // kept in globalThis.__ongameConsent, and the SDK reads it before it sends anything.
 const SHIM_BOOT = SHIM_V2.replace('export function setConsent(analytics: boolean): void {}', `export function setConsent(analytics: boolean): void {
   const g = globalThis as { __ongameConsent?: false };
@@ -563,7 +563,7 @@ test('the analytics skill states the boot rule and the storage rule, and the swi
   assert.ok(consent.includes('has a top-level `await`'));
   assert.ok(consent.includes('Never pass `--opt-out no` to get past them'));
   assert.ok(consent.includes('**Never write the SDK\'s own storage keys**, `ongame_consent:*` and `ongame_spool:*`'));
-  assert.ok(consent.includes('Update the onGame CLI to the release after `cli-v0.2.50`'));
+  assert.ok(consent.includes('Update the onGame CLI to the release after `cli-v0.2.51`'));
   for (const f of ['commands/analytics.md', 'commands/make-game.md', 'skills/game-code/SKILL.md']) {
     assert.match(read(f).replace(/\s+/g, ' '), /saved answer (at boot, in `src\/main\.ts` )?before the first `await`/, f);
   }
@@ -572,8 +572,8 @@ test('the analytics skill states the boot rule and the storage rule, and the swi
     assert.ok(read(f).replace(/\s+/g, ' ').includes('A `note:` about the saved Analytics answer at boot → fix what it names'), f);
   }
   const version = JSON.parse(read('.claude-plugin/plugin.json')).version;
-  assert.ok(version.localeCompare('1.7.99', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.99 or later`);
-  assert.ok(read('CHANGELOG.md').includes('## 1.7.99'));
+  assert.ok(version.localeCompare('1.7.101', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.101 or later`);
+  assert.ok(read('CHANGELOG.md').includes('## 1.7.101'));
 });
 
 test('the plugin version and changelog carry this change', () => {

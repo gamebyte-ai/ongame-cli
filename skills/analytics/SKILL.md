@@ -77,7 +77,7 @@ the game's own key. Give it to the SDK only through `setConsent`.
   function, a method or a constructor does not count: make it in `src/main.ts` itself.
 - a game file that `src/main.ts` imports has a top-level `await`. The boot then runs only after it.
 - `src/telemetry.ts` drops a `setConsent(false)` made before the SDK starts. An older shim does: its exported names are
-  the same, so the v2 name check cannot see it. Update the onGame CLI to the release after `cli-v0.2.50`, then take
+  the same, so the v2 name check cannot see it. Update the onGame CLI to the release after `cli-v0.2.51`, then take
   the shim from a fresh scaffold (`/analytics add` steps 1-2). An upgrade never swaps a shim that keeps that early no
   for one that drops it.
 

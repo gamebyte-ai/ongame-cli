@@ -11,8 +11,8 @@
   `setConsent(false)` made before the SDK starts. The upgrade run prints the same lines as notes and keeps its exit
   codes; `/publish` and the polish phase act on them. The boot check reads a syntax tree with the parser the
   gradients check already bundles.
-- The shim that keeps that early answer is in onGame's scaffold from onGame commit `ef48b04`. `cli-v0.2.50`, the
-  newest CLI release on 2026-11-24, still scaffolds the old shim, which fails the check. `/analytics add` takes the
+- The shim that keeps that early answer is in onGame's scaffold from onGame commit `ef48b04`. `cli-v0.2.51`, the
+  newest CLI release on 2026-11-25, still scaffolds the old shim, which fails the check. `/analytics add` takes the
   new one from a newer CLI. An upgrade never swaps the new shim for an older one.
 - `test/analytics-upgrade.test.mjs` covers the call before and after the `await`, helpers, branches, callbacks,
   top-level `await` in the boot module and in what it imports, the boot module `index.html` names, and both shims.

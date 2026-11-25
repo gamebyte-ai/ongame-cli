@@ -402,7 +402,7 @@ export function bootAnswerProblems(gameDir, shim) {
   const problems = [];
   if (!keepsEarlyNo(shim)) {
     problems.push('src/telemetry.ts drops a setConsent(false) made before analytics starts: it comes from an older scaffold. ' +
-      'Update the onGame CLI to the release after cli-v0.2.50, then take src/telemetry.ts from a fresh scaffold (/analytics add, steps 1-2).');
+      'Update the onGame CLI to the release after cli-v0.2.51, then take src/telemetry.ts from a fresh scaffold (/analytics add, steps 1-2).');
   }
   const boot = bootModule(gameDir);
   const shown = shownPath(gameDir, boot);

@@ -65,6 +65,9 @@ the shim would pass a game whose saved "off" is still sent past.
 The cost: the newest CLI release, `cli-v0.2.50` (2026-11-20), scaffolds the old shim. Measured: its
 `templates/gamelabs-base/src/telemetry.ts` holds no `__ongameConsent`. Until the next CLI release, a fresh scaffold
 cannot fix the failure. So this plugin version should reach makers only after a CLI release that holds `ef48b04`.
+Measured again on 2026-11-25: `cli-v0.2.51`, published that day, is now the newest release. Its tag is 105 commits
+behind `ef48b04`, and its `telemetry.ts` also holds no `__ongameConsent`. The tag `cli-v0.2.52` holds it, but has
+no published release.
 `keepsEarlyNo` looks for the global's name only, not `= false`, so an upstream rewrite of that line still passes.
 
 ## How the boot check reads the code
