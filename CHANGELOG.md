@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.7.101 — 2026-11-25
+## 1.7.104 — 2026-11-26
 
 - A game with an **Analytics** switch applies a saved "off" at boot: `if (saved === 'off') setConsent(false);` in
   `src/main.ts`, before the first `await`. The deployed SDK starts after the game's code and sends what an earlier
@@ -16,6 +16,35 @@
   new one from a newer CLI. An upgrade never swaps the new shim for an older one.
 - `test/analytics-upgrade.test.mjs` covers the call before and after the `await`, helpers, branches, callbacks,
   top-level `await` in the boot module and in what it imports, the boot module `index.html` names, and both shims.
+
+## 1.7.103 — 2026-11-26
+
+- `skills/game-verify/line-check.mjs` now prints a non-English file name in its "touched files differ" line as
+  letters, `makegame/sahne-ğ.js`. Before, it printed octal codes in quotes, `"makegame/sahne-\304\237.js"`. That line
+  came from `git diff --name-only`, which quotes such a name. The script now reads it with `git diff -z`, as 1.7.102
+  did for `git log`.
+- `test/game-verify-scripts.test.mjs`: the sub-folder case with `makegame/sahne-ğ.js` now also checks the printed
+  name. It failed on 1.7.102.
+
+## 1.7.102 — 2026-11-26
+
+- `skills/game-verify/line-check.mjs` now lists an unmerged branch that changes a file with a non-English name, such
+  as `sahne-ğ.js`. Before, it said "HEAD holds ... every other branch" and exited 0. `git log` printed the name in
+  quotes with octal escapes, `"sahne-\304\237.js"`, and `git diff` matched no file for that text. The script now reads
+  the names with `git log -z`. `core.quotePath=false` was not enough: git still quotes a name with a double quote.
+- `test/game-verify-scripts.test.mjs` adds four cases. A branch changing `sahne-ğ.js`, the same with the game in
+  `makegame/`, and a branch adding `say-"hi".js` (not on Windows) exit 1 and list the branch; all three exited 0 on
+  1.7.101. A branch whose `sahne-ğ.js` change main already has still counts as squash-merged, exit 0.
+
+## 1.7.101 — 2026-11-26
+
+- `skills/game-verify/line-check.mjs` now lists unmerged branches when the game is in a sub-folder of its repository.
+  Before, it said "HEAD holds ... every other branch" and exited 0 there. `git log` prints a branch's files from the
+  repository root, and `git diff` read them from the game folder, so no file matched. The diff now reads them from the
+  root (`:(top)`). Measured on a repository with its game in `makegame/`: the old script exited 0 there; the new one
+  lists its unmerged 3-commit branch and exits 1, the same as a run on the repository root.
+- `test/game-verify-scripts.test.mjs` adds three cases: a sub-folder game with an unmerged branch (exit 1), a
+  sub-folder game whose branch main already has (exit 0), and a root game with an unmerged branch (exit 1).
 
 ## 1.7.100 — 2026-11-25
 

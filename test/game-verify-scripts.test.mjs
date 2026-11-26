@@ -56,6 +56,61 @@ test('line-check: a remote branch with a unique commit → 1, listed', () => {
   assert.match(r.stdout, /telemetry\.js/);
 });
 
+// The game in a sub-folder of its repository (makegame/), the way some game repositories keep it.
+function subfolderRepoWithRemote() {
+  const d = scratch();
+  const bare = join(d, 'remote.git');
+  const seed = join(d, 'seed');
+  git(d, 'init', '-q', '--bare', bare);
+  git(d, 'init', '-q', seed);
+  mkdirSync(join(seed, 'makegame'));
+  writeFileSync(join(seed, 'README.md'), 'repo');
+  commit(seed, 'makegame/game.js', 'v1');
+  git(seed, 'remote', 'add', 'origin', bare);
+  git(seed, 'push', '-q', 'origin', 'main');
+  git(d, 'clone', '-q', bare, join(d, 'work'));
+  return { bare, seed, work: join(d, 'work') };
+}
+
+test('line-check: game in a sub-folder, a remote branch changes a game file → 1, listed', () => {
+  const { seed, work } = subfolderRepoWithRemote();
+  git(seed, 'checkout', '-qb', 'balance');
+  commit(seed, 'makegame/game.js', 'v2');
+  git(seed, 'push', '-q', 'origin', 'balance');
+  const r = lineCheck(join(work, 'makegame'), '--fetch');
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout, /origin\/balance .*1 commits in neither HEAD nor origin\/main/);
+  assert.match(r.stdout, /1 of 1 touched files differ from origin\/main: makegame\/game\.js/);
+  assert.doesNotMatch(r.stdout, /every other branch/);
+});
+
+test('line-check: game in a sub-folder, a branch whose change main already has (squash merge) → 0', () => {
+  const { seed, work } = subfolderRepoWithRemote();
+  git(seed, 'checkout', '-qb', 'balance');
+  commit(seed, 'makegame/game.js', 'v2');
+  git(seed, 'push', '-q', 'origin', 'balance');
+  git(seed, 'checkout', '-q', 'main');
+  // The same content lands on main as a new commit with another message, so its tip differs from the branch's.
+  writeFileSync(join(seed, 'makegame/game.js'), 'v2');
+  git(seed, 'commit', '-qam', 'squash balance');
+  git(seed, 'push', '-q', 'origin', 'main');
+  git(work, 'pull', '-q');
+  const r = lineCheck(join(work, 'makegame'), '--fetch');
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /1 more only carry content origin\/main already has/);
+});
+
+test('line-check: game at the repository root, a remote branch changes a game file → 1, listed', () => {
+  const { seed, work } = repoWithRemote();
+  git(seed, 'checkout', '-qb', 'balance');
+  commit(seed, 'game.js', 'v2');
+  git(seed, 'push', '-q', 'origin', 'balance');
+  const r = lineCheck(work, '--fetch');
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout, /origin\/balance .*1 commits in neither HEAD nor origin\/main/);
+  assert.match(r.stdout, /1 of 1 touched files differ from origin\/main: game\.js/);
+});
+
 test('line-check: HEAD behind the default branch → 1 with a BEHIND line', () => {
   const { seed, work } = repoWithRemote();
   commit(seed, 'game.js', 'v2');
@@ -75,6 +130,69 @@ test('line-check: a local-only branch with a unique commit → 1, listed', () =>
   assert.equal(r.status, 1, r.stdout + r.stderr);
   assert.match(r.stdout, /local-work .*1 commits in neither HEAD/);
 });
+
+// git prints a non-ASCII path quoted, "sahne-\304\237.js". Passed back to `git diff`, that text matched no file, so a
+// branch changing the file looked squash-merged and the script exited 0.
+test('line-check: a remote branch changes a file with a non-ASCII name → 1, listed', () => {
+  const { seed, work } = repoWithRemote();
+  commit(seed, 'sahne-ğ.js', 'v1');
+  git(seed, 'push', '-q', 'origin', 'main');
+  git(seed, 'checkout', '-qb', 'scene');
+  commit(seed, 'sahne-ğ.js', 'v2');
+  git(seed, 'push', '-q', 'origin', 'scene');
+  git(work, 'pull', '-q');
+  const r = lineCheck(work);
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout, /origin\/scene .*1 commits in neither HEAD nor origin\/main/);
+  assert.match(r.stdout, /1 of 1 touched files differ from origin\/main/);
+  assert.doesNotMatch(r.stdout, /^BEHIND/m);
+});
+
+test('line-check: game in a sub-folder, a remote branch changes a file with a non-ASCII name → 1, listed', () => {
+  const { seed, work } = subfolderRepoWithRemote();
+  commit(seed, 'makegame/sahne-ğ.js', 'v1');
+  git(seed, 'push', '-q', 'origin', 'main');
+  git(seed, 'checkout', '-qb', 'scene');
+  commit(seed, 'makegame/sahne-ğ.js', 'v2');
+  git(seed, 'push', '-q', 'origin', 'scene');
+  git(work, 'pull', '-q');
+  const r = lineCheck(join(work, 'makegame'));
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout, /origin\/scene .*1 commits in neither HEAD nor origin\/main/);
+  assert.match(r.stdout, /1 of 1 touched files differ from origin\/main: makegame\/sahne-ğ\.js$/m);
+  assert.doesNotMatch(r.stdout, /^BEHIND/m);
+});
+
+test('line-check: a branch whose non-ASCII file change main already has (squash merge) → 0', () => {
+  const { seed, work } = repoWithRemote();
+  git(seed, 'checkout', '-qb', 'scene');
+  commit(seed, 'sahne-ğ.js', 'v1');
+  git(seed, 'push', '-q', 'origin', 'scene');
+  git(seed, 'checkout', '-q', 'main');
+  // The same content lands on main as a new commit, so main's tip is not the branch's.
+  writeFileSync(join(seed, 'sahne-ğ.js'), 'v1');
+  git(seed, 'add', '-A');
+  git(seed, 'commit', '-qm', 'squash scene');
+  git(seed, 'push', '-q', 'origin', 'main');
+  git(work, 'pull', '-q');
+  const r = lineCheck(work);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /1 more only carry content origin\/main already has/);
+});
+
+// core.quotePath=false stops quoting non-ASCII letters but still quotes a double quote, so the paths are read with -z.
+test('line-check: a remote branch changes a file whose name holds a double quote → 1, listed',
+  { skip: process.platform === 'win32' && 'a Windows file name cannot hold a double quote' }, () => {
+    const { seed, work } = repoWithRemote();
+    git(seed, 'checkout', '-qb', 'quote');
+    commit(seed, 'say-"hi".js', 'v1');
+    git(seed, 'push', '-q', 'origin', 'quote');
+    git(work, 'fetch', '-q');
+    const r = lineCheck(work);
+    assert.equal(r.status, 1, r.stdout + r.stderr);
+    assert.match(r.stdout, /origin\/quote .*1 commits in neither HEAD nor origin\/main/);
+    assert.match(r.stdout, /1 of 1 touched files differ from origin\/main/);
+  });
 
 test('line-check: a repository without remote and other branches → 0 with a note', () => {
   const d = scratch();
