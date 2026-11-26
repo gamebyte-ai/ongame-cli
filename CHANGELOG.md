@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.7.101 — 2026-11-26
+
+- `skills/game-verify/line-check.mjs` now lists an unmerged branch that changes a file with a non-English name, such
+  as `sahne-ğ.js`. Before, it said "HEAD holds ... every other branch" and exited 0. `git log` printed the name in
+  quotes with octal escapes, `"sahne-\304\237.js"`, and `git diff` matched no file for that text. The script now reads
+  the names with `git log -z`. `core.quotePath=false` was not enough: git still quotes a name with a double quote.
+- `test/game-verify-scripts.test.mjs` adds two cases: a branch changing `sahne-ğ.js` and a branch adding
+  `say-"hi".js` (not on Windows). Both exit 1 and list the branch. Both exited 0 on 1.7.100.
+
 ## 1.7.100 — 2026-11-25
 
 - A 2D web game can use the engine's ready-made main screen, settings popup, UI components and on-screen controls, and stay on the 2D frame with no three.js. The code, polish and audio phases no longer send such a game to the 3D frame. Its App file keeps `GamelabsApp` from `@gamebyte/gamelabsjs/core`; the modules are imported from `@gamebyte/gamelabsjs`.
