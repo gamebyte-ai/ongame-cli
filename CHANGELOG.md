@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.7.103 — 2026-11-26
+
+- `skills/game-verify/line-check.mjs` now prints a non-English file name in its "touched files differ" line as
+  letters, `makegame/sahne-ğ.js`. Before, it printed octal codes in quotes, `"makegame/sahne-\304\237.js"`. That line
+  came from `git diff --name-only`, which quotes such a name. The script now reads it with `git diff -z`, as 1.7.102
+  did for `git log`.
+- `test/game-verify-scripts.test.mjs`: the sub-folder case with `makegame/sahne-ğ.js` now also checks the printed
+  name. It failed on 1.7.102.
+
 ## 1.7.102 — 2026-11-26
 
 - `skills/game-verify/line-check.mjs` now lists an unmerged branch that changes a file with a non-English name, such
