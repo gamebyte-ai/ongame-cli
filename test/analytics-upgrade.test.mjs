@@ -572,8 +572,8 @@ test('the analytics skill states the boot rule and the storage rule, and the swi
     assert.ok(read(f).replace(/\s+/g, ' ').includes('A `note:` about the saved Analytics answer at boot → fix what it names'), f);
   }
   const version = JSON.parse(read('.claude-plugin/plugin.json')).version;
-  assert.ok(version.localeCompare('1.7.101', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.101 or later`);
-  assert.ok(read('CHANGELOG.md').includes('## 1.7.101'));
+  assert.ok(version.localeCompare('1.7.104', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.104 or later`);
+  assert.ok(read('CHANGELOG.md').includes('## 1.7.104'));
 });
 
 test('the plugin version and changelog carry this change', () => {
