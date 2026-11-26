@@ -159,7 +159,7 @@ test('line-check: game in a sub-folder, a remote branch changes a file with a no
   const r = lineCheck(join(work, 'makegame'));
   assert.equal(r.status, 1, r.stdout + r.stderr);
   assert.match(r.stdout, /origin\/scene .*1 commits in neither HEAD nor origin\/main/);
-  assert.match(r.stdout, /1 of 1 touched files differ from origin\/main/);
+  assert.match(r.stdout, /1 of 1 touched files differ from origin\/main: makegame\/sahne-ğ\.js$/m);
   assert.doesNotMatch(r.stdout, /^BEHIND/m);
 });
 

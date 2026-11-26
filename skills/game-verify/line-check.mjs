@@ -92,7 +92,7 @@ try {
     // `git log` prints paths from the repository root; `:(top)` makes `git diff` read them from there too, not from
     // <gameDir>, which may be a sub-folder of the repository.
     const differ = touched.length
-      ? git('diff', '--name-only', def, sha, '--', ...touched.map((p) => `:(top)${p}`)).split('\n').filter(Boolean)
+      ? git('diff', '-z', '--name-only', def, sha, '--', ...touched.map((p) => `:(top)${p}`)).split('\0').filter(Boolean)
       : [];
     if (!differ.length) { squashed++; continue; }
     unique++;
