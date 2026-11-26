@@ -93,6 +93,23 @@ test('line-check: a remote branch changes a file with a non-ASCII name → 1, li
   assert.doesNotMatch(r.stdout, /^BEHIND/m);
 });
 
+test('line-check: a branch whose non-ASCII file change main already has (squash merge) → 0', () => {
+  const { seed, work } = repoWithRemote();
+  git(seed, 'checkout', '-qb', 'scene');
+  commit(seed, 'sahne-ğ.js', 'v1');
+  git(seed, 'push', '-q', 'origin', 'scene');
+  git(seed, 'checkout', '-q', 'main');
+  // The same content lands on main as a new commit, so main's tip is not the branch's.
+  writeFileSync(join(seed, 'sahne-ğ.js'), 'v1');
+  git(seed, 'add', '-A');
+  git(seed, 'commit', '-qm', 'squash scene');
+  git(seed, 'push', '-q', 'origin', 'main');
+  git(work, 'pull', '-q');
+  const r = lineCheck(work);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /1 more only carry content origin\/main already has/);
+});
+
 // core.quotePath=false stops quoting non-ASCII letters but still quotes a double quote, so the paths are read with -z.
 test('line-check: a remote branch changes a file whose name holds a double quote → 1, listed',
   { skip: process.platform === 'win32' && 'a Windows file name cannot hold a double quote' }, () => {
