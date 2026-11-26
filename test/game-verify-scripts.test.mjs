@@ -148,6 +148,21 @@ test('line-check: a remote branch changes a file with a non-ASCII name → 1, li
   assert.doesNotMatch(r.stdout, /^BEHIND/m);
 });
 
+test('line-check: game in a sub-folder, a remote branch changes a file with a non-ASCII name → 1, listed', () => {
+  const { seed, work } = subfolderRepoWithRemote();
+  commit(seed, 'makegame/sahne-ğ.js', 'v1');
+  git(seed, 'push', '-q', 'origin', 'main');
+  git(seed, 'checkout', '-qb', 'scene');
+  commit(seed, 'makegame/sahne-ğ.js', 'v2');
+  git(seed, 'push', '-q', 'origin', 'scene');
+  git(work, 'pull', '-q');
+  const r = lineCheck(join(work, 'makegame'));
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout, /origin\/scene .*1 commits in neither HEAD nor origin\/main/);
+  assert.match(r.stdout, /1 of 1 touched files differ from origin\/main/);
+  assert.doesNotMatch(r.stdout, /^BEHIND/m);
+});
+
 test('line-check: a branch whose non-ASCII file change main already has (squash merge) → 0', () => {
   const { seed, work } = repoWithRemote();
   git(seed, 'checkout', '-qb', 'scene');

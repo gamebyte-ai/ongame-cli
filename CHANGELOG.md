@@ -6,9 +6,9 @@
   as `sahne-ğ.js`. Before, it said "HEAD holds ... every other branch" and exited 0. `git log` printed the name in
   quotes with octal escapes, `"sahne-\304\237.js"`, and `git diff` matched no file for that text. The script now reads
   the names with `git log -z`. `core.quotePath=false` was not enough: git still quotes a name with a double quote.
-- `test/game-verify-scripts.test.mjs` adds three cases. A branch changing `sahne-ğ.js` and a branch adding
-  `say-"hi".js` (not on Windows) exit 1 and list the branch; both exited 0 on 1.7.100. A branch whose `sahne-ğ.js`
-  change main already has still counts as squash-merged, exit 0.
+- `test/game-verify-scripts.test.mjs` adds four cases. A branch changing `sahne-ğ.js`, the same with the game in
+  `makegame/`, and a branch adding `say-"hi".js` (not on Windows) exit 1 and list the branch; all three exited 0 on
+  1.7.101. A branch whose `sahne-ğ.js` change main already has still counts as squash-merged, exit 0.
 
 ## 1.7.101 — 2026-11-26
 
