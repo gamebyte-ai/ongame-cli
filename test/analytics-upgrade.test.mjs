@@ -347,6 +347,48 @@ test('a game with a switch fails --check when its boot applies the answer late, 
   }
 });
 
+test('the boot check rejects a helper shadowed by a parameter or local', () => {
+  const helper = "import { setConsent } from './telemetry';\nfunction applySaved() { setConsent(false); }\n";
+  for (const [label, declaration, call] of [
+    ['parameter', 'function boot(applySaved) { applySaved(); }', 'boot(() => {});'],
+    ['local', 'function boot() { const applySaved = console.log; applySaved(); }', 'boot();'],
+    ['destructured parameter', 'function boot({ applySaved }) { applySaved(); }', 'boot({ applySaved: () => {} });'],
+  ]) {
+    const control = check(switchGame(helper + 'function boot() { applySaved(); } boot(); await 0;').dir);
+    assert.equal(control.status, 0, control.stdout);
+    const result = check(switchGame(helper + declaration + call + ' await 0;').dir);
+    assert.equal(result.status, 1, label + ': ' + result.stdout);
+    assert.match(result.stdout, BOOT_LINE);
+  }
+});
+
+test('the boot check stops at an exit in the same block', () => {
+  const prefix = "import { setConsent } from './telemetry';\n";
+  for (const [label, before, after] of [
+    ['return', 'function boot() {', '} boot(); await 0;'],
+    ['throw', 'function boot() {', '} boot(); await 0;'],
+    ['break', 'for (;;) {', '} await 0;'],
+    ['continue', 'for (let i = 0; i < 1; i++) {', '} await 0;'],
+  ]) {
+    const exit = label === 'throw' ? "throw new Error('stop');" : label + ';';
+    const control = check(switchGame(prefix + before + 'setConsent(false); ' + exit + after).dir);
+    assert.equal(control.status, 0, label + ': ' + control.stdout);
+    const result = check(switchGame(prefix + before + exit + 'setConsent(false);' + after).dir);
+    assert.equal(result.status, 1, label + ': ' + result.stdout);
+    assert.match(result.stdout, BOOT_LINE);
+  }
+  for (const code of [
+    'function boot() { if (false) return; else setConsent(false); } boot(); await 0;',
+    'function boot() { return setConsent(false); } boot(); await 0;',
+    'function boot() { return; } boot(); setConsent(false); await 0;',
+    'for (;;) { break; } setConsent(false); await 0;',
+    'for (let i = 0; i < 1; i++) { continue; } setConsent(false); await 0;',
+  ]) {
+    const result = check(switchGame(prefix + code).dir);
+    assert.equal(result.status, 0, code + ': ' + result.stdout);
+  }
+});
+
 test('the boot check reads the module index.html starts, and fails when it is missing or unreadable', () => {
   // index.html starts src/boot.ts; the deployed SDK tag after it is another origin and is not the game.
   const { dir } = switchGame(BOOT(), { file: 'src/boot.ts' });
@@ -572,8 +614,8 @@ test('the analytics skill states the boot rule and the storage rule, and the swi
     assert.ok(read(f).replace(/\s+/g, ' ').includes('A `note:` about the saved Analytics answer at boot → fix what it names'), f);
   }
   const version = JSON.parse(read('.claude-plugin/plugin.json')).version;
-  assert.ok(version.localeCompare('1.7.104', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.104 or later`);
-  assert.ok(read('CHANGELOG.md').includes('## 1.7.104'));
+  assert.ok(version.localeCompare('1.7.105', undefined, { numeric: true }) >= 0, `plugin ${version} is 1.7.105 or later`);
+  assert.ok(read('CHANGELOG.md').includes('## 1.7.105'));
 });
 
 test('the plugin version and changelog carry this change', () => {

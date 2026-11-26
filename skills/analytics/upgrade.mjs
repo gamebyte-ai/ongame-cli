@@ -243,6 +243,7 @@ const TS_CODE = new Set(['TSAsExpression', 'TSSatisfiesExpression', 'TSNonNullEx
   'TSInstantiationExpression', 'TSEnumDeclaration', 'TSEnumMember', 'TSModuleDeclaration', 'TSModuleBlock',
   'TSExportAssignment']);
 const NOT_CODE = new Set(['loc', 'extra', 'leadingComments', 'trailingComments', 'innerComments', 'comments', 'tokens', 'errors']);
+const BLOCK_EXIT = new Set(['ReturnStatement', 'ThrowStatement', 'BreakStatement', 'ContinueStatement']);
 const FUNCTION_VALUE = new Set(['FunctionExpression', 'ArrowFunctionExpression']);
 // A specifier whose last part is telemetry, as TELEMETRY_SPEC reads it.
 const TELEMETRY_MODULE = /(?:^|\/)telemetry(?:\.[jt]s)?$/;
@@ -262,6 +263,16 @@ export function appliesAnswerAtBoot(ast, isShim = (spec) => TELEMETRY_MODULE.tes
   const declared = new Map(); // a name declared once in this module as a function → that function
   const twice = new Set();
   const declare = (name, fn) => { if (declared.has(name)) twice.add(name); else declared.set(name, fn); };
+  const bound = new Set();
+  const bindingCounts = new Map();
+  const bind = (pattern) => {
+    const added = new Set();
+    bindings(pattern, added);
+    for (const name of added) {
+      bound.add(name);
+      bindingCounts.set(name, (bindingCounts.get(name) ?? 0) + 1);
+    }
+  };
   const scan = (node) => {
     if (!node || typeof node.type !== 'string') return;
     if (node.type === 'ImportDeclaration' && node.importKind !== 'type' && isShim(node.source.value)) {
@@ -273,15 +284,16 @@ export function appliesAnswerAtBoot(ast, isShim = (spec) => TELEMETRY_MODULE.tes
     if (node.type === 'FunctionDeclaration' && node.id) declare(node.id.name, node);
     if (node.type === 'VariableDeclarator' && node.id.type === 'Identifier' && FUNCTION_VALUE.has(node.init?.type)) declare(node.id.name, node.init);
     // Every other name this module binds: a parameter, a variable, a function, a class or a caught error.
-    if (node.params) for (const p of node.params) bindings(p, bound);
-    if (node.type === 'VariableDeclarator') bindings(node.id, bound);
-    if (node.type === 'CatchClause' && node.param) bindings(node.param, bound);
-    if (/^(?:Function|Class)(?:Declaration|Expression)$/.test(node.type) && node.id) bound.add(node.id.name);
+    if (node.params) for (const p of node.params) bind(p);
+    if (node.type === 'VariableDeclarator') bind(node.id);
+    if (node.type === 'CatchClause' && node.param) bind(node.param);
+    if (/^(?:Function|Class)(?:Declaration|Expression)$/.test(node.type) && node.id) bind(node.id);
     for (const child of children(node)) scan(child);
   };
-  const bound = new Set();
   scan(ast.program);
   for (const name of twice) declared.delete(name);
+  // A helper's own declaration binds it once; another binding makes its calls ambiguous.
+  for (const [name, count] of bindingCounts) if (count > 1) declared.delete(name);
   // A name bound again somewhere in the module may not be the shim where it is called: it does not count.
   for (const name of bound) { names.delete(name); spaces.delete(name); }
 
@@ -302,6 +314,9 @@ export function appliesAnswerAtBoot(ast, isShim = (spec) => TELEMETRY_MODULE.tes
     for (const child of order) {
       const r = visit(child);
       if (r) return r;
+      // The exit's argument ran above, but later statements in this block do not run.
+      if ((node.type === 'BlockStatement' || node.type === 'SwitchCase' || node.type === 'TSModuleBlock') &&
+          BLOCK_EXIT.has(child?.type)) break;
     }
     if (node.type !== 'CallExpression' && node.type !== 'OptionalCallExpression') return undefined;
     if (isSetConsent(node.callee) && isAnswer(node.arguments)) return 'found';
@@ -316,6 +331,7 @@ export function appliesAnswerAtBoot(ast, isShim = (spec) => TELEMETRY_MODULE.tes
   for (const statement of ast.program.body) {
     const r = visit(statement);
     if (r) return r === 'found';
+    if (BLOCK_EXIT.has(statement.type)) break;
   }
   return false;
 }
