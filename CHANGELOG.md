@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.7.104 — 2026-11-26
+
+- A game with an **Analytics** switch applies a saved "off" at boot: `if (saved === 'off') setConsent(false);` in
+  `src/main.ts`, before the first `await`. The deployed SDK starts after the game's code and sends what an earlier
+  visit left queued, so an answer given after an `await` can come too late. `skills/analytics/SKILL.md` states the
+  rule, and that a game never writes the SDK's own storage keys (`ongame_consent:*`, `ongame_spool:*`).
+- `upgrade.mjs --check` fails such a game when its boot module calls no `setConsent` with an answer before its first
+  `await`, when a game file it imports has a top-level `await`, or when its `src/telemetry.ts` drops a
+  `setConsent(false)` made before the SDK starts. The upgrade run prints the same lines as notes and keeps its exit
+  codes; `/publish` and the polish phase act on them. The boot check reads a syntax tree with the parser the
+  gradients check already bundles.
+- The shim that keeps that early answer is in onGame's scaffold from onGame commit `ef48b04`. `cli-v0.2.51`, the
+  newest CLI release on 2026-11-25, still scaffolds the old shim, which fails the check. `/analytics add` takes the
+  new one from a newer CLI. An upgrade never swaps the new shim for an older one.
+- `test/analytics-upgrade.test.mjs` covers the call before and after the `await`, helpers, branches, callbacks,
+  top-level `await` in the boot module and in what it imports, the boot module `index.html` names, and both shims.
+
 ## 1.7.103 — 2026-11-26
 
 - `skills/game-verify/line-check.mjs` now prints a non-English file name in its "touched files differ" line as
