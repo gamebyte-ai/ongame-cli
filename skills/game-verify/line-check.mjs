@@ -86,7 +86,8 @@ try {
   for (const { sha, t, names } of branches) {
     const own = Number(git('rev-list', '--count', sha, '^HEAD', `^${def}`));
     if (!own) { merged++; continue; }
-    const touched = [...new Set(git('log', '--name-only', '--format=', sha, '^HEAD', `^${def}`).split('\n').filter(Boolean))];
+    // -z: unquoted paths. git quotes a non-ASCII name ("sahne-\304\237.js"); `git diff` matches no file for that text.
+    const touched = [...new Set(git('log', '-z', '--name-only', '--format=', sha, '^HEAD', `^${def}`).split('\0').filter(Boolean))];
     // A squash or rebase merge leaves the commits unmerged but the content in the default branch.
     // `git log` prints paths from the repository root; `:(top)` makes `git diff` read them from there too, not from
     // <gameDir>, which may be a sub-folder of the repository.
