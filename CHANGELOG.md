@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.7.101 — 2026-11-26
+
+- `skills/game-verify/line-check.mjs` now lists unmerged branches when the game is in a sub-folder of its repository.
+  Before, it said "HEAD holds ... every other branch" and exited 0 there. `git log` prints a branch's files from the
+  repository root, and `git diff` read them from the game folder, so no file matched. The diff now reads them from the
+  root (`:(top)`). Measured on a repository with its game in `makegame/`: the old script exited 0 there; the new one
+  lists its unmerged 3-commit branch and exits 1, the same as a run on the repository root.
+- `test/game-verify-scripts.test.mjs` adds three cases: a sub-folder game with an unmerged branch (exit 1), a
+  sub-folder game whose branch main already has (exit 0), and a root game with an unmerged branch (exit 1).
+
 ## 1.7.100 — 2026-11-25
 
 - A 2D web game can use the engine's ready-made main screen, settings popup, UI components and on-screen controls, and stay on the 2D frame with no three.js. The code, polish and audio phases no longer send such a game to the 3D frame. Its App file keeps `GamelabsApp` from `@gamebyte/gamelabsjs/core`; the modules are imported from `@gamebyte/gamelabsjs`.
