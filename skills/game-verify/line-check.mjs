@@ -86,7 +86,7 @@ try {
   for (const { sha, t, names } of branches) {
     const own = Number(git('rev-list', '--count', sha, '^HEAD', `^${def}`));
     if (!own) { merged++; continue; }
-    // -z: unquoted paths. git quotes a non-ASCII name ("sahne-\304\237.js"), and that text matches no file in `git diff`.
+    // -z: unquoted paths. git quotes a non-ASCII name ("sahne-\304\237.js"); `git diff` matches no file for that text.
     const touched = [...new Set(git('log', '-z', '--name-only', '--format=', sha, '^HEAD', `^${def}`).split('\0').filter(Boolean))];
     // A squash or rebase merge leaves the commits unmerged but the content in the default branch.
     const differ = touched.length ? git('diff', '--name-only', def, sha, '--', ...touched).split('\n').filter(Boolean) : [];
