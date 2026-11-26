@@ -89,7 +89,11 @@ try {
     // -z: unquoted paths. git quotes a non-ASCII name ("sahne-\304\237.js"); `git diff` matches no file for that text.
     const touched = [...new Set(git('log', '-z', '--name-only', '--format=', sha, '^HEAD', `^${def}`).split('\0').filter(Boolean))];
     // A squash or rebase merge leaves the commits unmerged but the content in the default branch.
-    const differ = touched.length ? git('diff', '--name-only', def, sha, '--', ...touched).split('\n').filter(Boolean) : [];
+    // `git log` prints paths from the repository root; `:(top)` makes `git diff` read them from there too, not from
+    // <gameDir>, which may be a sub-folder of the repository.
+    const differ = touched.length
+      ? git('diff', '--name-only', def, sha, '--', ...touched.map((p) => `:(top)${p}`)).split('\n').filter(Boolean)
+      : [];
     if (!differ.length) { squashed++; continue; }
     unique++;
     const newer = Number(t) > headTime;

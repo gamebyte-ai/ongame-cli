@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.7.101 — 2026-11-26
+## 1.7.102 — 2026-11-26
 
 - `skills/game-verify/line-check.mjs` now lists an unmerged branch that changes a file with a non-English name, such
   as `sahne-ğ.js`. Before, it said "HEAD holds ... every other branch" and exited 0. `git log` printed the name in
@@ -9,6 +9,16 @@
 - `test/game-verify-scripts.test.mjs` adds three cases. A branch changing `sahne-ğ.js` and a branch adding
   `say-"hi".js` (not on Windows) exit 1 and list the branch; both exited 0 on 1.7.100. A branch whose `sahne-ğ.js`
   change main already has still counts as squash-merged, exit 0.
+
+## 1.7.101 — 2026-11-26
+
+- `skills/game-verify/line-check.mjs` now lists unmerged branches when the game is in a sub-folder of its repository.
+  Before, it said "HEAD holds ... every other branch" and exited 0 there. `git log` prints a branch's files from the
+  repository root, and `git diff` read them from the game folder, so no file matched. The diff now reads them from the
+  root (`:(top)`). Measured on a repository with its game in `makegame/`: the old script exited 0 there; the new one
+  lists its unmerged 3-commit branch and exits 1, the same as a run on the repository root.
+- `test/game-verify-scripts.test.mjs` adds three cases: a sub-folder game with an unmerged branch (exit 1), a
+  sub-folder game whose branch main already has (exit 0), and a root game with an unmerged branch (exit 1).
 
 ## 1.7.100 — 2026-11-25
 
