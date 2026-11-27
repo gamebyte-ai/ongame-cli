@@ -207,6 +207,83 @@ test('default imports and re-exports count as names the game needs', () => {
   assert.equal(run(dir3, '--shim', v2File(), '--audience', 'general').status, 2);
 });
 
+test('import scanning ignores source text inside strings, templates, regexes and comments', () => {
+  const main = `import * as T from '../telemetry';
+const text = "import { removed } from './telemetry'; T.removed(); require('./telemetry')";
+const template = \`export * from './telemetry'; T[unknown]\`;
+const pattern = /T.removed/;
+// import { removed } from './telemetry';
+/* T.removed(); */
+const object = { T: 1 }; object.T;
+T.trackLevelStart(1);
+`;
+  const r = run(game({ main }), '--shim', v2File(), '--audience', 'general');
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+});
+
+test('syntax tree imports keep source names, types and namespace members across JS and TS syntax', async () => {
+  const { importedNames } = await import(pathToFileURL(UPGRADE).href);
+  const cases = [
+    ['main.ts', `import Default, { track as renamed, type Meta } from './telemetry';
+import type { Kind } from './telemetry';
+export { trackLevelFail as lost, "screen" as page } from './telemetry';
+export type { Saved } from './telemetry';`, ['default', 'track', 'Meta', 'Kind', 'trackLevelFail', 'screen', 'Saved']],
+    ['main.ts', `import * as $T from './telemetry';
+type M = $T.Meta;
+$T /* a comment */ . track(1);
+$T?.screen('game');`, ['Meta', 'track', 'screen']],
+    ['main.tsx', `import * as T from './telemetry';
+const view = <T.Widget />;`, ['Widget']],
+    ['types.d.ts', `declare module 'app' {
+import type { Meta } from '@/telemetry';
+export { track } from '@/telemetry';
+}`, ['Meta', 'track']],
+    ['main.mjs', `import { track as call } from './telemetry.js'
+call('start')`, ['track']],
+    ['main.jsx', `import * as T from './telemetry';
+const view = <div>{T.screen('game')}</div>;`, ['screen']],
+  ];
+  for (const [name, code, expected] of cases) {
+    const dir = game({ main: '' });
+    fs.writeFileSync(path.join(dir, 'src', name), code);
+    assert.deepEqual([...importedNames(path.join(dir, 'src')).keys()].sort(), [...expected].sort(), name);
+  }
+});
+
+test('syntax tree scanning refuses opaque shim imports and namespace uses before writes', () => {
+  const cases = [
+    "declare module 'app' { export * from '@/telemetry'; }",
+    "declare module 'app' { import { removed } from '@/telemetry'; }",
+    "export * as telemetry from './telemetry';",
+    "import T = require('./telemetry');",
+    "type T = import('./telemetry');",
+    "const T = require(/* comment */ './telemetry');",
+    "const T = import(/* comment */ './telemetry');",
+    "import * as T from './telemetry'; T['track']('start');",
+    "import * as T from './telemetry'; use(T);",
+    "import * as T from './telemetry'; const copy = { T };",
+    "import * as T from './telemetry'; export { T };",
+    "import * as T from './telemetry'; const text = `value ${T}`;",
+  ];
+  for (const main of cases) {
+    const dir = game({ main });
+    const before = snapshot(dir);
+    const r = run(dir, '--shim', v2File(), '--audience', 'general');
+    assert.equal(r.status, 2, main + '\n' + r.stdout + r.stderr);
+    assert.match(r.stdout, /refused: .* imports /);
+    assert.deepEqual(snapshot(dir), before, main);
+  }
+});
+
+test('unreadable game source refuses a shim upgrade before any file is written', () => {
+  const dir = game({ main: "import { track } from './telemetry';\ntrack(;\n" });
+  const before = snapshot(dir);
+  const r = run(dir, '--shim', v2File(), '--audience', 'general');
+  assert.equal(r.status, 2, r.stdout + r.stderr);
+  assert.match(r.stdout, /refused: src\/views\/Main\.ts cannot be read to check telemetry imports/);
+  assert.deepEqual(snapshot(dir), before);
+});
+
 test('a game that only calls setConsent(true) at start gets no opt-out promise, and --check agrees', () => {
   const dir = game({ shim: SHIM_V2, main: "import { setConsent } from '../telemetry';\nsetConsent(true);\n" });
   const r = run(dir, '--audience', 'general');

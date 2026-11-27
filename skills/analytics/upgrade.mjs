@@ -129,34 +129,50 @@ export function importedNames(srcDir) {
   const used = new Map();
   const add = (name, file) => { if (!used.has(name)) used.set(name, file); };
   for (const file of gameSources(srcDir)) {
-    const code = withoutComments(readFileSync(file, 'utf8'));
-    // import('./telemetry') and require('./telemetry') hide which names they use: refuse rather than guess.
-    for (const d of code.matchAll(new RegExp(String.raw`\b(?:import|require)\s*\(\s*` + TELEMETRY_SPEC, 'g'))) {
-      if (pointsAtShim(d[1], file, srcDir)) add('(a dynamic import or require)', file);
+    let ast;
+    try { ast = syntaxTree(readFileSync(file, 'utf8'), file); } catch (e) {
+      throw new Error(`${shownPath(srcDir, file)} cannot be read to check telemetry imports: ${String(e.message).split('\n')[0]}`);
     }
-    for (const m of code.matchAll(new RegExp(String.raw`\b(import|export)\s+(?:type\s+)?(${CLAUSE})\s*` + TELEMETRY_FROM, 'g'))) {
-      if (!pointsAtShim(m[3], file, srcDir)) continue;
-      let clause = m[2].trim();
-      const braces = clause.match(/\{([^}]*)\}/);
-      if (braces) {
-        for (const part of braces[1].split(',')) {
-          const name = part.trim().replace(/^type\s+/, '').split(/\s+as\s+/)[0].trim();
-          if (name) add(name, file);
+    const isShim = (spec) => typeof spec === 'string' && TELEMETRY_MODULE.test(spec) && pointsAtShim(spec, file, srcDir);
+    const spaces = new Set();
+    const declarations = (node) => {
+      for (const child of children(node)) declarations(child);
+      if (!isShim(node.source?.value)) return;
+      if (node.type === 'ExportAllDeclaration') add('* (a wildcard re-export)', file);
+      if (node.type !== 'ImportDeclaration' && node.type !== 'ExportNamedDeclaration') return;
+      for (const spec of node.specifiers) {
+        if (spec.type === 'ImportNamespaceSpecifier') spaces.add(spec.local.name);
+        else if (spec.type === 'ImportDefaultSpecifier') add('default', file);
+        else if (spec.type === 'ExportNamespaceSpecifier') add('* (a wildcard re-export)', file);
+        else {
+          const name = spec.imported ?? spec.local;
+          add(name.name ?? name.value, file);
         }
-        clause = clause.replace(braces[0], '');
       }
-      const ns = clause.match(/\*\s*as\s+([A-Za-z_$][\w$]*)/);
-      if (ns && m[1] === 'import') {
-        for (const u of code.matchAll(new RegExp(String.raw`(?<![\w$.])${ns[1]}\s*\.\s*([A-Za-z_$][\w$]*)`, 'g'))) add(u[1], file);
-        // Any other use (destructuring, T['name'], passing T on) hides which names it needs: refuse rather than guess.
-        const uses = [...code.matchAll(new RegExp(String.raw`(?<![\w$.])${ns[1]}\b(?!\s*\.)`, 'g'))].length;
-        if (uses > 1) add(`${ns[1]} (used other than as ${ns[1]}.name)`, file);
-        clause = clause.replace(ns[0], '');
+    };
+    declarations(ast.program);
+    const visit = (node, parent) => {
+      if (node.type === 'ImportDeclaration') return;
+      const call = node.type === 'CallExpression' &&
+        (node.callee.type === 'Import' || (node.callee.type === 'Identifier' && node.callee.name === 'require'));
+      const source = call ? node.arguments[0] : node.type === 'ImportExpression' ? node.source :
+        node.type === 'TSExternalModuleReference' ? node.expression : node.type === 'TSImportType' ? node.argument : undefined;
+      if (isShim(source?.value)) add('(a dynamic import or require)', file);
+      if ((node.type === 'Identifier' || node.type === 'JSXIdentifier') && spaces.has(node.name)) {
+        const member = parent?.type === 'MemberExpression' || parent?.type === 'OptionalMemberExpression' || parent?.type === 'JSXMemberExpression';
+        if (member && parent.object === node && !parent.computed) add(parent.property.name, file);
+        else if (parent?.type === 'TSQualifiedName' && parent.left === node) add(parent.right.name, file);
+        // A property name or label is not a reference to the imported namespace.
+        else if ((member && parent.property === node && !parent.computed) ||
+          (parent?.type === 'TSQualifiedName' && parent.right === node) ||
+          (parent?.key === node && !parent.computed && !parent.shorthand) ||
+          (parent?.type === 'ExportSpecifier' && parent.exported === node) ||
+          parent?.label === node) { /* not a namespace use */ }
+        else add(`${node.name} (used other than as ${node.name}.name)`, file);
       }
-      if (m[1] === 'import' && /^[A-Za-z_$][\w$]*/.test(clause.replace(/^[\s,]+/, ''))) add('default', file);
-      // `export * from` passes every name on; its users are elsewhere, so refuse rather than guess.
-      if (m[1] === 'export' && clause.startsWith('*')) add('* (a wildcard re-export)', file);
-    }
+      for (const child of children(node)) visit(child, node);
+    };
+    visit(ast.program);
   }
   return used;
 }
@@ -595,7 +611,12 @@ export function run(argv, log = console.log) {
     log('note: src/telemetry.ts is kept. It keeps a setConsent(false) made before analytics starts; the offered shim, from an older onGame CLI, drops it.');
   } else if (candidate !== current) {
     const offered = exportedNames(candidate);
-    const broken = [...importedNames(join(gameDir, 'src'))].filter(([name]) => !offered.has(name));
+    let imports;
+    try { imports = importedNames(join(gameDir, 'src')); } catch (e) {
+      log(`refused: src/${e.message}`);
+      return 2;
+    }
+    const broken = [...imports].filter(([name]) => !offered.has(name));
     if (broken.length) {
       for (const [name, file] of broken) log(`refused: ${shownPath(gameDir, file)} imports ${name}, which the v2 shim does not export`);
       return 2;
