@@ -252,7 +252,8 @@ const TELEMETRY_MODULE = /(?:^|\/)telemetry(?:\.[jt]s)?$/;
  * True when the module, as the browser runs it, calls the shim's setConsent with an answer before the code reaches an
  * await. The top level runs in order. A function declared in this module is followed into when it is called, up to
  * its own first await; the caller then goes on, since the rest of that function runs later. A top-level await ends it
- * all. Every branch of an if, a loop or a try is read in source order: a call in one counts, and an await in one ends
+ * all. An uncaught synchronous helper throw stops its caller; an async throw rejects the promise instead.
+ * Every branch of an if, a loop or a try is read in source order: a call in one counts, and an await in one ends
  * the walk there. A literal setConsent(true) is not the player's answer. Imported functions, methods and constructors
  * are not followed, so a call made only inside one of them does not count. `isShim(spec)` says whether an import
  * names the shim; a game's own helper named telemetry is not it.
@@ -303,10 +304,31 @@ export function appliesAnswerAtBoot(ast, isShim = (spec) => TELEMETRY_MODULE.tes
   const isAnswer = (args) => args.length > 0 && !(args[0].type === 'BooleanLiteral' && args[0].value === true);
 
   const following = new Set();
-  // 'found' once setConsent(answer) runs, 'await' when an await comes first, undefined when neither happened.
+  // 'found' for consent, 'await' for suspension, 'throw' or 'return' for exits, undefined otherwise.
   const visit = (node) => {
     if (!node || typeof node.type !== 'string' || DEFERRED.has(node.type)) return undefined;
     if (node.type.startsWith('TS') && !TS_CODE.has(node.type)) return undefined;
+    if (node.type === 'ThrowStatement') return visit(node.argument) ?? 'throw';
+    if (node.type === 'ReturnStatement') return visit(node.argument) ?? 'return';
+    if (node.type === 'IfStatement') {
+      const test = visit(node.test);
+      if (test) return test;
+      const consequent = visit(node.consequent);
+      if (consequent === 'found' || consequent === 'await') return consequent;
+      const alternate = visit(node.alternate);
+      if (alternate === 'found' || alternate === 'await') return alternate;
+      return consequent === alternate ? consequent : undefined;
+    }
+    if (node.type === 'TryStatement') {
+      let result = visit(node.block);
+      if (result === 'found' || result === 'await') return result;
+      if (node.handler && result !== 'return') {
+        const caught = visit(node.handler);
+        if (result === 'throw' || caught === 'found' || caught === 'await') result = caught;
+      }
+      if (result === 'found' || result === 'await') return result;
+      return visit(node.finalizer) ?? result;
+    }
     if (node.type === 'AwaitExpression') return visit(node.argument) ?? 'await';
     if (node.type === 'ForOfStatement' && node.await) return 'await';
     // A for loop runs its update after its body, not where it is written.
@@ -326,7 +348,8 @@ export function appliesAnswerAtBoot(ast, isShim = (spec) => TELEMETRY_MODULE.tes
     following.add(fn);
     const r = visit(fn.body);
     following.delete(fn);
-    return r === 'found' ? 'found' : undefined; // an await ends only that function; its caller goes on
+    // An async throw rejects its promise; a synchronous throw stops the caller too.
+    return r === 'found' || (r === 'throw' && !fn.async) ? r : undefined;
   };
   for (const statement of ast.program.body) {
     const r = visit(statement);

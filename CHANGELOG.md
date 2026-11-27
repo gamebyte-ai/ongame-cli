@@ -4,6 +4,8 @@
 
 - The Analytics boot check rejects helpers whose names have another binding, including a parameter or local
   variable. It also stops reading later statements in the same block after a return, throw, break or continue.
+- Uncaught throws from synchronous helpers also stop their callers. Returning helpers, unawaited async helpers,
+  caught throws and finally blocks have controls for reachable consent calls.
 - Regression tests cover shadowed helpers and unreachable consent calls, with controls for reachable calls.
 
 ## 1.7.104 — 2026-11-26

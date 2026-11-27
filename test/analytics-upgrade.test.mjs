@@ -389,6 +389,36 @@ test('the boot check stops at an exit in the same block', () => {
   }
 });
 
+test('the boot check carries synchronous helper throws to their callers', () => {
+  const prefix = "import { setConsent } from './telemetry';\n";
+  const controls = [
+    'function stop() { return; } function boot() { stop(); setConsent(false); } boot(); await 0;',
+    'async function stop() { throw 0; } stop(); setConsent(false); await 0;',
+    'function stop() { throw setConsent(false); } stop(); await 0;',
+    'try {} catch { throw 0; } setConsent(false); await 0;',
+    'function stop() { try { throw 0; } finally { return; } } stop(); setConsent(false); await 0;',
+    'if (false) throw 0; else setConsent(false); await 0;',
+    'function stop() { throw 0; } try { stop(); } catch { setConsent(false); } await 0;',
+    'function stop() { throw 0; } try { stop(); } finally { setConsent(false); } await 0;',
+  ];
+  for (const code of controls) {
+    const result = check(switchGame(prefix + code).dir);
+    assert.equal(result.status, 0, code + ': ' + result.stdout);
+  }
+  const failures = [
+    "function stop() { throw new Error('stop'); } function boot() { stop(); setConsent(false); } boot(); await 0;",
+    'function stop() { throw 0; } function boot() { stop(); } boot(); setConsent(false); await 0;',
+    '(() => { throw 0; })(); setConsent(false); await 0;',
+    'function stop() { throw 0; } try { stop(); } finally {} setConsent(false); await 0;',
+    'function stop() { throw 0; } try { stop(); } catch { throw 1; } setConsent(false); await 0;',
+  ];
+  for (const code of failures) {
+    const result = check(switchGame(prefix + code).dir);
+    assert.equal(result.status, 1, code + ': ' + result.stdout);
+    assert.match(result.stdout, BOOT_LINE);
+  }
+});
+
 test('the boot check reads the module index.html starts, and fails when it is missing or unreadable', () => {
   // index.html starts src/boot.ts; the deployed SDK tag after it is another origin and is not the game.
   const { dir } = switchGame(BOOT(), { file: 'src/boot.ts' });
