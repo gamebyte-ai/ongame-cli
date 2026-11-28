@@ -551,6 +551,33 @@ test('check.mjs follows private fields, imports by their source and name, and na
   assert.equal(r.code, 1, 'and fails with none');
 });
 
+test('check.mjs resolves a driven name to its nearest declaration, so an inner nav never credits an outer one', () => {
+  const ok = (text) => { const dir = game({ 'menus.ts': text }); run('apply.mjs', dir); return run('check.mjs', dir); };
+  let r = ok(`const nav = new BottomNav(defs);
+function makeOther() {
+  const nav = new BottomNav(defs);
+  return new TabIconMotion(nav, specs);
+}
+`);
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /FAIL src\/menus\.ts:1 /);
+  assert.doesNotMatch(r.out, /menus\.ts:3 /);
+  r = ok(`const nav = new BottomNav(defs);
+function wire(other) {
+  return new TabIconMotion(nav, specs);
+}
+`);
+  assert.equal(r.code, 0, `an outer nav driven from an inner function passes: ${r.out}`);
+  r = ok(`const nav = new BottomNav(defs);
+function wire(nav) {
+  return new TabIconMotion(nav, specs);
+}
+`);
+  assert.equal(r.code, 1, 'a parameter of the same name is another nav');
+  r = ok('const nav = new BottomNav(defs);\nexport const wire = () => new TabIconMotion(nav, specs);\n');
+  assert.equal(r.code, 0, `a driver in an arrow's expression body passes: ${r.out}`);
+});
+
 test('check.mjs reads a build/ folder inside src/, and skips build output in a game with no src/', () => {
   const dir = game({ 'build/BuildMenu.ts': 'export const nav = new BottomNav(defs);\n' });
   const r = run('check.mjs', dir);

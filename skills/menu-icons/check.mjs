@@ -155,9 +155,36 @@ function resolvesTo(from, source, target) {
   const stem = base.replace(/\.(?:[cm]?js|jsx|tsx?|mts)$/, '');
   return target === base || MODULE_EXTS.some((e) => target === stem + e || target === join(base, `index${e}`));
 }
-function isInside(node, ancestor, parents) {
-  for (let n = node; n; n = parents.get(n)) if (n === ancestor) return true;
+/** The names a binding pattern declares: `nav`, `{ nav, ui: [a, ...b] }`, `nav = x`. */
+function patternNames(p, out = []) {
+  if (!p) return out;
+  if (p.type === 'Identifier') out.push(p.name);
+  else if (p.type === 'ObjectPattern') for (const q of p.properties) patternNames(q.type === 'RestElement' ? q.argument : q.value, out);
+  else if (p.type === 'ArrayPattern') for (const q of p.elements) patternNames(q, out);
+  else if (p.type === 'AssignmentPattern') patternNames(p.left, out);
+  else if (p.type === 'RestElement') patternNames(p.argument, out);
+  else if (p.type === 'TSParameterProperty') patternNames(p.parameter, out);
+  return out;
+}
+/** True when `scope` itself declares `name`: a let, const, var, function or class in its body, a parameter, or an
+ * import. Declarations in a nested block belong to that block. */
+function declares(scope, name) {
+  if (scope.params?.some((q) => patternNames(q).includes(name))) return true;
+  // a block's or a program's statements, or a function's body block; an arrow's expression body declares nothing
+  const body = Array.isArray(scope.body) ? scope.body : Array.isArray(scope.body?.body) ? scope.body.body : [];
+  for (const st of body) {
+    const d = st.type === 'ExportNamedDeclaration' ? st.declaration : st;
+    if (!d) continue;
+    if (d.type === 'VariableDeclaration' && d.declarations.some((v) => patternNames(v.id).includes(name))) return true;
+    if ((d.type === 'FunctionDeclaration' || d.type === 'ClassDeclaration') && d.id?.name === name) return true;
+    if (d.type === 'ImportDeclaration' && d.specifiers.some((sp) => sp.local.name === name)) return true;
+  }
   return false;
+}
+/** The scope whose declaration of `name` the code at `node` sees: the nearest one that declares it. */
+function bindingScope(node, name, parents) {
+  for (let n = parents.get(node); n; n = parents.get(n)) if (SCOPES.has(n.type) && declares(n, name)) return n;
+  return null;
 }
 /** True when the driver takes this nav: the `new BottomNav()` itself, or the place it is kept (bindingOf). */
 function drives(d, nav) {
@@ -166,7 +193,8 @@ function drives(d, nav) {
   const b = nav.binding;
   if (!b) return false;
   if (b.kind === 'var') {
-    if (arg.type === 'Identifier' && arg.name === b.name && d.file === nav.file) return !b.owner || isInside(d.node, b.owner, d.parents);
+    // the same file: the name must resolve to this nav's own declaration, not to one of the same name nearer the driver
+    if (arg.type === 'Identifier' && arg.name === b.name && d.file === nav.file) return bindingScope(d.node, b.name, d.parents) === b.owner;
     // another file: `import { nav } from './nav.js'` then `nav` (any local name), or `import * as menus` then `menus.nav`
     const ns = arg.type === 'MemberExpression' && arg.object.type === 'Identifier' ? d.imports.get(arg.object.name) : null;
     const im = arg.type === 'Identifier' ? d.imports.get(arg.name) : ns?.imported === '*' ? { ...ns, imported: lastName(arg) } : null;
