@@ -140,9 +140,10 @@ function claudeRuns(matcher, tool) {
 
 // One onGame server, two tool names. Installed as this plugin, its tools are mcp__plugin_ongame_ongame__<tool>. Wired
 // directly as a server named `ongame` (claude --mcp-config, as every fleet game worker runs it), they are
-// mcp__ongame__<tool>. On 2026-11-26, 22 fleet builds that expected a code review got none: their state_init came as
-// mcp__ongame__state_init, build-marker-write never ran, so no .ongame/jury.json was written and phase-jury skipped
-// every code write. ongame cli/src/hooks/play-gate-finish.ts and desktop/src/chat.ts already take both names.
+// mcp__ongame__<tool>. On 2026-11-26, 22 fleet builds that expected a code review got none (measured on board item
+// i_0gfbk16i): their state_init came as mcp__ongame__state_init, build-marker-write never ran, so no
+// .ongame/jury.json was written and phase-jury skipped every code write. ongame cli/src/hooks/play-gate-finish.ts
+// and desktop/src/chat.ts already take both names.
 const SERVER = 'ongame';
 const ourPrefixes = () => {
   assert.ok(SERVER in (manifest.mcpServers ?? {}), `plugin.json has no ${SERVER} server`);

@@ -5,7 +5,8 @@
 - The review hooks now also run when onGame's server is wired directly as a server named `ongame`
   (`claude --mcp-config`), whose tools are named `mcp__ongame__<tool>`. Before, `hooks/hooks.json` matched only
   `mcp__plugin_ongame_ongame__<tool>`. So after a direct `state_init` or asset registration, build-marker-write never
-  wrote `.ongame/jury.json`, and phase-jury reviewed no code write. Measured: 22 fleet builds on 2026-11-26.
+  wrote `.ongame/jury.json`, and phase-jury reviewed no code write. Measured in 19 fleet game sessions from
+  2026-11-26 to 2026-11-28: none ran build-marker-write, and phase-jury skipped 138 writes for want of `jury.json`.
 - Changed: build-marker-write (asset tools and `call_wait`), build-marker-write and skill-integrity (`state_init`), and
   build-marker-clear (`trace_emit`). Each matcher is anchored, so another server's tool of the same name does not match.
 - play-gate-finish still holds only `mcp__plugin_ongame_ongame__` finish calls. A game played on another host has
