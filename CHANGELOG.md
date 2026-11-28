@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.7.106 — 2026-11-28
+
+- The review hooks now also run when onGame's server is wired directly as a server named `ongame`
+  (`claude --mcp-config`), whose tools are named `mcp__ongame__<tool>`. Before, `hooks/hooks.json` matched only
+  `mcp__plugin_ongame_ongame__<tool>`. So after a direct `state_init` or asset registration, build-marker-write never
+  wrote `.ongame/jury.json`, and phase-jury reviewed no code write. Measured: 22 fleet builds on 2026-11-26.
+- Changed: build-marker-write (asset tools and `call_wait`), build-marker-write and skill-integrity (`state_init`), and
+  build-marker-clear (`trace_emit`). Each matcher is anchored, so another server's tool of the same name does not match.
+- play-gate-finish still holds only `mcp__plugin_ongame_ongame__` finish calls. A game played on another host has
+  no play record on the agent's own host, so the gate would refuse that build's finish.
+- `test/hooks-json.test.mjs` checks both tool names, another server's tool, and that the finish gate stays on the
+  plugin's names. It tests each matcher by Claude Code's own rule: a matcher of plain names is a list of exact names,
+  anything else is an unanchored regular expression.
+
 ## 1.7.105 — 2026-11-26
 
 - The Analytics boot check rejects helpers whose names have another binding, including a parameter or local
