@@ -38,8 +38,9 @@ interface Slot { start: number; len: number; phase: number; side: number }
 const clamp01 = (v: number): number => Math.min(1, Math.max(0, v));
 const frac = (v: number): number => v - Math.floor(v);
 
-/** A clip that writes into one reused pose. `write` gets the pose at rest. */
-function clip(write: (p: PartPose, t: number) => void): PartClip {
+/** A clip that writes into one reused pose, so a frame makes no new object. `write` gets the pose at rest.
+ * Build a game's own clips with it: `poseClip((p, t) => { p.y = -2 * Math.sin(Math.PI * t); })`. */
+export function poseClip(write: (p: PartPose, t: number) => void): PartClip {
   const p: PartPose = { x: 0, y: 0, rotation: 0, scaleX: 1, scaleY: 1, alpha: 0 };
   return (t: number) => {
     p.x = p.y = p.rotation = p.alpha = 0; p.scaleX = p.scaleY = 1;
@@ -49,7 +50,7 @@ function clip(write: (p: PartPose, t: number) => void): PartClip {
 }
 /** The same clip played over [start, start + len] of the pick sequence, at rest outside it. */
 const windowed = (s: Slot, write: (p: PartPose, u: number) => void): PartClip =>
-  clip((p, t) => { const u = clamp01((t - s.start) / s.len); if (u > 0 && u < 1) write(p, u); });
+  poseClip((p, t) => { const u = clamp01((t - s.start) / s.len); if (u > 0 && u < 1) write(p, u); });
 const squash = (p: PartPose, t: number, k: number): void => { p.scaleX = 1 + 0.6 * k * bump(t); p.scaleY = 1 - k * bump(t); };
 const sway = (p: PartPose, t: number, phase: number, rot: number, swell: number): void => {
   p.rotation = rot * wave(t, phase);
@@ -61,16 +62,16 @@ const ROLE_LENGTH: Readonly<Record<PartRole, number>> = { flap: 0.9, hop: 0.8, s
 
 const ROLES: Readonly<Record<PartRole, (s: Slot) => PartTrack>> = {
   flap: (s) => ({
-    idle: clip((p, t) => { p.scaleY = 1 + 0.05 * wave(t, s.phase); p.rotation = 0.02 * wave(t, s.phase + 0.25); }),
-    tap: clip((p, t) => { p.scaleY = 1 + 0.16 * bump(t); p.scaleX = 1 - 0.04 * bump(t); }),
+    idle: poseClip((p, t) => { p.scaleY = 1 + 0.05 * wave(t, s.phase); p.rotation = 0.02 * wave(t, s.phase + 0.25); }),
+    tap: poseClip((p, t) => { p.scaleY = 1 + 0.16 * bump(t); p.scaleX = 1 - 0.04 * bump(t); }),
     select: windowed(s, (p, u) => {
       p.scaleY = 1 + 0.24 * bump(u / 0.34) - 0.1 * bump((u - 0.34) / 0.3) + 0.04 * bump((u - 0.64) / 0.36);
       p.rotation = 0.08 * Math.sin(3 * Math.PI * u) * (1 - u) * (1 - u);
     }),
   }),
   hop: (s) => ({
-    idle: clip((p, t) => { p.scaleY = 1 + 0.03 * wave(t, s.phase); }),
-    tap: clip((p, t) => squash(p, t, 0.14)),
+    idle: poseClip((p, t) => { p.scaleY = 1 + 0.03 * wave(t, s.phase); }),
+    tap: poseClip((p, t) => squash(p, t, 0.14)),
     select: windowed(s, (p, u) => {
       p.y = -2.4 * bump((u - 0.06) / 0.4);
       p.scaleY = 1 - 0.08 * bump(u / 0.12) + 0.06 * bump((u - 0.06) / 0.4) - 0.14 * bump((u - 0.46) / 0.24);
@@ -78,31 +79,31 @@ const ROLES: Readonly<Record<PartRole, (s: Slot) => PartTrack>> = {
     }),
   }),
   spin: (s) => ({
-    idle: clip((p, t) => { p.rotation = 0.3 * wave(t, s.phase); }),
-    tap: clip((p, t) => { p.rotation = 0.6 * bump(t); p.scaleX = p.scaleY = 1 - 0.08 * bump(t); }),
+    idle: poseClip((p, t) => { p.rotation = 0.3 * wave(t, s.phase); }),
+    tap: poseClip((p, t) => { p.rotation = 0.6 * bump(t); p.scaleX = p.scaleY = 1 - 0.08 * bump(t); }),
     select: windowed(s, (p, u) => {
       p.rotation = 2 * Math.PI * smootherstep(u / 0.85) + 0.16 * bump((u - 0.7) / 0.3);
       p.scaleX = p.scaleY = 1 + 0.12 * bump(u);
     }),
   }),
   pop: (s) => ({
-    idle: clip((p, t) => sway(p, t, s.phase, 0.1, 0.05)),
-    tap: clip((p, t) => squash(p, t, 0.2)),
+    idle: poseClip((p, t) => sway(p, t, s.phase, 0.1, 0.05)),
+    tap: poseClip((p, t) => squash(p, t, 0.2)),
     select: windowed(s, (p, u) => {
       p.scaleX = p.scaleY = 1 + 0.5 * bump(u);
       p.rotation = 0.18 * s.side * Math.sin(2 * Math.PI * u) * bump(u);
     }),
   }),
   swing: (s) => ({
-    tap: clip((p, t) => { p.scaleX = 1 - 0.12 * bump(t); }),
+    tap: poseClip((p, t) => { p.scaleX = 1 - 0.12 * bump(t); }),
     select: windowed(s, (p, u) => { p.scaleX = 1 - 0.72 * plateau(u, 0.05, 0.34, 0.62, 0.94); }),
   }),
   glow: (s) => {
     // one flash per idle loop, at a point set by the phase, inside the loop so the loop closes
     const at = 0.1 + 0.6 * frac(s.phase);
     return {
-      idle: clip((p, t) => { p.alpha = 0.7 * bump((t - at) / 0.22); }),
-      tap: clip((p, t) => { p.alpha = 0.4 * bump(t); }),
+      idle: poseClip((p, t) => { p.alpha = 0.7 * bump((t - at) / 0.22); }),
+      tap: poseClip((p, t) => { p.alpha = 0.4 * bump(t); }),
       select: windowed(s, (p, u) => {
         p.alpha = 0.9 * plateau(u, 0.12, 0.3, 0.7, 0.98);
         p.scaleX = p.scaleY = 1 + 0.3 * bump((u - 0.12) / 0.5);
@@ -113,7 +114,7 @@ const ROLES: Readonly<Record<PartRole, (s: Slot) => PartTrack>> = {
 
 /** The whole icon's pick: a hop (0.44 s) and a wobble (0.46 s) from its base, a spin (0.56 s) about its centre.
  * A light press squash from the base. */
-const BODY_PRESS: PartClip = clip((p, t) => squash(p, t, 0.06));
+const BODY_PRESS: PartClip = poseClip((p, t) => squash(p, t, 0.06));
 const BODY: Readonly<Record<Exclude<BodyMotion, 'none'>, PartTrack>> = {
   hop: {
     select: windowed({ start: 0, len: 0.58, phase: 0, side: 1 }, (p, u) => {

@@ -78,7 +78,9 @@ fewer than two moving parts. Every part in the rig counts, a `glow` too; the who
 
 The whole icon's pick is `body: 'hop' | 'wobble' | 'spin' | 'none'` (default `hop`). In a pick, `pop` parts play
 one after another in the order of the `parts` keys; the longer moves start early and run across the sequence. A part that needs its own curve takes a track of the game's clips instead of a role
-(`{ idle, tap, select }`, each `t => pose`, at rest at t = 0 and t = 1).
+(`{ idle, tap, select }`, each at rest at t = 0 and t = 1). Build each clip with `poseClip` from `partRoles.ts`,
+which reuses one pose, so the frame loop makes no new object:
+`{ select: poseClip((p, t) => { p.y = -2 * Math.sin(Math.PI * t); }) }`.
 
 ## 4. Timings and rules
 

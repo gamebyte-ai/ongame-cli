@@ -456,12 +456,14 @@ test('check.mjs passes a nav whose every tab has a rig, a renderer with its own 
   assert.match(r.out, /no bottom menu in this game/);
 });
 
-test('check.mjs never passes a file it cannot read', () => {
-  const dir = game({ 'main.ts': 'export const x = 1;\n', 'broken.ts': 'const = ;\n' });
+test('check.mjs never passes a file it cannot read that names a menu, and does not parse a file that names none', () => {
+  const dir = game({ 'main.ts': 'export const x = 1;\n', 'broken.ts': 'const nav = new BottomNav(;\n' });
   const r = run('check.mjs', dir);
   assert.equal(r.code, 2, r.out);
   assert.match(r.out, /cannot read src\/broken\.ts/);
   assert.match(r.out, /not a pass/);
+  const levels = game({ 'main.ts': 'export const x = 1;\n', 'levels.ts': 'const = ;\n' });
+  assert.equal(run('check.mjs', levels).code, 0, 'a file with no menu name cannot hold a menu');
 });
 
 // ---------------------------------------------------------------------------------------------------------------

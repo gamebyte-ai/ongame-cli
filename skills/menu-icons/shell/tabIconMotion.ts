@@ -80,6 +80,7 @@ export class TabIconMotion {
   private readonly nav: BottomNavLike;
   private readonly tabs: Tab[] = [];
   private active: string;
+  private reduced = false;
   /** One pose reused for every part every frame. */
   private readonly pose: PartPose = { x: 0, y: 0, rotation: 0, scaleX: 1, scaleY: 1, alpha: 0 };
 
@@ -123,6 +124,8 @@ export class TabIconMotion {
       }
       this.active = now;
     }
+    // under Calm every part already rests where setReducedMotion put it
+    if (this.reduced) return;
     for (let i = 0; i < this.tabs.length; i++) {
       this.tabs[i].player.update(seconds);
       this.apply(this.tabs[i]);
@@ -130,6 +133,7 @@ export class TabIconMotion {
   }
   /** Calm, or the system's reduced-motion setting: every part rests. */
   public setReducedMotion(reduced: boolean): void {
+    this.reduced = reduced;
     for (const tab of this.tabs) { tab.player.setReducedMotion(reduced); this.apply(tab); }
   }
   /** Each part's drawn offset from rest (alpha is the drawn alpha), for tests and recorded play. */

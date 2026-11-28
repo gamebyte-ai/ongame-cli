@@ -13,8 +13,9 @@
  *   - for a `BottomTabs` drawn another way, the same file constructs a `PartPlayer` (or a `TabIconMotion`).
  * The copies apply.mjs wrote (they start with its MARKER) must equal this skill's copy, and a game that uses
  * `TabIconMotion` must have all three files. Code is read as a syntax tree, with the Babel parser the gradients
- * check bundles, so spacing, comments and type casts do not change the result. A file it cannot parse is named and
- * the run exits 2 unless a menu failed (1): an unread file is never a pass.
+ * check bundles, so spacing, comments and type casts do not change the result. Only a file that names BottomNav,
+ * BottomTabs, TabIconMotion or PartPlayer is parsed. One it cannot parse is named and the run exits 2 unless a menu
+ * failed (1): an unread file is never a pass.
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { basename, extname, join, resolve } from 'node:path';
@@ -26,7 +27,10 @@ import { FILES, MARKER, shown, source } from './apply.mjs';
 const { parse } = createRequire(import.meta.url)('../gradients/vendor/babel-parser.cjs');
 
 const EXTS = new Set(['.ts', '.tsx', '.mts', '.js', '.jsx', '.mjs', '.cjs']);
-const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', 'coverage', '__tests__']);
+// Capacitor's android/, ios/ and www/ hold copies of the built bundle.
+const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', 'coverage', '__tests__', 'android', 'ios', 'www']);
+// A file that names none of these holds no menu and no driver, so it is not parsed.
+const NAMES = /\b(?:BottomNav|BottomTabs|TabIconMotion|PartPlayer)\b/;
 // Tests build a BottomTabs to test the model, not to draw a menu.
 const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$/;
 const NOT_CODE = new Set(['loc', 'extra', 'leadingComments', 'trailingComments', 'innerComments', 'comments', 'tokens', 'errors']);
@@ -160,11 +164,12 @@ function everyTabRigged(nav) {
 }
 
 function files(path, acc = []) {
-  for (const name of readdirSync(path)) {
-    if (SKIP_DIRS.has(name) || name.startsWith('.')) continue;
+  for (const entry of readdirSync(path, { withFileTypes: true })) {
+    const name = entry.name;
+    if (SKIP_DIRS.has(name) || name.startsWith('.') || entry.isSymbolicLink()) continue;
     const full = join(path, name);
-    if (statSync(full).isDirectory()) files(full, acc);
-    else if (EXTS.has(extname(name)) && !/\.d\.[cm]?ts$/.test(name) && !TEST_FILE.test(name)) acc.push(full);
+    if (entry.isDirectory()) files(full, acc);
+    else if (entry.isFile() && EXTS.has(extname(name)) && !/\.d\.[cm]?ts$/.test(name) && !TEST_FILE.test(name)) acc.push(full);
   }
   return acc;
 }
@@ -187,6 +192,7 @@ export function check(gameDir) {
       if (text.startsWith(MARKER)) { copies.set(basename(file), [...(copies.get(basename(file)) ?? []), file]); continue; }
       own.add(basename(file));
     }
+    if (!NAMES.test(text)) continue;
     let ast;
     try { ast = tree(text, file); } catch (e) {
       unread++;
@@ -198,6 +204,7 @@ export function check(gameDir) {
     const declaresNav = all.some((n) => CLASSES.has(n.type) && n.id?.name === 'BottomNav');
     const exported = exportsOf(ast.program), imports = importsOf(ast.program);
     for (const n of all) {
+      if (n.type !== 'NewExpression') continue;
       const at = { file, rel, line: n.loc?.start.line ?? 0, node: n, parents };
       if (newOf(n, 'BottomNav')) navs.push({ ...at, binding: bindingOf(n, parents, exported) });
       else if (newOf(n, 'BottomTabs') && !declaresNav) models.push(at);
