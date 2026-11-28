@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.7.107 — 2026-11-28
+
+- play-gate-finish now also holds the finish calls of onGame's server wired directly as `ongame`:
+  `mcp__ongame__trace_emit` (build.done) and `mcp__ongame__profile_record_build`. Before, it held only
+  `mcp__plugin_ongame_ongame__` ones, so a fleet game worker could record a build done without a play on record.
+  1.7.106 left it out on purpose: a game played on another host left no play record on the agent's own host.
+  The fleet now copies an accepted remote play's record to the worker's host.
+- `test/hooks-json.test.mjs` replaces the test that pinned the gate to the plugin's names. The new test checks that
+  the gate holds both finish tools under both names, and no other tool or other server's `trace_emit`.
+
 ## 1.7.106 — 2026-11-28
 
 - The review hooks now also run when onGame's server is wired directly as a server named `ongame`

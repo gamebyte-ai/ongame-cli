@@ -119,7 +119,7 @@ test('play-gate-finish runs before trace_emit and profile_record_build, through 
   const groups = (hooks.hooks.PreToolUse ?? []).filter((g) => g.hooks.some((h) => h.args?.join(' ') === 'hook play-gate-finish'));
   assert.equal(groups.length, 1, 'expected one PreToolUse group for play-gate-finish');
   const [group] = groups;
-  assert.equal(group.matcher, '^mcp__plugin_ongame_ongame__(trace_emit|profile_record_build)$');
+  assert.equal(group.matcher, '^(mcp__plugin_ongame_ongame__|mcp__ongame__)(trace_emit|profile_record_build)$');
   for (const hook of group.hooks) assert.equal(hook.command, `${PLUGIN_ROOT_VAR}bin/ongame-launcher`);
   const prefix = `mcp__plugin_${manifest.name}_ongame__`;
   const re = new RegExp(group.matcher);
@@ -171,17 +171,27 @@ test("each review hook runs for both names of onGame's tools, and for no other s
   }
 });
 
-// The finish gate stays on the plugin's own names for now (main c_xpql10m3, right-hand c_y50bcg5y on board item
-// i_o8yu5nq2; cairn HZ2AG2). It looks for the build's play record under the agent's own home. A fleet worker that
-// plays on another host through fleet-remote-play has no record there, so the gate would refuse its finish: 6 of 45
-// measured fleet finish calls on 2026-11-28, all from remote plays. i_h7g6c1zy brings that record home; then
-// i_b64qek6r widens this matcher and replaces this test.
-test('play-gate-finish does not hold the finish calls of a directly wired ongame server yet', () => {
-  const [group] = (hooks.hooks.PreToolUse ?? []).filter((g) => g.hooks.some((h) => h.args?.join(' ') === 'hook play-gate-finish'));
-  const [plugin, direct] = ourPrefixes();
+// The finish gate holds both names too. Until 1.7.107 it held only the plugin's names, and a test pinned that on
+// purpose (main c_xpql10m3, right-hand c_y50bcg5y on board item i_o8yu5nq2; cairn HZ2AG2): the gate looks for the
+// build's play record under the agent's own home, and a fleet worker that played on another host through
+// fleet-remote-play had none there. 6 of 45 measured fleet finish calls on 2026-11-28 would have been refused, all
+// from remote plays. Board item i_h7g6c1zy makes a remote play leave its record on the worker's host, so board item
+// i_b64qek6r widened this matcher and replaced that pin with this test.
+test("play-gate-finish holds the finish calls under both names of onGame's tools, and no other tool", () => {
+  const groups = (hooks.hooks.PreToolUse ?? []).filter((g) => g.hooks.some((h) => h.args?.join(' ') === 'hook play-gate-finish'));
+  assert.equal(groups.length, 1, 'expected one PreToolUse group for play-gate-finish');
+  const holds = (name) => claudeRuns(groups[0].matcher, name);
+  for (const prefix of ourPrefixes()) {
+    for (const tool of ['trace_emit', 'profile_record_build']) assert.ok(holds(prefix + tool), `${prefix}${tool} is not held`);
+    for (const tool of ['trace_emit_batch', 'state_init', 'publish_upload', 'profile_record_build_status']) {
+      assert.ok(!holds(prefix + tool), `${prefix}${tool} must not be held`);
+    }
+  }
+  // Another server's finish tool of the same name, and names that only contain ours.
   for (const tool of ['trace_emit', 'profile_record_build']) {
-    assert.ok(claudeRuns(group.matcher, plugin + tool), `${plugin}${tool} is not held`);
-    assert.ok(!claudeRuns(group.matcher, direct + tool), `${direct}${tool} is held: widen only after i_h7g6c1zy (see the comment above)`);
+    for (const name of [`mcp__other__${tool}`, `mcp__plugin_other_ongame__${tool}`, `mcp__ongame2__${tool}`, `mcp__x_mcp__ongame__${tool}`, tool]) {
+      assert.ok(!holds(name), `play-gate-finish must not hold ${name}`);
+    }
   }
 });
 
