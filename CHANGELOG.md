@@ -17,6 +17,8 @@
   array or pose, and the role clips reuse one pose each.
 - `test/menu-icons.test.mjs` covers the clips (rest at both ends, closed idle loops, under 0.4 per frame at 60 fps
   through presses, picks and cut-off picks), the driver on a stand-in nav, and both scripts on fixture games.
+- `test/browser/menu-icons-phone.mjs` plays a built game's menu on a 390x844 touch screen: idle, a held press, a
+  pick, Calm, and the cost per frame. `test/browser/README.md` says how to build its fresh-game fixture.
 
 ## 1.7.106 — 2026-11-28
 

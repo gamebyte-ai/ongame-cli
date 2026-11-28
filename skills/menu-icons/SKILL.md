@@ -10,7 +10,8 @@ lights; the Settings coin's gear spins inside it and a sparkle flashes.
 
 ## 1. Add the motion code
 
-Take the bar itself from `template:shell-bottom-nav` (`skills/phone-layout/SKILL.md`). Then, from the game folder:
+Take the bar itself from `template:shell-bottom-nav` (`skills/phone-layout/SKILL.md`). Then run, with the game
+folder's path as `<gameDir>`:
 
 ```sh
 node <this skill's dir>/apply.mjs <gameDir>     # writes src/shell/partMotion.ts, partRoles.ts, tabIconMotion.ts
@@ -31,9 +32,13 @@ reads at 36 px: a roof, a door, a wheel, a lid, a flower, a gem, a sparkle. Make
 - **Cut from an existing icon:** a script cuts each part out with its mask and fills what it uncovers. Make it stop
   when the parts at rest differ from the icon by more than 2 of 255 levels in any pixel.
 
-Put each part in a node whose origin is its **joint**: the hinge of a door or an awning, a wheel's axle, a flower's
-stem. **Draw what a moving part uncovers**: the wall under a roof, a lit room behind a door, the coin face under a
-gear. A light or a sparkle rests at alpha 0.
+Put each part in its own node, and set the node's position to the part's **joint**: the hinge of a door or an
+awning, a wheel's axle, a flower's stem. Draw the part around that origin, in the node's own coordinates: a door
+hinged on its left is drawn from x = 0 to its width. **Draw what a moving part uncovers**: the wall under a roof, a
+lit room behind a door, the coin face under a gear. Set a light's or a sparkle's alpha to 0: that is its rest.
+
+`partedIcon` records the position, rotation, scale and alpha each node has when you call it as that part's rest
+pose. So finish placing every node first, then call it.
 
 ## 3. Wire it
 
@@ -55,8 +60,12 @@ const icons = new TabIconMotion(nav, {
 // with the shell:                              icons.destroy(); nav.destroy();
 ```
 
+Build the parted icons before the `BottomNav`, because its `icon` factories return their views. In a class, declare
+the icons in fields above the nav, and the `TabIconMotion` in a field below it.
+
 `TabIconMotion` throws when a tab has no parted icon, when a rig names a part the icon lacks, or when an icon has
-fewer than two moving parts. Locked and "coming soon" tabs move too, dimmed by the nav.
+fewer than two moving parts. Every part in the rig counts, a `glow` too; the whole icon does not. Locked and
+"coming soon" tabs move too, dimmed by the nav.
 
 | role | for | joint | idle | press | pick |
 |---|---|---|---|---|---|
@@ -68,7 +77,7 @@ fewer than two moving parts. Locked and "coming soon" tabs move too, dimmed by t
 | `glow` | window light, sparkle | centre | flashes now and then | flashes | lights up |
 
 The whole icon's pick is `body: 'hop' | 'wobble' | 'spin' | 'none'` (default `hop`). In a pick, `pop` parts play
-one after another in the order they are listed; the longer moves start early and run across the sequence. A part that needs its own curve takes a track of the game's clips instead of a role
+one after another in the order of the `parts` keys; the longer moves start early and run across the sequence. A part that needs its own curve takes a track of the game's clips instead of a role
 (`{ idle, tap, select }`, each `t => pose`, at rest at t = 0 and t = 1).
 
 ## 4. Timings and rules
@@ -91,8 +100,9 @@ node <this skill's dir>/check.mjs <gameDir>
 Exit 0: every bottom menu moves its icons part by part, or the game has no bottom menu. Exit 1: it names the file
 and line of a `BottomNav` (or a `BottomTabs` drawn another way) whose icons do not move part by part, or a copy of
 the three files that is missing, older or edited; run `apply.mjs` again. Exit 2: a file it could not read, or no
-game folder. A `BottomNav` drawn another way passes with the game's own `PartPlayer`; one whose every tab passes
-`rig:` (a nav with a part player built in) passes too.
+game folder. A `BottomTabs` drawn another way passes with the game's own `PartPlayer`; a `BottomNav` whose every
+tab passes `rig:` (a nav with a part player built in) passes too. The check reads how the code is wired, as a
+syntax tree. The parts themselves are checked when `TabIconMotion` starts: it throws, as above.
 
 Then look at it on the built game at 390x844. `icons.probe('shop').parts` gives each part's offset from rest.
 Show the user a short phone clip: every icon idling, one tapped, one picked.
