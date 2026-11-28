@@ -309,6 +309,9 @@ test('the driver idles the parts, fuller on the selected tab, and plays a press 
   for (let f = 0; f < 12; f++) motion.update(FRAME);
   const body = motion.probe('shop').parts.body;
   assert.ok(Math.abs(body.rotation) > 0.01, `the whole icon wobbles (${body.rotation})`);
+  for (let f = 0; f < 30; f++) motion.update(FRAME);
+  assert.equal(motion.probe('shop').idle, 1, 'the newly selected tab idles at full strength');
+  assert.ok(Math.abs(motion.probe('home').idle - R.IDLE_WHEN_INACTIVE) < 1e-9, 'the tab it left drops to 35 %');
   nav.active = 'home';
   motion.update(FRAME);
   assert.equal(motion.probe('shop').selecting, false, 'leaving a tab ends its pick');
