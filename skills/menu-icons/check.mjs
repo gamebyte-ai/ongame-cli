@@ -14,7 +14,8 @@
  * The copies apply.mjs wrote (they start with its MARKER) must equal this skill's copy, and a game that uses
  * `TabIconMotion` must have all three files. Code is read as a syntax tree, with the Babel parser the gradients
  * check bundles, so spacing, comments and type casts do not change the result. Only a file that names BottomNav,
- * BottomTabs, TabIconMotion or PartPlayer is parsed. One it cannot parse is named and the run exits 2 unless a menu
+ * BottomTabs, TabIconMotion or PartPlayer is parsed; a constructor imported under another name is followed, one
+ * re-exported under another name through a third file is not. One it cannot parse is named and the run exits 2 unless a menu
  * failed (1): an unread file is never a pass.
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
@@ -80,7 +81,17 @@ function lastName(n) {
   }
   return null;
 }
-const newOf = (n, name) => n.type === 'NewExpression' && lastName(n.callee) === name;
+/** True when `n` is `new <name>(...)`, also when the file imports <name> under another name
+ * (`import { BottomNav as Nav }`, then `new Nav(...)`), or as a member of a namespace import. */
+function newOf(n, name, imports) {
+  if (n.type !== 'NewExpression') return false;
+  const callee = unwrap(n.callee);
+  if (callee?.type === 'Identifier') {
+    const im = imports.get(callee.name);
+    return (im && im.imported !== '*' && im.imported !== 'default' ? im.imported : callee.name) === name;
+  }
+  return lastName(callee) === name;
+}
 const keyName = (k) => (k?.type === 'Identifier' ? k.name : k?.type === 'StringLiteral' ? k.value : null);
 
 const CLASSES = new Set(['ClassDeclaration', 'ClassExpression']);
@@ -196,8 +207,11 @@ function drives(d, nav) {
     // the same file: the name must resolve to this nav's own declaration, not to one of the same name nearer the driver
     if (arg.type === 'Identifier' && arg.name === b.name && d.file === nav.file) return bindingScope(d.node, b.name, d.parents) === b.owner;
     // another file: `import { nav } from './nav.js'` then `nav` (any local name), or `import * as menus` then `menus.nav`
-    const ns = arg.type === 'MemberExpression' && arg.object.type === 'Identifier' ? d.imports.get(arg.object.name) : null;
-    const im = arg.type === 'Identifier' ? d.imports.get(arg.name) : ns?.imported === '*' ? { ...ns, imported: lastName(arg) } : null;
+    // The local name must resolve to the import itself, not to a parameter or variable of the same name.
+    const local = arg.type === 'Identifier' ? arg : arg.type === 'MemberExpression' && arg.object.type === 'Identifier' ? arg.object : null;
+    if (!local || bindingScope(d.node, local.name, d.parents)?.type !== 'Program') return false;
+    const ns = local !== arg ? d.imports.get(local.name) : null;
+    const im = local === arg ? d.imports.get(arg.name) : ns?.imported === '*' ? { ...ns, imported: lastName(arg) } : null;
     return !!im && d.file !== nav.file && b.exportedAs.has(im.imported) && resolvesTo(d.file, im.source, nav.file);
   }
   if (lastName(arg) !== b.name) return false;
@@ -258,10 +272,10 @@ export function check(gameDir) {
     for (const n of all) {
       if (n.type !== 'NewExpression') continue;
       const at = { file, rel, line: n.loc?.start.line ?? 0, node: n, parents };
-      if (newOf(n, 'BottomNav')) navs.push({ ...at, binding: bindingOf(n, parents, exported) });
-      else if (newOf(n, 'BottomTabs') && !declaresNav) models.push(at);
-      else if (newOf(n, 'TabIconMotion')) drivers.push({ ...at, arg: n.arguments[0], imports });
-      else if (newOf(n, 'PartPlayer')) players.push(at);
+      if (newOf(n, 'BottomNav', imports)) navs.push({ ...at, binding: bindingOf(n, parents, exported) });
+      else if (newOf(n, 'BottomTabs', imports) && !declaresNav) models.push(at);
+      else if (newOf(n, 'TabIconMotion', imports)) drivers.push({ ...at, arg: n.arguments[0], imports });
+      else if (newOf(n, 'PartPlayer', imports)) players.push(at);
     }
   }
   const failures = [];

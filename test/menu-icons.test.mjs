@@ -578,6 +578,22 @@ function wire(nav) {
   assert.equal(r.code, 0, `a driver in an arrow's expression body passes: ${r.out}`);
 });
 
+test('check.mjs reads constructors imported under another name, and a parameter never stands for an imported nav', () => {
+  const ok = (files) => { const dir = game(files); run('apply.mjs', dir); return run('check.mjs', dir); };
+  let r = ok({ 'menu.ts': "import { BottomNav as Nav } from './shell/BottomNav.js';\nexport const nav = new Nav(defs);\n" });
+  assert.equal(r.code, 1, `an aliased BottomNav is still a menu: ${r.out}`);
+  assert.match(r.out, /FAIL src\/menu\.ts:2 /);
+  r = ok({ 'menu.ts': "import { BottomNav } from './shell/BottomNav.js';\nimport { TabIconMotion as Icons } from './shell/tabIconMotion.js';\n"
+    + 'const nav = new BottomNav(defs);\nexport const icons = new Icons(nav, specs);\n' });
+  assert.equal(r.code, 0, `an aliased TabIconMotion still drives it: ${r.out}`);
+  r = ok({ 'nav.ts': 'export const nav = new BottomNav(defs);\n',
+    'wire.ts': "import { nav } from './nav.js';\nexport function wire(nav) { return new TabIconMotion(nav, specs); }\n" });
+  assert.equal(r.code, 1, `a parameter named nav is not the imported nav: ${r.out}`);
+  r = ok({ 'nav.ts': 'export const nav = new BottomNav(defs);\n',
+    'wire.ts': "import * as menus from './nav.js';\nexport function wire(menus) { return new TabIconMotion(menus.nav, specs); }\n" });
+  assert.equal(r.code, 1, 'nor is a parameter named like the namespace');
+});
+
 test('check.mjs reads a build/ folder inside src/, and skips build output in a game with no src/', () => {
   const dir = game({ 'build/BuildMenu.ts': 'export const nav = new BottomNav(defs);\n' });
   const r = run('check.mjs', dir);
