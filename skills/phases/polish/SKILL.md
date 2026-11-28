@@ -108,7 +108,8 @@ indistinguishable from "no such module", and you would then hand-write what alre
 What this phase reaches for: `template:ui-tokens` (colour/type/duration/easing — every other module imports
 it, take it first), `template:ui-kit` (painters + the stateful Button), `template:ui-popup` (the card every
 modal is built in), `template:shell-spine` (panel map + routing + intent bus), `template:shell-splash`,
-`template:shell-settings`, `template:shell-bottom-nav`, `template:ui-currency-chip`,
+`template:shell-settings`, `template:shell-bottom-nav` (its icons move part by part: `skills/menu-icons/SKILL.md`),
+`template:ui-currency-chip`,
 `template:platform-viewport` (safe area + clamped DPR), `template:platform-ui-registry` (the hit-area surface
 the gate reads), `template:core-audio`, `template:core-save`, `template:core-diagnostics`, and
 `template:shell-lives` / `template:shell-shop` only when the design has actually decided to have that economy.
@@ -378,6 +379,8 @@ did not clearly improve, keep its old assets.
      In the win frame, look at the light rays: rays that keep one flat colour out to their tips are a failed
      check. Give them the centre-to-edge gradient (Sub-phase 8), rebuild and play again. Rays, glows or a sky that
      show rings or bands are failed the same way. Before the play gate, run
+     `node <this skill's folder>/../../menu-icons/check.mjs {gameDir}`: exit 1 names each bottom menu whose icons do not
+     move part by part. Follow `skills/menu-icons/SKILL.md`, rebuild and run it again. Before the play gate, run
      `node <this skill's folder>/../../gradients/check.mjs {gameDir}`: exit 1 names each fade made of stacked shapes. Draw
      each one as one shape with one gradient fill, rebuild and run it again.
      Publish and `build.done` are refused until it passed for this `dist/`.

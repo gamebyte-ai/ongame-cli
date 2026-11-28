@@ -1,5 +1,5 @@
 {
-  "pluginVersion": "1.7.106",
+  "pluginVersion": "1.7.107",
   "generatedAt": "2026-11-28",
   "skills": {
     "analytics": {
@@ -77,6 +77,11 @@
       "bytes": 8069,
       "lines": 122
     },
+    "menu-icons": {
+      "sha256": "eb50a223e35da4c93a259c670e090c4e15b4ef4998d8e6358260932a19d2d415",
+      "bytes": 7255,
+      "lines": 116
+    },
     "mobile-ready": {
       "sha256": "65beb36fbf2de1feec7eb50ee6ecd695b4a44c0a8c04efc5852172da7c057c42",
       "bytes": 4413,
@@ -113,9 +118,9 @@
       "lines": 72
     },
     "phases/polish": {
-      "sha256": "79a233235b00881921f6ba4f032b35ee47ec21569e092e95506bb199ef5a3d17",
-      "bytes": 50640,
-      "lines": 505
+      "sha256": "725275a0710ba2055cc36b286371257a8da24137a666efa485f83e86be3235bc",
+      "bytes": 50934,
+      "lines": 508
     },
     "phases/research": {
       "sha256": "6ee0d19bdc0c2faeeeb73e0658cb7d630bcc41f8ad8dac02a8004fb3c55dbb5c",
@@ -123,8 +128,8 @@
       "lines": 24
     },
     "phone-layout": {
-      "sha256": "26612a23f0e8cc90da1517a945cc29b35b25ec06ed2e432258d67e96689990d3",
-      "bytes": 2242,
+      "sha256": "e9a73579c04ec21dc9e053ba4a34f115d38e426d18d616c48871690dd63429e5",
+      "bytes": 2307,
       "lines": 31
     },
     "playable-ads": {

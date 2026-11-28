@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.7.107 — 2026-11-28
+
+- Every bottom menu's icons now move part by part, by default. A new skill, `skills/menu-icons`, says how: each icon
+  is cut into at least two parts that move on their own, plus the whole icon. Each part reacts to a press from the
+  moment the finger lands and plays in a pick sequence of 0.76 s; every part but a door-like swing also has an idle
+  loop. Calm and reduced motion keep them still.
+- `apply.mjs` writes three files into the game's `src/shell/`: the part player, ready clips by part role (`flap`,
+  `hop`, `spin`, `pop`, `swing`, `glow`, and `hop`, `wobble` or `spin` for the whole icon), and `TabIconMotion`. That
+  driver works with today's `template:shell-bottom-nav` unchanged. It never overwrites a game's own file.
+- `check.mjs` fails a game whose `BottomNav` (or `BottomTabs` drawn another way) has icons that do not move part by
+  part, and names its file and line. A driver counts only for the nav it takes: in the same class, in the scope
+  that declares it, or imported from where it is exported. A nav returned straight from a function passes when a
+  driver is left over. It also fails a missing, older or edited copy of the three files. It reads a
+  syntax tree with the parser the gradients check bundles; a file it cannot read is never a pass.
+- `/make-game` names the skill and runs `check.mjs` before a web game is called done. `phone-layout` and the polish
+  phase point the tab bar there; the polish phase runs the check before its play gate.
+- The part player and its numbers come from a shipped game's reviewed menu. Two changes: its frame loop makes no new
+  array or pose, and the role clips reuse one pose each.
+- `test/menu-icons.test.mjs` covers the clips (rest at both ends, closed idle loops, under 0.4 per frame at 60 fps
+  through presses, picks and cut-off picks), the driver on a stand-in nav, and both scripts on fixture games.
+- `test/browser/menu-icons-phone.mjs` plays a built game's menu on a 390x844 touch screen: idle, a held press, a
+  pick, Calm, and the cost per frame. `test/browser/README.md` says how to build its fresh-game fixture.
+
 ## 1.7.106 — 2026-11-28
 
 - The review hooks now also run when onGame's server is wired directly as a server named `ongame`
