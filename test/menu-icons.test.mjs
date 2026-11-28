@@ -4,7 +4,7 @@
 // The shipped TypeScript is loaded with Node's own type stripping; Pixi is a small stand-in here.
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { cpSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -200,6 +200,46 @@ test('a press cut off at its peak eases back to rest; only a cut-off pick finish
   assert.ok(frames <= 0.5 * 60, `it rests within 0.5 s (${frames} frames)`);
 });
 
+test('the whole icon spins about its centre, and hops or wobbles from its base', () => {
+  const spin = R.rigFromRoles('coin', { body: 'spin', parts: { gear: 'spin', sparkle: 'glow' } });
+  assert.ok(spin.parts[R.BODY_CENTRE_PART]?.select, 'a spin body plays on body-centre');
+  assert.ok(!spin.parts[R.BODY_PART].select && spin.parts[R.BODY_PART].tap, 'and only presses from the base');
+  let most = 0;
+  for (let i = 1; i < 400; i++) most = Math.max(most, spin.parts[R.BODY_CENTRE_PART].select(i / 400).rotation);
+  assert.ok(most > 6 && most < 2 * Math.PI + 1e-9, `one full turn (${most})`);
+  for (const body of ['hop', 'wobble']) {
+    const rig = R.rigFromRoles(body, { body, parts: { a: 'pop', b: 'pop' } });
+    assert.ok(rig.parts[R.BODY_PART].select && !(R.BODY_CENTRE_PART in rig.parts), body);
+  }
+});
+
+test('an unselected icon idles at 35 % of the selected one, as drawn', () => {
+  const rig = R.rigFromRoles('flowers', { body: 'none', parts: { a: 'pop', b: 'pop' } });
+  const drawn = (selected) => {
+    const player = new M.PartPlayer(rig);
+    player.setSelected(selected);
+    for (let f = 0; f < 60; f++) player.update(FRAME); // the strength settles
+    let most = 0;
+    for (let f = 0; f < 4 * 60; f++) { player.update(FRAME); most = Math.max(most, Math.abs(player.pose('a').rotation)); }
+    return most;
+  };
+  const ratio = drawn(false) / drawn(true);
+  assert.ok(Math.abs(ratio - R.IDLE_WHEN_INACTIVE) < 0.02, `ratio ${ratio}`);
+});
+
+test('Calm turned on mid-pick drops the pick, so turning it off again starts from rest', () => {
+  const rig = R.rigFromRoles('stall', { body: 'wobble', parts: { awning: 'flap', wheel: 'spin' } });
+  const player = new M.PartPlayer(rig);
+  player.setSelected(true);
+  player.select(); player.tap();
+  for (let f = 0; f < 10; f++) player.update(FRAME);
+  player.setReducedMotion(true);
+  player.setReducedMotion(false);
+  assert.equal(player.selecting || player.tapping || player.settling, false);
+  player.update(FRAME);
+  for (const p of Object.keys(rig.parts)) assert.ok(M.poseStep(player.pose(p), M.PART_REST) < 0.4, p);
+});
+
 // ---------------------------------------------------------------------------------------------------------------
 // The driver, on a stand-in for the template's BottomNav
 
@@ -217,11 +257,13 @@ function fakeNav(defs, active) {
   return nav;
 }
 /** An icon drawn in code: an art container scaled to the 36 box, with part nodes at their joints. */
-function makeIcon(names) {
+function makeIcon(names, restAlpha = {}) {
   const art = new PIXI.Container();
   art.scale.set(36 / 120);
   const parts = {};
-  names.forEach((name, i) => { const n = new PIXI.Container(); n.position.set(20 * i, 10); art.addChild(n); parts[name] = n; });
+  names.forEach((name, i) => {
+    const n = new PIXI.Container(); n.position.set(20 * i, 10); n.alpha = restAlpha[name] ?? 1; art.addChild(n); parts[name] = n;
+  });
   return D.partedIcon(art, parts);
 }
 const SHOP = ['awning', 'wheel', 'rose'];
@@ -229,7 +271,7 @@ const HOME = ['roof', 'door', 'light'];
 const shopRig = R.rigFromRoles('stall', { body: 'wobble', parts: { awning: 'flap', wheel: 'spin', rose: 'pop' } });
 const homeRig = R.rigFromRoles('house', { parts: { roof: 'hop', door: 'swing', light: 'glow' } });
 function setup() {
-  const shop = makeIcon(SHOP), home = makeIcon(HOME);
+  const shop = makeIcon(SHOP), home = makeIcon(HOME, { light: 0 });
   const nav = fakeNav([{ id: 'shop', icon: () => shop.view }, { id: 'home', icon: () => home.view }], 'home');
   const motion = new D.TabIconMotion(nav, { shop: { icon: shop, rig: shopRig }, home: { icon: home, rig: homeRig } });
   return { nav, motion, shop, home };
@@ -291,6 +333,39 @@ test('the driver keeps every part at rest under Calm, and stops listening when d
   motion.setReducedMotion(false);
   motion.destroy();
   assert.equal(nav.getChildByLabel('tab-home').listeners.pointerdown.length, 0, 'its pointerdown listener is gone');
+});
+
+test('the driver moves each node by the pose over its unit, and lights a glow from alpha 0', () => {
+  const own = { idle: (t) => ({ x: 2 * Math.sin(2 * Math.PI * t), y: -3 * Math.sin(2 * Math.PI * t) }) };
+  const rig = M.definePartRig({ name: 'own', idleSeconds: 3, tapSeconds: 0.3, selectSeconds: 0.6, idleWhenInactive: 0.35,
+    parts: { a: own, b: own } });
+  const one = makeIcon(['a', 'b']), two = makeIcon(['a', 'b']);
+  const nav = fakeNav([{ id: 'one', icon: () => one.view }, { id: 'two', icon: () => two.view }], 'one');
+  const motion = new D.TabIconMotion(nav, { one: { icon: one, rig }, two: { icon: two, rig } });
+  const twin = new M.PartPlayer(rig, 0); // the first tab's phase
+  twin.setSelected(true);
+  for (let f = 0; f < 20; f++) { motion.update(FRAME); twin.update(FRAME); }
+  const a = one.parts.find((p) => p.name === 'a'), want = twin.pose('a');
+  assert.ok(Math.abs(want.y) > 0.5, 'the part is away from rest');
+  assert.ok(Math.abs(a.node.position.x - (a.restX + want.x / 0.3)) < 1e-9, 'x is the pose over the unit');
+  assert.ok(Math.abs(a.node.position.y - (a.restY + want.y / 0.3)) < 1e-9, 'y is the pose over the unit');
+
+  const { nav: nav2, motion: motion2, home } = setup();
+  const light = home.parts.find((p) => p.name === 'light').node;
+  assert.equal(light.alpha, 0, 'a glow rests at alpha 0');
+  nav2.active = 'shop'; motion2.update(FRAME);
+  nav2.active = 'home';
+  let brightest = 0;
+  for (let f = 0; f < 50; f++) { motion2.update(FRAME); brightest = Math.max(brightest, light.alpha); }
+  assert.ok(brightest > 0.5, `the pick lights it (${brightest})`);
+  motion2.setReducedMotion(true);
+  for (let f = 0; f < 30; f++) motion2.update(FRAME);
+  assert.equal(light.alpha, 0, 'Calm puts it out');
+  assert.equal(motion2.probe('home').idle, 0);
+  motion2.setReducedMotion(false);
+  for (let f = 0; f < 60; f++) motion2.update(FRAME);
+  assert.equal(motion2.probe('home').idle, 1, 'the selected tab idles at full strength');
+  assert.ok(Math.abs(motion2.probe('shop').idle - R.IDLE_WHEN_INACTIVE) < 1e-9, 'the tab left idles at 35 %');
 });
 
 test('the driver refuses a tab left still, a part the icon lacks, a one-part icon and a view the nav does not hold', () => {
@@ -449,6 +524,69 @@ export function map() {
     'motion.ts': 'const nav = make();\nexport const icons = new TabIconMotion(nav, specs);\n' });
   run('apply.mjs', unimported);
   assert.equal(run('check.mjs', unimported).code, 1, 'another file\'s own `nav` does not drive it');
+});
+
+test('check.mjs follows private fields, imports by their source and name, and navs returned from a factory', () => {
+  const ok = (files) => { const dir = game(files); run('apply.mjs', dir); return run('check.mjs', dir); };
+  let r = ok({ 'Lobby.ts': 'export class Lobby {\n  #nav = new BottomNav(defs);\n  #icons = new TabIconMotion(this.#nav, specs);\n}\n' });
+  assert.equal(r.code, 0, r.out);
+  r = ok({ 'a/nav.ts': 'export const nav = new BottomNav(defs);\n', 'b/nav.ts': 'export const nav = new BottomNav(defs);\n',
+    'motion.ts': "import { nav } from './a/nav.js';\nexport const icons = new TabIconMotion(nav, specs);\n" });
+  assert.equal(r.code, 1, 'a driver of a/nav does not move b/nav');
+  assert.match(r.out, /FAIL src\/b\/nav\.ts:1 /);
+  assert.doesNotMatch(r.out, /a\/nav\.ts/);
+  r = ok({ 'nav.ts': 'const nav = new BottomNav(defs);\nexport { nav as menu };\n',
+    'motion.ts': "import { menu as shopNav } from './nav';\nexport const icons = new TabIconMotion(shopNav, specs);\n" });
+  assert.equal(r.code, 0, `an export and an import under other names pass: ${r.out}`);
+  r = ok({ 'nav.ts': 'export const nav = new BottomNav(defs);\n',
+    'motion.ts': "import * as menus from './nav.ts';\nexport const icons = new TabIconMotion(menus.nav, specs);\n" });
+  assert.equal(r.code, 0, `a namespace import passes: ${r.out}`);
+  r = ok({ 'menu.ts': 'export function makeNav() { return new BottomNav(defs); }\n',
+    'screen.ts': "import { makeNav } from './menu.js';\nconst nav = makeNav();\nexport const icons = new TabIconMotion(nav, specs);\n" });
+  assert.equal(r.code, 0, `a nav from a factory passes with a driver left over: ${r.out}`);
+  r = ok({ 'menu.ts': 'export function makeNav() { return new BottomNav(defs); }\n' });
+  assert.equal(r.code, 1, 'and fails with none');
+});
+
+test('check.mjs reads a build/ folder inside src/, and skips build output in a game with no src/', () => {
+  const dir = game({ 'build/BuildMenu.ts': 'export const nav = new BottomNav(defs);\n' });
+  const r = run('check.mjs', dir);
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /FAIL src\/build\/BuildMenu\.ts:1 /);
+  const flat = join(scratch, 'flat-game');
+  for (const [rel, text] of Object.entries({ 'main.js': 'export const x = 1;\n', 'dist/assets/index.js': 'const n = new BottomNav(d);\n',
+    'android/app/public/index.js': 'const n = new BottomNav(d);\n', 'node_modules/ui/nav.js': 'const n = new BottomNav(d);\n' })) {
+    mkdirSync(join(flat, rel, '..'), { recursive: true });
+    writeFileSync(join(flat, rel), text);
+  }
+  const f = run('check.mjs', flat);
+  assert.equal(f.code, 0, f.out);
+  assert.match(f.out, /no bottom menu/);
+});
+
+test('check.mjs exits 1 when a menu fails beside an unreadable file, 2 on a missing folder or no argument; apply.mjs needs src/', () => {
+  const dir = game({ 'nav.ts': 'export const nav = new BottomNav(defs);\n', 'broken.ts': 'const n = new BottomNav(;\n' });
+  assert.equal(run('check.mjs', dir).code, 1);
+  assert.equal(run('check.mjs', join(scratch, 'no-such-game')).code, 2);
+  assert.equal(run('check.mjs').code, 2);
+  const empty = join(scratch, 'empty-folder');
+  mkdirSync(empty);
+  assert.equal(run('apply.mjs', empty).code, 2);
+  assert.equal(existsSync(join(empty, 'src')), false, 'nothing written');
+});
+
+test('the browser fixture: its one-piece menu fails the check, and the menu an agent built from SKILL.md passes', () => {
+  const fixture = join(root, 'test/browser/menu-icons-fixture');
+  const before = game({});
+  cpSync(join(fixture, 'before/src'), join(before, 'src'), { recursive: true });
+  const r = run('check.mjs', before);
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /FAIL src\/views\/GameScreenView\.pixi\.ts:\d+ new BottomNav/);
+  const after = game({});
+  cpSync(join(fixture, 'after/src'), join(after, 'src'), { recursive: true });
+  assert.equal(run('apply.mjs', after).code, 0);
+  const a = run('check.mjs', after);
+  assert.equal(a.code, 0, a.out);
 });
 
 test('check.mjs passes a nav whose every tab has a rig, a renderer with its own PartPlayer, and a game with no menu', () => {

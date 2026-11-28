@@ -18,7 +18,7 @@
  * failed (1): an unread file is never a pass.
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { basename, extname, join, resolve, sep } from 'node:path';
+import { basename, dirname, extname, join, resolve, sep } from 'node:path';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { FILES, MARKER, SHELL_DIR, shown, source } from './apply.mjs';
@@ -27,8 +27,10 @@ import { FILES, MARKER, SHELL_DIR, shown, source } from './apply.mjs';
 const { parse } = createRequire(import.meta.url)('../gradients/vendor/babel-parser.cjs');
 
 const EXTS = new Set(['.ts', '.tsx', '.mts', '.js', '.jsx', '.mjs', '.cjs']);
-// Capacitor's android/, ios/ and www/ hold copies of the built bundle.
-const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', 'coverage', '__tests__', 'android', 'ios', 'www']);
+const SKIP_DIRS = new Set(['node_modules', '__tests__']);
+// Build output, skipped only in a game folder with no src/: Capacitor's android/, ios/ and www/ hold copies of the
+// built bundle. Inside src/ a folder of these names is the game's own code (a builder game's src/build/).
+const SKIP_AT_ROOT = new Set(['dist', 'build', 'coverage', 'android', 'ios', 'www']);
 // A file that names none of these holds no menu and no driver, so it is not parsed.
 const NAMES = /\b(?:BottomNav|BottomTabs|TabIconMotion|PartPlayer)\b/;
 // Tests build a BottomTabs to test the model, not to draw a menu.
@@ -66,13 +68,14 @@ function walk(root, parents) {
   return out;
 }
 const unwrap = (n) => { while (n && WRAPPERS.has(n.type)) n = n.expression; return n; };
-/** The last name of a name or member path: `nav`, `this.nav`, `ui['nav']` all give 'nav'. */
+/** The last name of a name or member path: `nav`, `this.nav`, `ui['nav']` all give 'nav'; `this.#nav` gives '#nav'. */
 function lastName(n) {
   n = unwrap(n);
   if (!n) return null;
   if (n.type === 'Identifier') return n.name;
   if ((n.type === 'MemberExpression' || n.type === 'OptionalMemberExpression')) {
     if (!n.computed && n.property.type === 'Identifier') return n.property.name;
+    if (n.property.type === 'PrivateName') return `#${n.property.id.name}`;
     if (n.property.type === 'StringLiteral') return n.property.value;
   }
   return null;
@@ -94,8 +97,8 @@ const isThisMember = (n) => (n?.type === 'MemberExpression' || n?.type === 'Opti
 /**
  * Where a `new BottomNav()` is kept, so a driver can be matched to it and to no other nav of the same name:
  *   this    a class field or `this.nav = ...`: a driver taking `this.nav` in the same class
- *   var     `const nav = ...`: a driver taking `nav` inside the scope that declares it, or in a file that imports
- *           it when the declaration is exported
+ *   var     `const nav = ...`: a driver taking `nav` inside the scope that declares it, or, when the module exports
+ *           it, a driver taking what another file imports from this file under that exported name
  *   name    any other named place (`ui.nav = ...`, `{ nav: ... }`): a driver taking that name in the same file
  */
 function bindingOf(node, parents, exported) {
@@ -104,35 +107,53 @@ function bindingOf(node, parents, exported) {
   if (!up) return null;
   if (up.type === 'VariableDeclarator' && up.init === n) {
     if (up.id.type !== 'Identifier') return null;
-    return { kind: 'var', name: up.id.name, owner: enclosing(up, parents, SCOPES), exported: exported.has(up.id.name)
-      && enclosing(up, parents, SCOPES)?.type === 'Program' };
+    const top = enclosing(up, parents, SCOPES)?.type === 'Program';
+    return { kind: 'var', name: up.id.name, owner: enclosing(up, parents, SCOPES),
+      exportedAs: top ? exported.get(up.id.name) ?? new Set() : new Set() };
   }
   if (up.type === 'AssignmentExpression' && up.right === n) {
     if (isThisMember(up.left)) return { kind: 'this', name: lastName(up.left), owner: enclosing(up, parents, CLASSES) };
     return lastName(up.left) ? { kind: 'name', name: lastName(up.left) } : null;
   }
   if ((up.type === 'ClassProperty' || up.type === 'ClassPrivateProperty') && up.value === n) {
-    const name = keyName(up.key) ?? (up.key?.type === 'PrivateName' ? up.key.id.name : null);
+    const name = keyName(up.key) ?? (up.key?.type === 'PrivateName' ? `#${up.key.id.name}` : null);
     return name ? { kind: 'this', name, owner: enclosing(up, parents, CLASSES) } : null;
   }
   if (up.type === 'ObjectProperty' && up.value === n) return keyName(up.key) ? { kind: 'name', name: keyName(up.key) } : null;
   return null;
 }
-/** Names a module exports from its top level: `export const nav`, `export { nav }`. */
+/** What a module exports from its top level: local name -> the names it is exported as. `export const nav`,
+ * `export { nav }`, `export { nav as menu }`. */
 function exportsOf(program) {
-  const out = new Set();
+  const out = new Map();
+  const add = (local, as) => out.set(local, (out.get(local) ?? new Set()).add(as));
   for (const s of program.body) {
     if (s.type !== 'ExportNamedDeclaration' || s.source) continue;
-    for (const d of s.declaration?.declarations ?? []) if (d.id.type === 'Identifier') out.add(d.id.name);
-    for (const sp of s.specifiers ?? []) if (sp.local?.type === 'Identifier') out.add(sp.local.name);
+    for (const d of s.declaration?.declarations ?? []) if (d.id.type === 'Identifier') add(d.id.name, d.id.name);
+    for (const sp of s.specifiers ?? []) if (sp.local?.type === 'Identifier') add(sp.local.name, keyName(sp.exported));
   }
   return out;
 }
-/** Local names a module imports. */
+/** What a module imports: local name -> { source, imported }, where `imported` is the exported name, or '*' for
+ * `import * as ns`. */
 function importsOf(program) {
-  const out = new Set();
-  for (const s of program.body) if (s.type === 'ImportDeclaration') for (const sp of s.specifiers) out.add(sp.local.name);
+  const out = new Map();
+  for (const s of program.body) {
+    if (s.type !== 'ImportDeclaration') continue;
+    for (const sp of s.specifiers) {
+      const imported = sp.type === 'ImportNamespaceSpecifier' ? '*' : sp.type === 'ImportDefaultSpecifier' ? 'default' : keyName(sp.imported);
+      out.set(sp.local.name, { source: s.source.value, imported });
+    }
+  }
   return out;
+}
+const MODULE_EXTS = ['.ts', '.tsx', '.mts', '.js', '.jsx', '.mjs'];
+/** True when the relative import `source`, written in `from`, names the module file `target`. */
+function resolvesTo(from, source, target) {
+  if (!source.startsWith('.')) return false;
+  const base = resolve(dirname(from), source);
+  const stem = base.replace(/\.(?:[cm]?js|jsx|tsx?|mts)$/, '');
+  return target === base || MODULE_EXTS.some((e) => target === stem + e || target === join(base, `index${e}`));
 }
 function isInside(node, ancestor, parents) {
   for (let n = node; n; n = parents.get(n)) if (n === ancestor) return true;
@@ -142,14 +163,17 @@ function isInside(node, ancestor, parents) {
 function drives(d, nav) {
   const arg = unwrap(d.arg);
   if (arg === nav.node) return true;
-  const b = nav.binding, name = lastName(arg);
-  if (!b || name !== b.name) return false;
-  if (b.kind === 'this') return isThisMember(arg) && enclosing(d.node, d.parents, CLASSES) === b.owner && !!b.owner;
+  const b = nav.binding;
+  if (!b) return false;
   if (b.kind === 'var') {
-    if (arg.type !== 'Identifier') return false;
-    if (d.file === nav.file) return !b.owner || isInside(d.node, b.owner, d.parents);
-    return b.exported && d.imports.has(b.name);
+    if (arg.type === 'Identifier' && arg.name === b.name && d.file === nav.file) return !b.owner || isInside(d.node, b.owner, d.parents);
+    // another file: `import { nav } from './nav.js'` then `nav` (any local name), or `import * as menus` then `menus.nav`
+    const ns = arg.type === 'MemberExpression' && arg.object.type === 'Identifier' ? d.imports.get(arg.object.name) : null;
+    const im = arg.type === 'Identifier' ? d.imports.get(arg.name) : ns?.imported === '*' ? { ...ns, imported: lastName(arg) } : null;
+    return !!im && d.file !== nav.file && b.exportedAs.has(im.imported) && resolvesTo(d.file, im.source, nav.file);
   }
+  if (lastName(arg) !== b.name) return false;
+  if (b.kind === 'this') return isThisMember(arg) && !!b.owner && enclosing(d.node, d.parents, CLASSES) === b.owner;
   return d.file === nav.file;
 }
 
@@ -163,10 +187,10 @@ function everyTabRigged(nav) {
   });
 }
 
-function files(path, acc = []) {
+function files(path, acc = [], gameRoot = false) {
   for (const entry of readdirSync(path, { withFileTypes: true })) {
     const name = entry.name;
-    if (SKIP_DIRS.has(name) || name.startsWith('.') || entry.isSymbolicLink()) continue;
+    if (SKIP_DIRS.has(name) || (gameRoot && SKIP_AT_ROOT.has(name)) || name.startsWith('.') || entry.isSymbolicLink()) continue;
     const full = join(path, name);
     if (entry.isDirectory()) files(full, acc);
     else if (entry.isFile() && EXTS.has(extname(name)) && !/\.d\.[cm]?ts$/.test(name) && !TEST_FILE.test(name)) acc.push(full);
@@ -184,7 +208,7 @@ export function check(gameDir) {
   const copies = new Map(); // file name -> paths of copies apply.mjs wrote
   const own = new Set(); // file names the game has its own version of
   let unread = 0;
-  for (const file of files(root)) {
+  for (const file of files(root, [], root === dir)) {
     const rel = shown(dir, file);
     const buf = readFileSync(file);
     const text = lf(buf);
