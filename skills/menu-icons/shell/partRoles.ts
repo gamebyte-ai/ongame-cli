@@ -1,6 +1,6 @@
 // ongame:menu-icons - written by the onGame menu-icons skill (apply.mjs). Change the skill, not this copy.
 import {
-  MAX_PART_CLIP_SECONDS, bump, definePartRig, plateau, smootherstep, wave,
+  MAX_PART_CLIP_SECONDS, PART_REST, bump, clamp01, definePartRig, plateau, smootherstep, toRest, wave,
   type PartClip, type PartPose, type PartRig, type PartTrack,
 } from './partMotion.js';
 
@@ -15,8 +15,8 @@ import {
  *   glow   a window light, a sparkle, a shine; it rests at alpha 0. Flashes now and then, lights on a pick.
  * The whole icon is one more part, `body`, with its joint at the icon's base (`hop`, `wobble`), and `body-centre`,
  * with its joint at the icon's centre (`spin`).
- * Calm by design: sine curves only, no hard steps. Each clip writes into one pose it reuses, so a
- * frame makes no new object.
+ * Calm by design: smooth curves only (sine bumps and smootherstep ramps), no hard steps. Each clip writes into
+ * one pose it reuses, so a frame makes no new object.
  */
 export type PartRole = 'flap' | 'hop' | 'spin' | 'pop' | 'swing' | 'glow';
 export type BodyMotion = 'hop' | 'wobble' | 'spin' | 'none';
@@ -35,16 +35,14 @@ export const IDLE_WHEN_INACTIVE = 0.35;
 /** Where a part's clips start: its place in the pick order, its idle phase and which way it leans. */
 interface Slot { start: number; len: number; phase: number; side: number }
 
-const clamp01 = (v: number): number => Math.min(1, Math.max(0, v));
 const frac = (v: number): number => v - Math.floor(v);
 
 /** A clip that writes into one reused pose, so a frame makes no new object. `write` gets the pose at rest.
  * Build a game's own clips with it: `poseClip((p, t) => { p.y = -2 * Math.sin(Math.PI * t); })`. */
 export function poseClip(write: (p: PartPose, t: number) => void): PartClip {
-  const p: PartPose = { x: 0, y: 0, rotation: 0, scaleX: 1, scaleY: 1, alpha: 0 };
+  const p: PartPose = { ...PART_REST };
   return (t: number) => {
-    p.x = p.y = p.rotation = p.alpha = 0; p.scaleX = p.scaleY = 1;
-    write(p, t);
+    write(toRest(p), t);
     return p;
   };
 }

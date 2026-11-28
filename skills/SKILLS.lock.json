@@ -78,9 +78,9 @@
       "lines": 122
     },
     "menu-icons": {
-      "sha256": "561d721dee17af079f36ccfdb1d2d060141f183398480abe03cec771abea3752",
-      "bytes": 7028,
-      "lines": 115
+      "sha256": "eb50a223e35da4c93a259c670e090c4e15b4ef4998d8e6358260932a19d2d415",
+      "bytes": 7255,
+      "lines": 116
     },
     "mobile-ready": {
       "sha256": "65beb36fbf2de1feec7eb50ee6ecd695b4a44c0a8c04efc5852172da7c057c42",
@@ -118,8 +118,8 @@
       "lines": 72
     },
     "phases/polish": {
-      "sha256": "473952f98629f494b1c0b92b811747e7856b2bc4ed751949bfaf419b7e4a2e42",
-      "bytes": 50917,
+      "sha256": "725275a0710ba2055cc36b286371257a8da24137a666efa485f83e86be3235bc",
+      "bytes": 50934,
       "lines": 508
     },
     "phases/research": {

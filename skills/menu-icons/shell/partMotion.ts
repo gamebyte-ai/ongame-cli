@@ -5,11 +5,12 @@
  *   idle    a calm loop that never stops; full strength on the selected tab, softer on the others
  *   tap     a short press reaction, from the moment the finger lands
  *   select  a staggered sequence when the tab becomes selected
- * A clip is a pure function of normalised time per part. Clips add up: offsets add, scales multiply
- * around 1, and `alpha` adds to the part's own rest alpha (a glow part rests at 0 and lights up).
+ * A clip is a pure function of normalised time per part. Clips add up: offsets add, scales add their
+ * offsets from 1, and `alpha` adds to the part's own rest alpha (a glow part rests at 0 and lights up).
  * Units: x and y are in the icon's 36x36 box, so a rig reads the same at every screen size. Every tap
  * and select clip starts and ends exactly at rest; every idle loop ends where it starts. A clip that
- * is cut off or restarted hands its pose to a short ease back, so no part ever jumps between frames.
+ * is cut off or restarted hands its pose to a short ease back, so no part ever jumps between frames. A cut-off
+ * select finishes a turn forward; a cut-off tap eases back to the nearest rest angle.
  * The frame loop makes no new object: a clip may return one scratch pose it reuses (see partRoles.ts).
  */
 export interface PartPose {
@@ -42,7 +43,7 @@ export const PART_SETTLE_SECONDS = 0.12;
 /** Seconds the idle strength takes to move between the selected and the inactive level. */
 export const IDLE_FADE_SECONDS = 0.35;
 
-const clamp01 = (v: number): number => Math.min(1, Math.max(0, v));
+export const clamp01 = (v: number): number => Math.min(1, Math.max(0, v));
 /** 0 at both ends, 1 in the middle, smooth. */
 export const bump = (u: number): number => Math.sin(Math.PI * clamp01(u));
 export const smootherstep = (u: number): number => { const t = clamp01(u); return t * t * t * (t * (6 * t - 15) + 10); };
@@ -57,7 +58,8 @@ function addInto(a: PartPose, b: Partial<PartPose>, wb = 1): void {
   a.x += wb * (b.x ?? 0); a.y += wb * (b.y ?? 0); a.rotation += wb * (b.rotation ?? 0);
   a.scaleX += wb * ((b.scaleX ?? 1) - 1); a.scaleY += wb * ((b.scaleY ?? 1) - 1); a.alpha += wb * (b.alpha ?? 0);
 }
-function toRest(p: PartPose): PartPose {
+/** Puts `p` back at rest, in place, and returns it. */
+export function toRest(p: PartPose): PartPose {
   p.x = p.y = p.rotation = p.alpha = 0; p.scaleX = p.scaleY = 1;
   return p;
 }
@@ -91,7 +93,7 @@ export function poseStep(a: PartPose, b: PartPose): number {
 /** Average speeds a cut-off clip eases back at, at most: a big swing takes longer than PART_SETTLE_SECONDS,
  * so a half-open door closes and a cut-off spin finishes its turn forward instead of snapping. */
 const SETTLE_SPEED = { rotation: 6, scale: 3, offset: 15, alpha: 4 };
-interface Carry { from: Map<string, { pose: PartPose; seconds: number }>; t: number; seconds: number }
+interface Carry { from: Map<string, { pose: PartPose; seconds: number }>; t: number; seconds: number; forward: boolean }
 
 /** Plays one icon's rig. The driver applies `pose(part)` to the part's node each frame. */
 export class PartPlayer {
@@ -169,7 +171,7 @@ export class PartPlayer {
     for (let i = 0; i < this.carries.length; i++) {
       const c = this.carries[i];
       const from = c.from.get(part);
-      if (from) addInto(p, settle(from.pose, c.t / from.seconds, this.eased));
+      if (from) addInto(p, settle(from.pose, c.t / from.seconds, c.forward, this.eased));
     }
     return p;
   }
@@ -182,34 +184,38 @@ export class PartPlayer {
   /** Keeps a cut-off clip's drawn pose per part, to ease back from. Runs on a press or a pick, not per frame. */
   private carry(clip: 'tap' | 'select'): void {
     const from = new Map<string, { pose: PartPose; seconds: number }>();
+    const forward = clip === 'select';
     let seconds = PART_SETTLE_SECONDS;
     for (const part of Object.keys(this.rig.parts)) {
       const pose = copyFull(this.clipPose(part, clip));
-      const s = settleSeconds(pose);
+      const s = settleSeconds(pose, forward);
       from.set(part, { pose, seconds: s });
       seconds = Math.max(seconds, s);
     }
-    this.carries.push({ from, t: 0, seconds });
+    this.carries.push({ from, t: 0, seconds, forward });
   }
 }
 
-/** Where a cut-off rotation comes to rest: a small lean returns to 0; a spin goes on to its next whole turn. */
-function turnTarget(rotation: number): number {
+/** Where a cut-off rotation comes to rest. A tap's kick, or a small lean, goes back to the nearest whole turn; a
+ * select's spin goes on to its next whole turn, never back. */
+const SMALL_LEAN = 0.5;
+function turnTarget(rotation: number, forward: boolean): number {
   const turns = rotation / (2 * Math.PI);
-  return Math.abs(rotation) < 0.5 ? 0 : Math.sign(turns) * Math.ceil(Math.abs(turns) - 1e-6) * 2 * Math.PI;
+  if (!forward || Math.abs(rotation) < SMALL_LEAN) return Math.round(turns) * 2 * Math.PI;
+  return Math.sign(turns) * Math.ceil(Math.abs(turns) - 1e-6) * 2 * Math.PI;
 }
 /** How long a cut-off pose takes to rest: PART_SETTLE_SECONDS, or longer for a big swing (SETTLE_SPEED). */
-function settleSeconds(p: PartPose): number {
-  return Math.max(PART_SETTLE_SECONDS, Math.abs(turnTarget(p.rotation) - p.rotation) / SETTLE_SPEED.rotation,
+function settleSeconds(p: PartPose, forward: boolean): number {
+  return Math.max(PART_SETTLE_SECONDS, Math.abs(turnTarget(p.rotation, forward) - p.rotation) / SETTLE_SPEED.rotation,
     Math.max(Math.abs(p.scaleX - 1), Math.abs(p.scaleY - 1)) / SETTLE_SPEED.scale,
     Math.max(Math.abs(p.x), Math.abs(p.y)) / SETTLE_SPEED.offset, Math.abs(p.alpha) / SETTLE_SPEED.alpha);
 }
 const easeOut = (k: number): number => 1 - (1 - clamp01(k)) * (1 - clamp01(k));
 
-/** Eases a cut-off clip's pose to rest, k from 0 to 1, into `out`; a spin finishes its turn forward, never back. */
-function settle(from: PartPose, k: number, out: PartPose): PartPose {
+/** Eases a cut-off clip's pose to rest, k from 0 to 1, into `out`; a select's spin finishes its turn forward. */
+function settle(from: PartPose, k: number, forward: boolean, out: PartPose): PartPose {
   const e = easeOut(k);
-  const turn = turnTarget(from.rotation);
+  const turn = turnTarget(from.rotation, forward);
   out.x = from.x * (1 - e); out.y = from.y * (1 - e); out.rotation = from.rotation + (turn - from.rotation) * e;
   out.scaleX = from.scaleX + (1 - from.scaleX) * e; out.scaleY = from.scaleY + (1 - from.scaleY) * e;
   out.alpha = from.alpha * (1 - e);

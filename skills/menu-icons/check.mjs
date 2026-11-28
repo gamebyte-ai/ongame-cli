@@ -18,10 +18,10 @@
  * failed (1): an unread file is never a pass.
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { basename, extname, join, resolve } from 'node:path';
+import { basename, extname, join, resolve, sep } from 'node:path';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
-import { FILES, MARKER, shown, source } from './apply.mjs';
+import { FILES, MARKER, SHELL_DIR, shown, source } from './apply.mjs';
 
 // @babel/parser 7.29.14, MIT: see skills/gradients/vendor/README.md.
 const { parse } = createRequire(import.meta.url)('../gradients/vendor/babel-parser.cjs');
@@ -236,7 +236,7 @@ export function check(gameDir) {
       }
     }
     if (drivers.length && !copies.has(name) && !own.has(name)) {
-      failures.push(`FAIL src/shell/${name} is missing: run apply.mjs.`);
+      failures.push(`FAIL ${SHELL_DIR.split(sep).join('/')}/${name} is missing: run apply.mjs.`);
     }
   }
   lines.push(...failures);

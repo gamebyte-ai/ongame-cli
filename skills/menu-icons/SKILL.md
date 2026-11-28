@@ -17,8 +17,8 @@ folder's path as `<gameDir>`:
 node <this skill's dir>/apply.mjs <gameDir>     # writes src/shell/partMotion.ts, partRoles.ts, tabIconMotion.ts
 ```
 
-A second run changes nothing. It updates a copy it wrote before. It never overwrites a file of the game's own:
-it stops, names the file and writes nothing (exit 2). Do not edit the three files; write the game's own clips in
+Run it again after a skill update: it replaces the copies it wrote before, and leaves a current copy alone. It
+never overwrites a file of the game's own: it stops, names the file and writes nothing (exit 2). Do not edit the three files; write the game's own clips in
 the game's own file (section 3).
 
 ## 2. Make each icon from parts
@@ -88,8 +88,8 @@ The shipped files keep these:
 
 - A pick sequence lasts 0.76 s (at most 0.8 s); a press 0.3 s. An idle loop lasts 4 s (at least 2 s).
 - The selected tab idles at full strength, the others at 35 %. Neighbouring icons idle out of step.
-- Every press and pick starts and ends at rest. A cut-off clip eases back from where it is drawn; a cut-off spin
-  finishes its turn forward.
+- Every press and pick starts and ends at rest. A cut-off clip eases back from where it is drawn; a cut-off pick's
+  spin finishes its turn forward, and a cut-off press goes back to rest.
 - Calm and the system's reduced-motion setting keep every part still.
 - Parts change only position, rotation, scale and alpha. The bar never repaints for them.
 
@@ -102,8 +102,9 @@ node <this skill's dir>/check.mjs <gameDir>
 Exit 0: every bottom menu moves its icons part by part, or the game has no bottom menu. Exit 1: it names the file
 and line of a `BottomNav` (or a `BottomTabs` drawn another way) whose icons do not move part by part, or a copy of
 the three files that is missing, older or edited; run `apply.mjs` again. Exit 2: a file it could not read, or no
-game folder. A `TabIconMotion` drives the nav it takes: `this.nav` in the same class, `nav` in the scope that
-declares it, or an exported `nav` its file imports. A `BottomTabs` drawn another way passes with a `PartPlayer` in
+game folder. A `TabIconMotion` drives the nav it takes: the `new BottomNav(...)` itself, `this.nav` in the same
+class, `nav` in the scope that declares it, or an exported `nav` its file imports. A nav the check cannot follow
+(one returned straight from a function) passes when a driver is left over. A `BottomTabs` drawn another way passes with a `PartPlayer` in
 the same file; a `BottomNav` whose every tab passes `rig:` (a nav with a part player built in) passes too. The check reads how the code is wired, as a
 syntax tree. The parts themselves are checked when `TabIconMotion` starts: it throws, as above.
 

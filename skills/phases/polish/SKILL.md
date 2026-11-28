@@ -379,10 +379,10 @@ did not clearly improve, keep its old assets.
      In the win frame, look at the light rays: rays that keep one flat colour out to their tips are a failed
      check. Give them the centre-to-edge gradient (Sub-phase 8), rebuild and play again. Rays, glows or a sky that
      show rings or bands are failed the same way. Before the play gate, run
-     `node <this skill's folder>/../../gradients/check.mjs {gameDir}`: exit 1 names each fade made of stacked shapes. Draw
-     each one as one shape with one gradient fill, rebuild and run it again. Then run
      `node <this skill's folder>/../../menu-icons/check.mjs {gameDir}`: exit 1 names each bottom menu whose icons do not
-     move part by part. Follow `skills/menu-icons/SKILL.md`, rebuild and run it again.
+     move part by part. Follow `skills/menu-icons/SKILL.md`, rebuild and run it again. Before the play gate, run
+     `node <this skill's folder>/../../gradients/check.mjs {gameDir}`: exit 1 names each fade made of stacked shapes. Draw
+     each one as one shape with one gradient fill, rebuild and run it again.
      Publish and `build.done` are refused until it passed for this `dist/`.
   2. **Pre-publish check — fix everything it finds before step 3.** Every refusal step 3 can give is findable here.
      - **A build behind the game:** you hold this build's `buildId` from `state_init`, and step 3's `gameId` is the

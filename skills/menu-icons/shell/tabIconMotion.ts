@@ -1,6 +1,6 @@
 // ongame:menu-icons - written by the onGame menu-icons skill (apply.mjs). Change the skill, not this copy.
 import * as PIXI from 'pixi.js';
-import { PartPlayer, type PartPose, type PartRig } from './partMotion.js';
+import { PART_REST, PartPlayer, type PartPose, type PartRig } from './partMotion.js';
 import { BODY_CENTRE_PART, BODY_PART } from './partRoles.js';
 
 /** Moves the parts of each bottom-menu icon on its own: an idle loop, a press reaction and a pick sequence.
@@ -19,7 +19,8 @@ export interface IconPart {
   readonly node: PIXI.Container;
   readonly restX: number; readonly restY: number; readonly restRotation: number;
   readonly restScaleX: number; readonly restScaleY: number; readonly restAlpha: number;
-  /** The node parent's local pixels per unit of the icon's 36x36 box. */
+  /** Box units per pixel of the node parent's own space: the product of the scales between them. A pose's
+   * offset, in units of the icon's 36x36 box, is divided by it to move the node. */
   readonly unit: number;
 }
 /** An icon whose parts can move. Give `view` to the nav's `icon` factory. */
@@ -82,7 +83,7 @@ export class TabIconMotion {
   private active: string;
   private reduced = false;
   /** One pose reused for every part every frame. */
-  private readonly pose: PartPose = { x: 0, y: 0, rotation: 0, scaleX: 1, scaleY: 1, alpha: 0 };
+  private readonly pose: PartPose = { ...PART_REST };
 
   /** `icons` names every tab of the nav. A tab left out, a rig part the icon lacks, or an icon with fewer
    * than two moving parts besides its body throws: every bottom-menu icon moves part by part. */

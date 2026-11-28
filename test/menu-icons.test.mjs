@@ -185,6 +185,21 @@ test('a cut-off spin finishes its turn forward and the player keeps every part s
   }
 });
 
+test('a press cut off at its peak eases back to rest; only a cut-off pick finishes a turn', () => {
+  const rig = R.rigFromRoles('wheel', { body: 'none', parts: { wheel: 'spin', rose: 'pop' } });
+  const player = new M.PartPlayer(rig);
+  player.tap();
+  for (let f = 0; f < 9; f++) player.update(FRAME); // the kick is at its peak, about 0.6 rad
+  player.tap(); // pressed again
+  let most = 0, frames = 0;
+  while ((player.tapping || player.settling) && frames < 120) {
+    player.update(FRAME); frames++;
+    most = Math.max(most, Math.abs(player.pose('wheel').rotation));
+  }
+  assert.ok(most < 1, `a double press never spins the wheel round (most ${most.toFixed(2)} rad)`);
+  assert.ok(frames <= 0.5 * 60, `it rests within 0.5 s (${frames} frames)`);
+});
+
 // ---------------------------------------------------------------------------------------------------------------
 // The driver, on a stand-in for the template's BottomNav
 
