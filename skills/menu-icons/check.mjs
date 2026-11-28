@@ -7,9 +7,10 @@
  * A menu is a `new BottomNav(...)` (template:shell-bottom-nav), or a `new BottomTabs(...)` drawn another way.
  * Test files (`*.test.*`, `*.spec.*`, `__tests__/`) are not read: they build a menu to test it, not to show it.
  * It passes when
- *   - a `new TabIconMotion(...)` takes that nav as its first argument (the same name, `nav` or `this.nav`); or
+ *   - a `new TabIconMotion(...)` takes that nav as its first argument: the `new BottomNav(...)` itself, `this.nav`
+ *     in the same class, `nav` inside the scope that declares it, or an exported `nav` the driver's file imports; or
  *   - every tab in the nav's array literal passes `rig:` (a nav with a part player built in); or
- *   - for a `BottomTabs` drawn another way, the game constructs its own `PartPlayer`.
+ *   - for a `BottomTabs` drawn another way, the same file constructs a `PartPlayer` (or a `TabIconMotion`).
  * The copies apply.mjs wrote (they start with its MARKER) must equal this skill's copy, and a game that uses
  * `TabIconMotion` must have all three files. Code is read as a syntax tree, with the Babel parser the gradients
  * check bundles, so spacing, comments and type casts do not change the result. A file it cannot parse is named and
@@ -75,17 +76,77 @@ function lastName(n) {
 const newOf = (n, name) => n.type === 'NewExpression' && lastName(n.callee) === name;
 const keyName = (k) => (k?.type === 'Identifier' ? k.name : k?.type === 'StringLiteral' ? k.value : null);
 
-/** The name a `new X()` is kept under: `const nav = ...`, `this.nav = ...`, `nav: ...`, `private nav = ...`. */
-function bindingOf(node, parents) {
+const CLASSES = new Set(['ClassDeclaration', 'ClassExpression']);
+const SCOPES = new Set(['Program', 'BlockStatement', 'StaticBlock', 'FunctionDeclaration', 'FunctionExpression',
+  'ArrowFunctionExpression', 'ClassMethod', 'ClassPrivateMethod', 'ObjectMethod']);
+/** The nearest node above `node` whose type is in `types`. */
+function enclosing(node, parents, types) {
+  let n = parents.get(node);
+  while (n && !types.has(n.type)) n = parents.get(n);
+  return n ?? null;
+}
+const isThisMember = (n) => (n?.type === 'MemberExpression' || n?.type === 'OptionalMemberExpression') && n.object.type === 'ThisExpression';
+
+/**
+ * Where a `new BottomNav()` is kept, so a driver can be matched to it and to no other nav of the same name:
+ *   this    a class field or `this.nav = ...`: a driver taking `this.nav` in the same class
+ *   var     `const nav = ...`: a driver taking `nav` inside the scope that declares it, or in a file that imports
+ *           it when the declaration is exported
+ *   name    any other named place (`ui.nav = ...`, `{ nav: ... }`): a driver taking that name in the same file
+ */
+function bindingOf(node, parents, exported) {
   let n = node, up = parents.get(n);
   while (up && WRAPPERS.has(up.type)) { n = up; up = parents.get(n); }
   if (!up) return null;
-  if (up.type === 'VariableDeclarator' && up.init === n) return up.id.type === 'Identifier' ? up.id.name : null;
-  if (up.type === 'AssignmentExpression' && up.right === n) return lastName(up.left);
-  if ((up.type === 'ClassProperty' || up.type === 'ClassPrivateProperty' || up.type === 'ObjectProperty') && up.value === n) {
-    return keyName(up.key) ?? (up.key?.type === 'PrivateName' ? up.key.id.name : null);
+  if (up.type === 'VariableDeclarator' && up.init === n) {
+    if (up.id.type !== 'Identifier') return null;
+    return { kind: 'var', name: up.id.name, owner: enclosing(up, parents, SCOPES), exported: exported.has(up.id.name)
+      && enclosing(up, parents, SCOPES)?.type === 'Program' };
   }
+  if (up.type === 'AssignmentExpression' && up.right === n) {
+    if (isThisMember(up.left)) return { kind: 'this', name: lastName(up.left), owner: enclosing(up, parents, CLASSES) };
+    return lastName(up.left) ? { kind: 'name', name: lastName(up.left) } : null;
+  }
+  if ((up.type === 'ClassProperty' || up.type === 'ClassPrivateProperty') && up.value === n) {
+    const name = keyName(up.key) ?? (up.key?.type === 'PrivateName' ? up.key.id.name : null);
+    return name ? { kind: 'this', name, owner: enclosing(up, parents, CLASSES) } : null;
+  }
+  if (up.type === 'ObjectProperty' && up.value === n) return keyName(up.key) ? { kind: 'name', name: keyName(up.key) } : null;
   return null;
+}
+/** Names a module exports from its top level: `export const nav`, `export { nav }`. */
+function exportsOf(program) {
+  const out = new Set();
+  for (const s of program.body) {
+    if (s.type !== 'ExportNamedDeclaration' || s.source) continue;
+    for (const d of s.declaration?.declarations ?? []) if (d.id.type === 'Identifier') out.add(d.id.name);
+    for (const sp of s.specifiers ?? []) if (sp.local?.type === 'Identifier') out.add(sp.local.name);
+  }
+  return out;
+}
+/** Local names a module imports. */
+function importsOf(program) {
+  const out = new Set();
+  for (const s of program.body) if (s.type === 'ImportDeclaration') for (const sp of s.specifiers) out.add(sp.local.name);
+  return out;
+}
+function isInside(node, ancestor, parents) {
+  for (let n = node; n; n = parents.get(n)) if (n === ancestor) return true;
+  return false;
+}
+/** True when the driver takes this nav: the `new BottomNav()` itself, or the place it is kept (bindingOf). */
+function drives(d, nav) {
+  const arg = unwrap(d.arg);
+  if (arg === nav.node) return true;
+  const b = nav.binding, name = lastName(arg);
+  if (!b || name !== b.name) return false;
+  if (b.kind === 'this') return isThisMember(arg) && enclosing(d.node, d.parents, CLASSES) === b.owner && !!b.owner;
+  if (b.kind === 'var') {
+    if (arg.type !== 'Identifier') return false;
+    if (d.file === nav.file) return !b.owner || isInside(d.node, b.owner, d.parents);
+    return b.exported && d.imports.has(b.name);
+  }
+  return d.file === nav.file;
 }
 
 /** True when the nav's first argument is an array literal whose every tab object passes `rig:`. */
@@ -134,32 +195,30 @@ export function check(gameDir) {
     }
     const parents = new Map();
     const all = walk(ast.program, parents);
-    const declaresNav = all.some((n) => (n.type === 'ClassDeclaration' || n.type === 'ClassExpression') && n.id?.name === 'BottomNav');
+    const declaresNav = all.some((n) => CLASSES.has(n.type) && n.id?.name === 'BottomNav');
+    const exported = exportsOf(ast.program), imports = importsOf(ast.program);
     for (const n of all) {
-      const at = { rel, line: n.loc?.start.line ?? 0, node: n };
-      if (newOf(n, 'BottomNav')) navs.push({ ...at, name: bindingOf(n, parents) });
+      const at = { file, rel, line: n.loc?.start.line ?? 0, node: n, parents };
+      if (newOf(n, 'BottomNav')) navs.push({ ...at, binding: bindingOf(n, parents, exported) });
       else if (newOf(n, 'BottomTabs') && !declaresNav) models.push(at);
-      else if (newOf(n, 'TabIconMotion')) drivers.push({ ...at, arg: n.arguments[0] });
+      else if (newOf(n, 'TabIconMotion')) drivers.push({ ...at, arg: n.arguments[0], imports });
       else if (newOf(n, 'PartPlayer')) players.push(at);
     }
   }
   const failures = [];
-  // A driver matches a nav by the nav's name, or by taking the `new BottomNav(...)` itself. A nav kept under no
-  // name this can read (returned, passed on) is matched by count, against the drivers no other nav matched.
-  const navNames = new Set(navs.map((n) => n.name).filter(Boolean));
-  const driverNames = new Set(drivers.map((d) => lastName(d.arg)).filter(Boolean));
-  const spare = drivers.filter((d) => !navNames.has(lastName(d.arg)) && !navs.some((n) => unwrap(d.arg) === n.node)).length;
-  const unnamed = navs.filter((n) => !n.name && !drivers.some((d) => unwrap(d.arg) === n.node)).length;
+  // A driver matches a nav it takes (drives). A nav kept where this cannot read (returned, passed on) is matched
+  // by count, against the drivers no nav matched.
+  const spare = drivers.filter((d) => !navs.some((n) => drives(d, n))).length;
+  const unbound = navs.filter((n) => !n.binding && !drivers.some((d) => drives(d, n))).length;
   for (const nav of navs) {
-    const inline = drivers.some((d) => unwrap(d.arg) === nav.node);
-    const named = !!nav.name && driverNames.has(nav.name);
-    const counted = !nav.name && spare >= unnamed;
-    if (inline || named || counted || everyTabRigged(nav.node)) continue;
+    const driven = drivers.some((d) => drives(d, nav));
+    const counted = !nav.binding && spare >= unbound;
+    if (driven || counted || everyTabRigged(nav.node)) continue;
     failures.push(`FAIL ${nav.rel}:${nav.line} new BottomNav(...): its icons do not move part by part. Build each icon with `
       + `partedIcon and pass this nav to new TabIconMotion (skills/menu-icons/SKILL.md).`);
   }
   for (const m of models) {
-    if (players.length || drivers.length) continue;
+    if (players.some((p) => p.file === m.file) || drivers.some((d) => d.file === m.file)) continue;
     failures.push(`FAIL ${m.rel}:${m.line} new BottomTabs(...): its icons do not move part by part. Drive each icon's parts `
       + `with a PartPlayer from src/shell/partMotion.ts (skills/menu-icons/SKILL.md).`);
   }

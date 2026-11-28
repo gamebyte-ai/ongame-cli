@@ -398,6 +398,44 @@ const icons = new TabIconMotion(shopNav as BottomNav, specs);
   assert.equal(run('check.mjs', inline).code, 0);
 });
 
+test('check.mjs credits a driver only to the nav in its own class, scope or import, never to another nav of that name', () => {
+  const screen = (driven) => `import { BottomNav } from '../shell/BottomNav.js';
+export class Screen {
+  private nav = new BottomNav(defs);
+${driven ? '  private icons = new TabIconMotion(this.nav, specs);\n' : ''}}
+`;
+  const classes = game({ 'views/Shop.ts': screen(true), 'views/Map.ts': screen(false) });
+  run('apply.mjs', classes);
+  let r = run('check.mjs', classes);
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /FAIL src\/views\/Map\.ts:3 /);
+  assert.doesNotMatch(r.out, /Shop\.ts/);
+
+  const functions = game({ 'menus.ts': `export function shop() {
+  const nav = new BottomNav(defs);
+  return new TabIconMotion(nav, specs);
+}
+export function map() {
+  const nav = new BottomNav(defs);
+  return nav;
+}
+` });
+  run('apply.mjs', functions);
+  r = run('check.mjs', functions);
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /FAIL src\/menus\.ts:6 /);
+  assert.doesNotMatch(r.out, /menus\.ts:2 /);
+
+  const imported = game({ 'nav.ts': 'export const nav = new BottomNav(defs);\n',
+    'motion.ts': "import { nav } from './nav.js';\nexport const icons = new TabIconMotion(nav, specs);\n" });
+  run('apply.mjs', imported);
+  assert.equal(run('check.mjs', imported).code, 0, 'an exported nav driven where it is imported passes');
+  const unimported = game({ 'nav.ts': 'export const nav = new BottomNav(defs);\n',
+    'motion.ts': 'const nav = make();\nexport const icons = new TabIconMotion(nav, specs);\n' });
+  run('apply.mjs', unimported);
+  assert.equal(run('check.mjs', unimported).code, 1, 'another file\'s own `nav` does not drive it');
+});
+
 test('check.mjs passes a nav whose every tab has a rig, a renderer with its own PartPlayer, and a game with no menu', () => {
   const rigged = game({ 'nav.ts': `const nav = new BottomNav([
   { id: 'shop', label: 'Shop', icon, rig: RIGS.stall }, { id: 'home', label: 'Home', icon, rig: RIGS.house }]);
@@ -411,6 +449,8 @@ test('check.mjs passes a nav whose every tab has a rig, a renderer with its own 
   assert.match(r.out, /FAIL src\/svgNav\.ts:1 new BottomTabs\(\.\.\.\)/);
   const svgMoving = game({ 'svgNav.ts': 'const tabs = new BottomTabs(ids, "home");\nconst shop = new PartPlayer(rig);\n' });
   assert.equal(run('check.mjs', svgMoving).code, 0);
+  const elsewhere = game({ 'svgNav.ts': 'const tabs = new BottomTabs(ids, "home");\n', 'fx.ts': 'const p = new PartPlayer(rig);\n' });
+  assert.equal(run('check.mjs', elsewhere).code, 1, 'a PartPlayer in another file does not move this menu');
   r = run('check.mjs', game({ 'main.ts': 'export const x = 1;\n', 'shell/BottomTabs.test.ts': 'new BottomTabs(["a", "b"]);\n' }));
   assert.equal(r.code, 0, r.out);
   assert.match(r.out, /no bottom menu in this game/);

@@ -100,8 +100,9 @@ node <this skill's dir>/check.mjs <gameDir>
 Exit 0: every bottom menu moves its icons part by part, or the game has no bottom menu. Exit 1: it names the file
 and line of a `BottomNav` (or a `BottomTabs` drawn another way) whose icons do not move part by part, or a copy of
 the three files that is missing, older or edited; run `apply.mjs` again. Exit 2: a file it could not read, or no
-game folder. A `BottomTabs` drawn another way passes with the game's own `PartPlayer`; a `BottomNav` whose every
-tab passes `rig:` (a nav with a part player built in) passes too. The check reads how the code is wired, as a
+game folder. A `TabIconMotion` drives the nav it takes: `this.nav` in the same class, `nav` in the scope that
+declares it, or an exported `nav` its file imports. A `BottomTabs` drawn another way passes with a `PartPlayer` in
+the same file; a `BottomNav` whose every tab passes `rig:` (a nav with a part player built in) passes too. The check reads how the code is wired, as a
 syntax tree. The parts themselves are checked when `TabIconMotion` starts: it throws, as above.
 
 Then look at it on the built game at 390x844. `icons.probe('shop').parts` gives each part's offset from rest.
