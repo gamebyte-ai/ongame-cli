@@ -127,6 +127,64 @@ test('play-gate-finish runs before trace_emit and profile_record_build, through 
   for (const tool of ['trace_emit_batch', 'state_init', 'publish_upload']) assert.ok(!re.test(prefix + tool), `${tool} must not be held`);
 });
 
+/**
+ * Whether Claude Code runs a hook group for a tool, by its own rule (measured in Claude Code 2.1.332's hook matcher
+ * code): a PreToolUse or PostToolUse matcher made only of letters, digits, `_`, `|`, `,`, space and `-` is a list of
+ * exact tool names. Any other matcher is a regular expression, tested unanchored.
+ */
+function claudeRuns(matcher, tool) {
+  if (matcher === undefined || matcher === '' || matcher === '*') return true;
+  if (/^[a-zA-Z0-9_|, -]+$/.test(matcher)) return matcher.split(/[|,]/).map((s) => s.trim()).filter(Boolean).includes(tool);
+  return new RegExp(matcher).test(tool);
+}
+
+// One onGame server, two tool names. Installed as this plugin, its tools are mcp__plugin_ongame_ongame__<tool>. Wired
+// directly as a server named `ongame` (claude --mcp-config, as every fleet game worker runs it), they are
+// mcp__ongame__<tool>. On 2026-11-26, 22 fleet builds that expected a code review got none (measured on board item
+// i_0gfbk16i): their state_init came as mcp__ongame__state_init, build-marker-write never ran, so no
+// .ongame/jury.json was written and phase-jury skipped every code write. ongame cli/src/hooks/play-gate-finish.ts
+// and desktop/src/chat.ts already take both names.
+const SERVER = 'ongame';
+const ourPrefixes = () => {
+  assert.ok(SERVER in (manifest.mcpServers ?? {}), `plugin.json has no ${SERVER} server`);
+  return [`mcp__plugin_${manifest.name}_${SERVER}__`, `mcp__${SERVER}__`];
+};
+const postGroupsOf = (args) => hooks.hooks.PostToolUse.filter((g) => g.hooks.some((h) => h.args?.join(' ') === args));
+
+test("each review hook runs for both names of onGame's tools, and for no other server's", () => {
+  const wanted = {
+    'hook build-marker-write': ['forge_request', 'forge_batch', 'forge_generate_async', 'forge_rig', 'sound_request', 'call_wait', 'state_init'],
+    'hook skill-integrity': ['state_init'],
+    'hook build-marker-clear': ['trace_emit'],
+  };
+  for (const [args, tools] of Object.entries(wanted)) {
+    const groups = postGroupsOf(args);
+    assert.ok(groups.length > 0, `no PostToolUse group runs ${args}`);
+    const runs = (name) => groups.some((g) => claudeRuns(g.matcher, name));
+    for (const tool of tools) {
+      for (const prefix of ourPrefixes()) assert.ok(runs(prefix + tool), `${args} does not run for ${prefix}${tool}`);
+      // Another server's tool of the same name, and names that only contain ours.
+      for (const name of [`mcp__other__${tool}`, `mcp__plugin_other_ongame__${tool}`, `mcp__ongame2__${tool}`, `mcp__x_mcp__ongame__${tool}`, `mcp__ongame__${tool}_status`, tool]) {
+        assert.ok(!runs(name), `${args} must not run for ${name}`);
+      }
+    }
+  }
+});
+
+// The finish gate stays on the plugin's own names for now (main c_xpql10m3, right-hand c_y50bcg5y on board item
+// i_o8yu5nq2; cairn HZ2AG2). It looks for the build's play record under the agent's own home. A fleet worker that
+// plays on another host through fleet-remote-play has no record there, so the gate would refuse its finish: 6 of 45
+// measured fleet finish calls on 2026-11-28, all from remote plays. i_h7g6c1zy brings that record home; then
+// i_b64qek6r widens this matcher and replaces this test.
+test('play-gate-finish does not hold the finish calls of a directly wired ongame server yet', () => {
+  const [group] = (hooks.hooks.PreToolUse ?? []).filter((g) => g.hooks.some((h) => h.args?.join(' ') === 'hook play-gate-finish'));
+  const [plugin, direct] = ourPrefixes();
+  for (const tool of ['trace_emit', 'profile_record_build']) {
+    assert.ok(claudeRuns(group.matcher, plugin + tool), `${plugin}${tool} is not held`);
+    assert.ok(!claudeRuns(group.matcher, direct + tool), `${direct}${tool} is held: widen only after i_h7g6c1zy (see the comment above)`);
+  }
+});
+
 // The build panel ships inside this plugin (docs/plans/2026-11-24-build-panel-design.md, "Release"). Claude Code loads
 // the one hooks module that `modules` names, by a path relative to hooks/hooks.json. A client without mods ignores it.
 test('the hooks module path names a file inside the plugin', () => {
