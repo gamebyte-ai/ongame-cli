@@ -13,15 +13,17 @@ import {
  *   pop    a flower, a bush, a gem, a star; its joint is its base. Sways, squashes, pops in turn.
  *   swing  a door, a drawer, a book cover; its joint is the hinge side. Opens and closes on a pick.
  *   glow   a window light, a sparkle, a shine; it rests at alpha 0. Flashes now and then, lights on a pick.
- * The whole icon is one more part, `body`, with its joint at the icon's base: `hop`, `wobble` or `turn`.
+ * The whole icon is one more part, `body`, with its joint at the icon's base (`hop`, `wobble`), and `body-centre`,
+ * with its joint at the icon's centre (`spin`).
  * Calm by design: sine curves only, no hard steps. Each clip writes into one pose it reuses, so a
  * frame makes no new object.
  */
 export type PartRole = 'flap' | 'hop' | 'spin' | 'pop' | 'swing' | 'glow';
-export type BodyMotion = 'hop' | 'wobble' | 'turn' | 'none';
+export type BodyMotion = 'hop' | 'wobble' | 'spin' | 'none';
 export const PART_ROLES: readonly PartRole[] = Object.freeze(['flap', 'hop', 'spin', 'pop', 'swing', 'glow']);
-/** The part name `partedIcon` gives the whole icon. */
+/** The part names `partedIcon` gives the whole icon: joined at its base, and at its centre. */
 export const BODY_PART = 'body';
+export const BODY_CENTRE_PART = 'body-centre';
 
 /** Seconds of a pick sequence, a press and an idle loop. */
 export const SELECT_SECONDS = 0.76;
@@ -109,11 +111,11 @@ const ROLES: Readonly<Record<PartRole, (s: Slot) => PartTrack>> = {
   },
 };
 
-/** The whole icon's pick, from its base: a hop (0.44 s) and a wobble (0.46 s); `turn` flips it once
- * round its vertical line, which a base joint can carry. A light press squash on every body. */
+/** The whole icon's pick: a hop (0.44 s) and a wobble (0.46 s) from its base, a spin (0.56 s) about its centre.
+ * A light press squash from the base. */
+const BODY_PRESS: PartClip = clip((p, t) => squash(p, t, 0.06));
 const BODY: Readonly<Record<Exclude<BodyMotion, 'none'>, PartTrack>> = {
   hop: {
-    tap: clip((p, t) => squash(p, t, 0.06)),
     select: windowed({ start: 0, len: 0.58, phase: 0, side: 1 }, (p, u) => {
       const air = bump((u - 0.2) / 0.52);
       const k = 0.05 * bump(u / 0.2) + 0.05 * bump((u - 0.72) / 0.28);
@@ -121,17 +123,15 @@ const BODY: Readonly<Record<Exclude<BodyMotion, 'none'>, PartTrack>> = {
     }),
   },
   wobble: {
-    tap: clip((p, t) => squash(p, t, 0.06)),
     select: windowed({ start: 0, len: 0.6, phase: 0, side: 1 }, (p, u) => {
       p.rotation = 0.15 * Math.sin(3 * Math.PI * u) * (1 - u) * (1 - u);
       p.scaleX = p.scaleY = 1 + 0.08 * bump(u);
     }),
   },
-  turn: {
-    tap: clip((p, t) => squash(p, t, 0.06)),
-    select: windowed({ start: 0, len: 0.62, phase: 0, side: 1 }, (p, u) => {
-      p.scaleX = Math.cos(2 * Math.PI * smootherstep(u));
-      p.scaleY = 1 + 0.06 * bump(u);
+  spin: {
+    select: windowed({ start: 0, len: 0.74, phase: 0, side: 1 }, (p, u) => {
+      p.rotation = 2 * Math.PI * smootherstep(u);
+      p.scaleX = p.scaleY = 1 + 0.06 * bump(u);
     }),
   },
 };
@@ -145,11 +145,15 @@ export interface RoleRigSpec {
   idleSeconds?: number;
 }
 
-/** A rig from part roles. The pick plays the parts one after another, in the order they are listed, inside
- * SELECT_SECONDS; neighbouring parts idle out of step and lean opposite ways. */
+/** A rig from part roles. In a pick, the short `pop`s play one after another in the order they are listed; the
+ * longer moves (a flap, a hop, a spin, a swing, a glow) start early and play across the sequence, at full length,
+ * so a late part never turns faster. Everything ends inside SELECT_SECONDS. Neighbouring parts idle out of step
+ * and lean opposite ways. */
 export function rigFromRoles(name: string, spec: RoleRigSpec): PartRig {
   const names = Object.keys(spec.parts);
-  if (names.includes(BODY_PART)) throw new RangeError(`${name}: '${BODY_PART}' is the whole icon; name the parts`);
+  for (const whole of [BODY_PART, BODY_CENTRE_PART]) {
+    if (names.includes(whole)) throw new RangeError(`${name}: '${whole}' is the whole icon; name the parts`);
+  }
   if (names.length < 2) throw new RangeError(`${name}: an icon needs at least two parts that move on their own`);
   const gap = Math.min(0.12, 0.5 / (names.length - 1));
   const parts: Record<string, PartTrack> = {};
@@ -157,13 +161,15 @@ export function rigFromRoles(name: string, spec: RoleRigSpec): PartRig {
     const role = spec.parts[part];
     if (typeof role !== 'string') { parts[part] = role; return; }
     if (!(role in ROLES)) throw new RangeError(`${name}.${part}: unknown role '${role}' (${PART_ROLES.join(', ')})`);
-    const start = 0.06 + i * gap;
-    parts[part] = ROLES[role]({ start, len: Math.min(ROLE_LENGTH[role], 0.98 - start), phase: frac(i * 0.23), side: i % 2 ? -1 : 1 });
+    const len = ROLE_LENGTH[role];
+    const start = Math.min(0.06 + i * gap, 0.98 - len);
+    parts[part] = ROLES[role]({ start, len, phase: frac(i * 0.23), side: i % 2 ? -1 : 1 });
   });
   const body = spec.body ?? 'hop';
   if (body !== 'none') {
-    if (!(body in BODY)) throw new RangeError(`${name}: unknown body motion '${body}' (hop, wobble, turn, none)`);
-    parts[BODY_PART] = BODY[body];
+    if (!(body in BODY)) throw new RangeError(`${name}: unknown body motion '${body}' (hop, wobble, spin, none)`);
+    parts[BODY_PART] = body === 'spin' ? { tap: BODY_PRESS } : { tap: BODY_PRESS, ...BODY[body] };
+    if (body === 'spin') parts[BODY_CENTRE_PART] = BODY.spin;
   }
   return definePartRig({
     name, idleSeconds: spec.idleSeconds ?? IDLE_SECONDS, tapSeconds: TAP_SECONDS,

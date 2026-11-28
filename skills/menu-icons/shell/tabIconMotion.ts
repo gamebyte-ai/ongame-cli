@@ -1,7 +1,7 @@
 // ongame:menu-icons - written by the onGame menu-icons skill (apply.mjs). Change the skill, not this copy.
 import * as PIXI from 'pixi.js';
 import { PartPlayer, type PartPose, type PartRig } from './partMotion.js';
-import { BODY_PART } from './partRoles.js';
+import { BODY_CENTRE_PART, BODY_PART } from './partRoles.js';
 
 /** Moves the parts of each bottom-menu icon on its own: an idle loop, a press reaction and a pick sequence.
  *
@@ -36,19 +36,25 @@ export interface BottomNavLike {
  * Wraps the game's icon art and its named part nodes. `art` is centred on (0, 0) and fits the 36x36 box, as
  * the nav's `icon` factory asks. Each part is a node inside `art` whose origin is the part's joint (a hinge, a
  * wheel's axle, a flower's stem), so it turns and scales about that joint. The pose each node has now is its
- * rest pose. The whole icon becomes one more part, `body`, with its joint at the icon's base.
+ * rest pose. The whole icon becomes two more parts: `body`, with its joint at the icon's base, and inside it
+ * `body-centre`, with its joint at the icon's centre.
  */
 export function partedIcon(art: PIXI.Container, parts: Readonly<Record<string, PIXI.Container>>): PartedIcon {
-  if (BODY_PART in parts) throw new RangeError(`'${BODY_PART}' is the whole icon; name the parts`);
+  for (const whole of [BODY_PART, BODY_CENTRE_PART]) {
+    if (whole in parts) throw new RangeError(`'${whole}' is the whole icon; name the parts`);
+  }
   const view = new PIXI.Container();
   view.label = 'menu-icon';
   const body = new PIXI.Container();
   body.label = `part:${BODY_PART}`;
   body.position.set(0, 18);
   body.pivot.set(0, 18);
-  body.addChild(art);
+  const centre = new PIXI.Container();
+  centre.label = `part:${BODY_CENTRE_PART}`;
+  centre.addChild(art);
+  body.addChild(centre);
   view.addChild(body);
-  const out: IconPart[] = [rest(BODY_PART, body, 1)];
+  const out: IconPart[] = [rest(BODY_PART, body, 1), rest(BODY_CENTRE_PART, centre, 1)];
   for (const [name, node] of Object.entries(parts)) {
     let unit = 1;
     let up: PIXI.Container | null = node.parent;
@@ -92,7 +98,7 @@ export class TabIconMotion {
       const names = new Set(spec.icon.parts.map(p => p.name));
       const missing = Object.keys(spec.rig.parts).filter(p => !names.has(p));
       if (missing.length) throw new RangeError(`${id}: the icon has no part ${missing.join(', ')}`);
-      const moving = Object.keys(spec.rig.parts).filter(p => p !== BODY_PART).length;
+      const moving = Object.keys(spec.rig.parts).filter(p => p !== BODY_PART && p !== BODY_CENTRE_PART).length;
       if (moving < 2) throw new RangeError(`${id}: an icon needs at least two parts that move on their own`);
       // neighbouring icons start their idle loops at different points, so they never move in step
       const player = new PartPlayer(spec.rig, (index * 0.37) % 1);

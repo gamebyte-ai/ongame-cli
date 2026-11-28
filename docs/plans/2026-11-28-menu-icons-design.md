@@ -31,9 +31,10 @@ template's `BottomNav` unchanged, so A can fold it in later without breaking a g
   array or pose (the review noted clips that allocate), and a cut-off clip's ease writes into one reused pose.
 - `shell/partRoles.ts`: ready clips by role, so a game names its parts and gets motion without writing curves.
   Roles come from Bloom Bounce's three rigs: `flap` (awning), `hop` (roof), `spin` (wheel, gear), `pop` (flowers,
-  bushes), `swing` (door), `glow` (window light, sparkle). The whole icon is one more part, `body`, with Bloom
-  Bounce's pick motions: `hop`, `wobble`, and `turn`. `turn` flips the icon round its vertical line. Bloom
-  Bounce's own spin is a rotation, and it needs a centre pivot that a base joint does not have.
+  bushes), `swing` (door), `glow` (window light, sparkle). The whole icon is two more parts, with Bloom
+  Bounce's pick motions: `body` joined at its base (`hop`, `wobble`) and `body-centre` joined at its centre
+  (`spin`, 0.56 s where Bloom Bounce's took 0.48 s: picked again mid-turn, it then still turns under 0.4 rad per
+  frame at 60 fps).
   `rigFromRoles` staggers the pick sequence in the order the parts are listed.
 - `shell/tabIconMotion.ts`: the driver. It takes the template's `BottomNav` and one parted icon and rig per tab.
   A press starts on the tab's `pointerdown`. A pick starts when `nav.active` changes. Idle runs on the clock the

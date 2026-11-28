@@ -67,8 +67,8 @@ fewer than two moving parts. Locked and "coming soon" tabs move too, dimmed by t
 | `swing` | door, drawer, cover | hinge side | still | nudges | opens and closes |
 | `glow` | window light, sparkle | centre | flashes now and then | flashes | lights up |
 
-The whole icon's pick is `body: 'hop' | 'wobble' | 'turn' | 'none'` (default `hop`). Parts play their pick in
-the order they are listed. A part that needs its own curve takes a track of the game's clips instead of a role
+The whole icon's pick is `body: 'hop' | 'wobble' | 'spin' | 'none'` (default `hop`). In a pick, `pop` parts play
+one after another in the order they are listed; the longer moves start early and run across the sequence. A part that needs its own curve takes a track of the game's clips instead of a role
 (`{ idle, tap, select }`, each `t => pose`, at rest at t = 0 and t = 1).
 
 ## 4. Timings and rules

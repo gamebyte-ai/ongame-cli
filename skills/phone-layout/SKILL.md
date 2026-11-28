@@ -17,7 +17,7 @@ phase points here.
   `nothing_offscreen`, `layout_fits` at 360x640 and 390x844). `LabelComponent`
   for score; when the value changes, the pop tween in Sub-phase 5 fires.
 - **Take the chrome from the library:** counters from `template:ui-currency-chip`, a tab bar from
-  `template:shell-bottom-nav`, insets and DPR from `template:platform-viewport`. **Register every canvas-drawn
+  `template:shell-bottom-nav` with icons that move part by part (`skills/menu-icons/SKILL.md`), insets and DPR from `template:platform-viewport`. **Register every canvas-drawn
   control through `template:platform-ui-registry`** — without it the gate's touch-target check reports
   **unmeasured**. Call `knowledge_get({ key: "pattern:shell-contract" })` for the one-writer counter rule. If it returns empty, continue with your own judgment.
 

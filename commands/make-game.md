@@ -176,7 +176,7 @@ a working artifact, not a phase or an approval gate, but it is ORDERED: show it 
 level or content art included — collecting reference evidence may come first. Skip it for single-screen or
 non-visual work.
 
-Five skills hold rules every game follows, with or without phases. Consult each before the work it names, in a
+Six skills hold rules every game follows, with or without phases. Consult each before the work it names, in a
 new game and in a change to a finished one:
 - the concept, `docs/GAME_DESIGN.md` or the look of a game — `skills/game-concept/SKILL.md`: research the genre,
   the user's request outranks the research angle, the core loop and hook, a light design doc with every number
@@ -191,7 +191,9 @@ new game and in a change to a finished one:
   returned sound length and the character's pose and arms, measured;
 - the HUD and screen layout, and before calling a game done on phones — `skills/phone-layout/SKILL.md`: layout
   components that reflow, and the device-reality checks; then `skills/mobile-ready/SKILL.md` for the pixel-ratio cap,
-  late safe-area values, pause, backgrounding and the Android back key.
+  late safe-area values, pause, backgrounding and the Android back key;
+- a bottom menu (tab bar) — `skills/menu-icons/SKILL.md`: by default every icon is cut into parts that move on their
+  own, with an idle loop, a press reaction and a staggered pick; its `apply.mjs` writes the code.
 
 Before the levels of a level-based game are generated or authored — a numbered sequence of puzzle, casual or
 hybrid-casual stages — consult `skills/level-design/SKILL.md` — or, where that file is not on disk, the same procedure as
@@ -326,7 +328,8 @@ Before calling a web game done, check it as a phone. The onGame launch card (the
 not only published ones: run `node <pluginRoot>/skills/credit/apply.mjs {gameDir}` before `npm run build`, then
 `node <pluginRoot>/skills/credit/apply.mjs --check {gameDir}/dist/index.html` after it. Run
 `node <pluginRoot>/skills/gradients/check.mjs {gameDir}` and replace every stacked-shape fade it names with one
-gradient fill (exit 1 lists them). Open the built page at 360×640 and 414×896 with DPR 3, and walk
+gradient fill (exit 1 lists them). Run `node <pluginRoot>/skills/menu-icons/check.mjs {gameDir}`: exit 1 names each
+bottom menu whose icons do not move part by part; follow `skills/menu-icons/SKILL.md` for it. Open the built page at 360×640 and 414×896 with DPR 3, and walk
 `pattern:gamelabs-shell-contract` §14 — pause halts the sim, background suspends audio, back key, pixel ratio
 per canvas, safe-area fallback. Unity: the same list in `pattern:unity-shell-contract` §14. Run
 `node <pluginRoot>/skills/mobile-ready/check.mjs {gameDir}` and fix every FAIL it prints (exit 1).
