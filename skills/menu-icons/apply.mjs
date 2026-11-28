@@ -10,7 +10,7 @@
  * names it and stops before writing any file, so a game never ends up with half of one version.
  */
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -18,6 +18,9 @@ export const FILES = Object.freeze(['partMotion.ts', 'partRoles.ts', 'tabIconMot
 export const MARKER = '// ongame:menu-icons';
 /** Where the copies go, relative to the game folder: beside the template's BottomNav.ts. */
 export const SHELL_DIR = join('src', 'shell');
+
+/** `path` relative to `dir`, with `/` on every OS, as the messages and their tests read it. */
+export const shown = (dir, path) => relative(dir, path).split(sep).join('/');
 
 /** The skill's own copy of `file`. */
 export const source = (file) => readFileSync(join(HERE, 'shell', file));
@@ -44,7 +47,7 @@ export function apply(gameDir) {
   const foreign = steps.filter((s) => s.state === 'foreign');
   if (foreign.length) {
     return { code: 2, lines: [
-      ...foreign.map((s) => `menu-icons: ${relative(dir, s.target)} is the game's own file; not overwritten`),
+      ...foreign.map((s) => `menu-icons: ${shown(dir, s.target)} is the game's own file; not overwritten`),
       'menu-icons: nothing written. Rename the game\'s file, or keep it and use its own player (check.mjs accepts that).',
     ] };
   }
@@ -53,7 +56,7 @@ export function apply(gameDir) {
   for (const s of steps) {
     if (s.state !== 'current') writeFileSync(s.target, s.want);
     const what = s.state === 'new' ? 'written' : s.state === 'update' ? 'updated' : 'already current';
-    lines.push(`menu-icons: ${relative(dir, s.target)} ${what}`);
+    lines.push(`menu-icons: ${shown(dir, s.target)} ${what}`);
   }
   return { code: 0, lines };
 }
@@ -69,4 +72,4 @@ function main(argv) {
   return code;
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) process.exitCode = main(process.argv.slice(2));
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) process.exitCode = main(process.argv.slice(2));

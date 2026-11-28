@@ -16,10 +16,10 @@
  * the run exits 2 unless a menu failed (1): an unread file is never a pass.
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { basename, extname, join, relative, resolve } from 'node:path';
+import { basename, extname, join, resolve } from 'node:path';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
-import { FILES, MARKER, source } from './apply.mjs';
+import { FILES, MARKER, shown, source } from './apply.mjs';
 
 // @babel/parser 7.29.14, MIT: see skills/gradients/vendor/README.md.
 const { parse } = createRequire(import.meta.url)('../gradients/vendor/babel-parser.cjs');
@@ -119,7 +119,7 @@ export function check(gameDir) {
   const own = new Set(); // file names the game has its own version of
   let unread = 0;
   for (const file of files(root)) {
-    const rel = relative(dir, file);
+    const rel = shown(dir, file);
     const buf = readFileSync(file);
     const text = lf(buf);
     if (FILES.includes(basename(file))) {
@@ -166,7 +166,7 @@ export function check(gameDir) {
   for (const name of FILES) {
     for (const path of copies.get(name) ?? []) {
       if (lf(readFileSync(path)) !== lf(source(name))) {
-        failures.push(`FAIL ${relative(dir, path)}: an older or edited copy. Run apply.mjs again; put the game's own clips in its own file.`);
+        failures.push(`FAIL ${shown(dir, path)}: an older or edited copy. Run apply.mjs again; put the game's own clips in its own file.`);
       }
     }
     if (drivers.length && !copies.has(name) && !own.has(name)) {
@@ -191,4 +191,4 @@ function main(argv) {
   return code;
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) process.exitCode = main(process.argv.slice(2));
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) process.exitCode = main(process.argv.slice(2));
