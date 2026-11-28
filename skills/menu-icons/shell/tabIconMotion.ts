@@ -19,9 +19,9 @@ export interface IconPart {
   readonly node: PIXI.Container;
   readonly restX: number; readonly restY: number; readonly restRotation: number;
   readonly restScaleX: number; readonly restScaleY: number; readonly restAlpha: number;
-  /** Box units per pixel of the node parent's own space: the product of the scales between them. A pose's
-   * offset, in units of the icon's 36x36 box, is divided by it to move the node. */
-  readonly unit: number;
+  /** Box units per pixel of the node parent's own space, on each axis: the product of the scales between them.
+   * A pose's offset, in units of the icon's 36x36 box, is divided by it to move the node. */
+  readonly unitX: number; readonly unitY: number;
 }
 /** An icon whose parts can move. Give `view` to the nav's `icon` factory. */
 export interface PartedIcon { readonly view: PIXI.Container; readonly parts: readonly IconPart[] }
@@ -55,20 +55,24 @@ export function partedIcon(art: PIXI.Container, parts: Readonly<Record<string, P
   centre.addChild(art);
   body.addChild(centre);
   view.addChild(body);
-  const out: IconPart[] = [rest(BODY_PART, body, 1), rest(BODY_CENTRE_PART, centre, 1)];
+  const out: IconPart[] = [rest(BODY_PART, body, 1, 1), rest(BODY_CENTRE_PART, centre, 1, 1)];
   for (const [name, node] of Object.entries(parts)) {
-    let unit = 1;
+    let unitX = 1, unitY = 1;
     let up: PIXI.Container | null = node.parent;
-    while (up && up !== body) { unit *= up.scale.x; up = up.parent; }
+    while (up && up !== body) {
+      // a turned parent would turn the part's offsets too: turn the part itself, or draw the art upright
+      if (up !== centre && up.rotation !== 0) throw new RangeError(`part ${name} sits in a rotated container; keep its parents upright`);
+      unitX *= up.scale.x; unitY *= up.scale.y; up = up.parent;
+    }
     if (!up) throw new RangeError(`part ${name} is not inside the icon's art`);
     if (!node.label) node.label = `part:${name}`;
-    out.push(rest(name, node, unit));
+    out.push(rest(name, node, unitX, unitY));
   }
   return { view, parts: out };
 }
-function rest(name: string, node: PIXI.Container, unit: number): IconPart {
+function rest(name: string, node: PIXI.Container, unitX: number, unitY: number): IconPart {
   return { name, node, restX: node.position.x, restY: node.position.y, restRotation: node.rotation,
-    restScaleX: node.scale.x, restScaleY: node.scale.y, restAlpha: node.alpha, unit };
+    restScaleX: node.scale.x, restScaleY: node.scale.y, restAlpha: node.alpha, unitX, unitY };
 }
 
 export interface TabIconSpec { readonly icon: PartedIcon; readonly rig: PartRig }
@@ -144,7 +148,7 @@ export class TabIconMotion {
     if (!tab) throw new RangeError(`Unknown tab: ${id}`);
     const parts: Record<string, PartPose> = {};
     for (const p of tab.parts) {
-      parts[p.name] = { x: (p.node.position.x - p.restX) * p.unit, y: (p.node.position.y - p.restY) * p.unit,
+      parts[p.name] = { x: (p.node.position.x - p.restX) * p.unitX, y: (p.node.position.y - p.restY) * p.unitY,
         rotation: p.node.rotation - p.restRotation, scaleX: p.node.scale.x / p.restScaleX,
         scaleY: p.node.scale.y / p.restScaleY, alpha: p.node.alpha };
     }
@@ -160,7 +164,7 @@ export class TabIconMotion {
     for (let i = 0; i < tab.parts.length; i++) {
       const p = tab.parts[i];
       const pose = tab.player.pose(p.name, this.pose);
-      p.node.position.set(p.restX + pose.x / p.unit, p.restY + pose.y / p.unit);
+      p.node.position.set(p.restX + pose.x / p.unitX, p.restY + pose.y / p.unitY);
       p.node.rotation = p.restRotation + pose.rotation;
       p.node.scale.set(p.restScaleX * pose.scaleX, p.restScaleY * pose.scaleY);
       p.node.alpha = Math.min(1, Math.max(0, p.restAlpha + pose.alpha));

@@ -283,12 +283,16 @@ test('partedIcon keeps each part\'s rest pose and its scale to the 36 box, and a
   assert.deepEqual(icon.parts.map((p) => p.name), ['body', 'body-centre', ...SHOP]);
   const wheel = icon.parts.find((p) => p.name === 'wheel');
   assert.equal(wheel.restX, 20);
-  assert.ok(Math.abs(wheel.unit - 0.3) < 1e-9, `unit ${wheel.unit}`);
+  assert.ok(Math.abs(wheel.unitX - 0.3) < 1e-9 && Math.abs(wheel.unitY - 0.3) < 1e-9, `unit ${wheel.unitX}, ${wheel.unitY}`);
   assert.equal(icon.parts[0].node.parent, icon.view);
   assert.equal(icon.parts[1].node.parent, icon.parts[0].node);
   const art = new PIXI.Container();
   assert.throws(() => D.partedIcon(art, { stray: new PIXI.Container() }), /not inside the icon's art/);
   assert.throws(() => D.partedIcon(art, { body: new PIXI.Container() }), /whole icon/);
+  const turned = new PIXI.Container(), held = new PIXI.Container();
+  turned.rotation = 0.3; turned.addChild(held);
+  const art2 = new PIXI.Container(); art2.addChild(turned);
+  assert.throws(() => D.partedIcon(art2, { held }), /rotated container/);
 });
 
 test('the driver idles the parts, fuller on the selected tab, and plays a press and a pick', () => {
@@ -342,16 +346,19 @@ test('the driver moves each node by the pose over its unit, and lights a glow fr
   const own = { idle: (t) => ({ x: 2 * Math.sin(2 * Math.PI * t), y: -3 * Math.sin(2 * Math.PI * t) }) };
   const rig = M.definePartRig({ name: 'own', idleSeconds: 3, tapSeconds: 0.3, selectSeconds: 0.6, idleWhenInactive: 0.35,
     parts: { a: own, b: own } });
-  const one = makeIcon(['a', 'b']), two = makeIcon(['a', 'b']);
-  const nav = fakeNav([{ id: 'one', icon: () => one.view }, { id: 'two', icon: () => two.view }], 'one');
-  const motion = new D.TabIconMotion(nav, { one: { icon: one, rig }, two: { icon: two, rig } });
+  // stretched art: a box unit is 0.3 of the art's x pixels and 0.6 of its y pixels
+  const art = new PIXI.Container(), pa = new PIXI.Container(), pb = new PIXI.Container();
+  art.scale.set(0.3, 0.6); pa.position.set(0, 10); pb.position.set(20, 10); art.addChild(pa, pb);
+  const remade = D.partedIcon(art, { a: pa, b: pb }), two = makeIcon(['a', 'b']);
+  const nav = fakeNav([{ id: 'one', icon: () => remade.view }, { id: 'two', icon: () => two.view }], 'one');
+  const motion = new D.TabIconMotion(nav, { one: { icon: remade, rig }, two: { icon: two, rig } });
   const twin = new M.PartPlayer(rig, 0); // the first tab's phase
   twin.setSelected(true);
   for (let f = 0; f < 20; f++) { motion.update(FRAME); twin.update(FRAME); }
-  const a = one.parts.find((p) => p.name === 'a'), want = twin.pose('a');
+  const a = remade.parts.find((p) => p.name === 'a'), want = twin.pose('a');
   assert.ok(Math.abs(want.y) > 0.5, 'the part is away from rest');
-  assert.ok(Math.abs(a.node.position.x - (a.restX + want.x / 0.3)) < 1e-9, 'x is the pose over the unit');
-  assert.ok(Math.abs(a.node.position.y - (a.restY + want.y / 0.3)) < 1e-9, 'y is the pose over the unit');
+  assert.ok(Math.abs(a.node.position.x - (a.restX + want.x / 0.3)) < 1e-9, 'x is the pose over the x unit');
+  assert.ok(Math.abs(a.node.position.y - (a.restY + want.y / 0.6)) < 1e-9, 'y is the pose over the y unit');
 
   const { nav: nav2, motion: motion2, home } = setup();
   const light = home.parts.find((p) => p.name === 'light').node;
@@ -576,6 +583,14 @@ function wire(nav) {
   assert.equal(r.code, 1, 'a parameter of the same name is another nav');
   r = ok('const nav = new BottomNav(defs);\nexport const wire = () => new TabIconMotion(nav, specs);\n');
   assert.equal(r.code, 0, `a driver in an arrow's expression body passes: ${r.out}`);
+});
+
+test('check.mjs follows a nav exported as the default', () => {
+  const dir = game({ 'nav.ts': 'const nav = new BottomNav(defs);\nexport default nav;\n',
+    'wire.ts': "import menu from './nav.js';\nexport const icons = new TabIconMotion(menu, specs);\n" });
+  run('apply.mjs', dir);
+  const r = run('check.mjs', dir);
+  assert.equal(r.code, 0, r.out);
 });
 
 test('check.mjs reads constructors imported under another name, and a parameter never stands for an imported nav', () => {

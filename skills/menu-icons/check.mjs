@@ -134,11 +134,12 @@ function bindingOf(node, parents, exported) {
   return null;
 }
 /** What a module exports from its top level: local name -> the names it is exported as. `export const nav`,
- * `export { nav }`, `export { nav as menu }`. */
+ * `export { nav }`, `export { nav as menu }`, `export default nav`. */
 function exportsOf(program) {
   const out = new Map();
   const add = (local, as) => out.set(local, (out.get(local) ?? new Set()).add(as));
   for (const s of program.body) {
+    if (s.type === 'ExportDefaultDeclaration' && s.declaration.type === 'Identifier') add(s.declaration.name, 'default');
     if (s.type !== 'ExportNamedDeclaration' || s.source) continue;
     for (const d of s.declaration?.declarations ?? []) if (d.id.type === 'Identifier') add(d.id.name, d.id.name);
     for (const sp of s.specifiers ?? []) if (sp.local?.type === 'Identifier') add(sp.local.name, keyName(sp.exported));
